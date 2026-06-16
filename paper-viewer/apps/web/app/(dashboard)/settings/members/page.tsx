@@ -1,6 +1,8 @@
 import { prisma } from "@paper-viewer/db";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireCurrentUser } from "@/lib/auth";
+import { CopyLinkButton } from "@/components/copy-link-button";
 
 export default async function MembersPage({
   searchParams
@@ -13,6 +15,13 @@ export default async function MembersPage({
   if (user.role !== "owner") {
     redirect("/library");
   }
+
+  // Build full URL from request headers
+  const headersList = await headers();
+  const host = headersList.get("host") ?? "localhost:3000";
+  const proto = headersList.get("x-forwarded-proto") ?? "http";
+  const baseUrl = `${proto}://${host}`;
+  const inviteUrl = invitation ? `${baseUrl}/invite/${invitation}` : null;
 
   const [memberships, invitations] = await Promise.all([
     prisma.workspaceMembership.findMany({
@@ -39,10 +48,12 @@ export default async function MembersPage({
           <option value="admin">admin</option>
         </select>
         <button className="rounded bg-accent px-3 py-2 font-medium text-white" type="submit">Create invitation</button>
-        {invitation ? (
-          <p className="break-all rounded bg-surface p-3 text-sm text-muted">
-            Invitation link: {`/invite/${invitation}`}
-          </p>
+        {inviteUrl ? (
+          <div className="rounded bg-surface p-3">
+            <div className="text-xs font-medium text-accent">Invitation created!</div>
+            <p className="mt-1 break-all text-xs text-muted">{inviteUrl}</p>
+            <CopyLinkButton url={inviteUrl} />
+          </div>
         ) : null}
       </form>
 
