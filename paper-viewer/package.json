@@ -3,14 +3,14 @@
   "private": true,
   "packageManager": "pnpm@10.30.3",
   "scripts": {
-    "dev": "pnpm --filter @paper-viewer/web dev",
-    "build": "pnpm -r build",
-    "lint": "pnpm -r lint",
-    "test": "pnpm -r test",
-    "test:e2e": "pnpm --filter @paper-viewer/web test:e2e",
-    "db:generate": "pnpm --filter @paper-viewer/db prisma:generate",
-    "db:migrate": "pnpm --filter @paper-viewer/db prisma:migrate",
-    "db:seed": "pnpm --filter @paper-viewer/db prisma:seed"
+    "dev": "corepack pnpm --filter @paper-viewer/web dev",
+    "build": "corepack pnpm -r build",
+    "lint": "corepack pnpm -r lint",
+    "test": "corepack pnpm -r test",
+    "test:e2e": "corepack pnpm --filter @paper-viewer/web test:e2e",
+    "db:generate": "corepack pnpm --filter @paper-viewer/db prisma:generate",
+    "db:migrate": "corepack pnpm --filter @paper-viewer/db prisma:migrate",
+    "db:seed": "corepack pnpm --filter @paper-viewer/db prisma:seed"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "main": "./src/client.ts",
+  "exports": {
+    ".": "./src/client.ts"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",

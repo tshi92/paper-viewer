@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "main": "./src/validation.ts",
+  "exports": {
+    ".": "./src/validation.ts"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",

@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import HomePage from "./page";
 
 describe("web scaffold", () => {
-  it("runs the test harness", () => {
-    expect(true).toBe(true);
+  it("loads the landing page entrypoint", () => {
+    expect(HomePage).toBeTypeOf("function");
   });
 });
