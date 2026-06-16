@@ -10,6 +10,8 @@ Build a local-first web platform for a research team to discover, summarize, dis
 
 The first version targets a single research team workspace. It should support multiple users, daily recommended papers, LLM-generated structured summaries, PDF viewing, team discussion, and PDF-linked annotations.
 
+In this document, "MVP" means the usable internal product after Phases 1 through 4. Phase 1 is only a foundation milestone and is not expected to include the full daily recommendation and annotation loop.
+
 The MVP should not attempt to implement every team-management feature immediately. It should, however, model users, workspaces, memberships, papers, analyses, comments, annotations, and jobs cleanly from the start so that future expansion does not require rewriting the foundation.
 
 ## Recommended Architecture
@@ -70,6 +72,8 @@ The core paper view combines:
 
 The page should be optimized for repeated research use, not a marketing-style layout. The design should be dense, calm, and scan-friendly.
 
+Annotations should store stable anchors, not only rendered pixel coordinates. Each annotation should include page index, normalized rectangle positions, selected text when available, short text context, and enough metadata to recover gracefully if the PDF renderer changes.
+
 ### Library
 
 A searchable archive of all imported and recommended papers. MVP search can use Postgres metadata, text search, and JSONB filtering. Vector search should be deferred until after the core workflow works.
@@ -114,16 +118,22 @@ Core tables:
 - `workspace_memberships`: user role per workspace.
 - `research_preferences`: source, topic, keyword, seed-paper, and exclusion settings.
 - `papers`: canonical paper metadata, deduplicated by DOI, arXiv ID, or other stable IDs.
+- `workspace_papers`: workspace-specific paper state such as team tags, visibility, import source, and archive state.
 - `paper_files`: PDF object keys, file hashes, page counts, and processing state.
 - `paper_texts`: extracted page or section text for analysis and future search.
-- `paper_analyses`: LLM output, model, prompt version, schema version, and analysis status.
+- `paper_analyses`: LLM output, model, prompt version, schema version, analysis scope, optional workspace ID, and analysis status.
 - `daily_recommendations`: immutable daily feed snapshot for a workspace.
-- `comments`: threaded discussion, optionally attached to a paper or annotation.
-- `annotations`: PDF page/range/coordinate anchors plus highlight or note content.
+- `recommendation_feedback`: explicit user or team feedback on recommended papers.
+- `comments`: workspace-scoped threaded discussion, optionally attached to a paper or annotation.
+- `annotations`: workspace-scoped PDF page/range/coordinate anchors plus highlight or note content.
 - `reading_states`: per-user paper state such as new, reading, saved, discussed, skipped, or archived.
 - `jobs`: background job type, status, input, output, error, attempts, and timestamps.
 
 LLM analysis should be stored separately from `papers` so the system can rerun analyses with new prompts or models without mutating canonical paper metadata.
+
+Canonical paper records should be global within the database, while team-specific state should live on workspace-scoped tables. This avoids duplicate metadata while still allowing different teams or projects to tag, discuss, recommend, or archive the same paper independently.
+
+LLM analyses must distinguish global paper analysis from workspace-specific analysis. General technical fields such as problem, method, experiments, and limitations can be reused across workspaces. Preference-aware fields such as relevance, suggested reviewers, and discussion prompts should be stored with a workspace scope.
 
 ## LLM Analysis Schema
 
@@ -148,6 +158,8 @@ The analysis output should be structured and versioned. Suggested fields:
 
 Use a schema validation layer before saving analysis results. Failed validation should mark the analysis job as retryable rather than saving partial malformed output as final.
 
+The schema should separate workspace-neutral fields from workspace-specific fields. That keeps a paper's technical summary reusable while allowing each research team to receive different relevance judgments and discussion prompts.
+
 ## Background Pipeline
 
 Daily pipeline:
@@ -162,6 +174,8 @@ Daily pipeline:
 
 Each stage should be an idempotent job where practical. Jobs should record inputs, outputs, attempts, and errors so failures can be inspected and retried from the admin page.
 
+Jobs should use stable deduplication keys such as source ID, paper ID, workspace ID, analysis schema version, and prompt version. Daily scheduling should be owned by the worker layer, with persisted job records and retry state rather than relying only on a developer machine's cron configuration.
+
 ## Technical Stack
 
 Recommended stack:
@@ -174,6 +188,8 @@ Recommended stack:
 - Redis + BullMQ for queues and scheduling.
 - PDF.js or a React PDF wrapper for PDF rendering.
 - Auth.js with a Postgres adapter for local-first authentication that can migrate later.
+
+Authentication should include an owner bootstrap path for the first local deployment and an invitation path for adding team members. Passwords or credential secrets must never be stored outside the authentication adapter's hashed/managed format.
 
 Suggested monorepo layout:
 
@@ -213,12 +229,14 @@ Build the foundation:
 - Comments.
 - Reading states.
 
+This phase is useful for validating the paper workspace and data model, but it is not the complete MVP because it does not yet include automated ingestion, LLM analysis, daily recommendations, or PDF-linked annotations.
+
 ### Phase 2: Ingestion and Processing
 
 Add background operations:
 
 - Redis queue and worker.
-- arXiv/RSS source adapter.
+- arXiv source adapter first, then RSS as the next source adapter.
 - Metadata normalization.
 - PDF download.
 - Text extraction.
@@ -258,13 +276,34 @@ These are intentionally out of MVP:
 
 The data model should leave room for these features, but they should not block the first usable version.
 
+## Security and Operations
+
+Local-first does not mean development-only. The initial deployment should include production-shaped defaults:
+
+- Store all secrets in environment variables and keep `.env` files out of git.
+- Validate uploaded PDFs by content type, extension, size limit, and parsing success before exposing them in the viewer.
+- Keep PDFs private by default and serve them through authenticated application routes or short-lived object-store URLs.
+- Scope every paper workspace, comment, annotation, recommendation, and job view by workspace membership.
+- Add database backup and object-store backup instructions before using the platform for real team data.
+- Log background job failures with enough structured context to retry or debug them without exposing full LLM prompts or private paper text unnecessarily.
+
+## Testing Strategy
+
+The implementation plan should include tests at the boundaries most likely to regress:
+
+- Unit tests for permission checks, paper status transitions, source normalization, and LLM schema validation.
+- Integration tests for database migrations, object storage uploads, and queue job idempotency.
+- API tests for workspace scoping, paper access, comments, annotations, and admin job actions.
+- End-to-end tests for login, manual upload, opening a PDF, commenting, running an analysis job, and seeing a paper in `Today`.
+- A small fixture set of public papers and PDFs for deterministic local development.
+
 ## Implementation Defaults
 
 Use these defaults for the initial implementation plan:
 
 - Use Prisma rather than Drizzle for the first version.
-- Start with email/password authentication and keep OAuth as a later extension.
-- Support manual PDF upload and arXiv ingestion first.
+- Start with email/password authentication, owner bootstrap, and member invitations. Keep OAuth as a later extension.
+- Support manual PDF upload and arXiv ingestion first. Treat RSS as the next source adapter after arXiv rather than a Phase 1 requirement.
 - Implement the LLM layer as a provider adapter. Use an OpenAI-compatible provider first through environment variables, without hard-coding model names into domain logic.
 - Implement initial PDF text extraction in the Node.js worker. Add a Python extraction worker later only if layout quality or parser ecosystem needs it.
 
