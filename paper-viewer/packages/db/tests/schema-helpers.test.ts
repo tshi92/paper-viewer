@@ -10,7 +10,7 @@ describe("normalizePaperIdentity", () => {
   });
 
   it("keeps missing identifiers as null", () => {
-    expect(normalizePaperIdentity({ arxivId: "", doi: undefined })).toEqual({
+    expect(normalizePaperIdentity({ arxivId: "" })).toEqual({
       arxivId: null,
       doi: null
     });
