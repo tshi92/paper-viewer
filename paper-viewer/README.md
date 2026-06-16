@@ -16,3 +16,23 @@ Local-first research team paper workspace.
 ## Phase 1
 
 Phase 1 supports owner bootstrap, login, workspace membership, manual PDF upload, paper library, PDF viewing, comments, and reading states.
+
+## Local Services
+
+Start local services:
+
+```bash
+docker compose up -d
+```
+
+Postgres runs on `localhost:5432`.
+Redis runs on `localhost:6379`.
+MinIO API runs on `localhost:9000`.
+MinIO console runs on `localhost:9001`.
+
+Create the PDF bucket after services start:
+
+```bash
+docker compose exec minio mc alias set local http://localhost:9000 minioadmin minioadmin
+docker compose exec minio mc mb --ignore-existing local/paper-pdfs
+```
