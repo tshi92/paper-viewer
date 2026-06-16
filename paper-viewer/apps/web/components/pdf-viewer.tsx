@@ -14,6 +14,8 @@ type SelectionInfo = {
   y: number;
 };
 
+const SCALES = [0.75, 1, 1.25, 1.5, 2, 2.5];
+
 export function PdfViewer({
   paperId,
   pdfUrl,
@@ -26,6 +28,7 @@ export function PdfViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [totalPages, setTotalPages] = useState(0);
+  const [scale, setScale] = useState(1.25);
   const [selection, setSelection] = useState<SelectionInfo | null>(null);
 
   useEffect(() => {
@@ -48,14 +51,14 @@ export function PdfViewer({
 
     const container = containerRef.current;
     container.innerHTML = "";
+    const dpr = window.devicePixelRatio || 1;
 
     async function renderPages() {
       for (let i = 1; i <= pdf!.numPages; i++) {
         const page = await pdf!.getPage(i);
-        const scale = 1.5;
         const viewport = page.getViewport({ scale });
 
-        // Page wrapper
+        // Page wrapper - sized to CSS pixels
         const pageDiv = document.createElement("div");
         pageDiv.className = "pdf-page";
         pageDiv.style.position = "relative";
@@ -64,23 +67,27 @@ export function PdfViewer({
         pageDiv.style.margin = "0 auto 16px auto";
         pageDiv.dataset.pageNumber = String(i);
 
-        // Canvas
+        // Canvas - render at device pixel ratio for sharpness
         const canvas = document.createElement("canvas");
-        canvas.width = viewport.width;
-        canvas.height = viewport.height;
+        canvas.width = Math.floor(viewport.width * dpr);
+        canvas.height = Math.floor(viewport.height * dpr);
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
         const ctx = canvas.getContext("2d")!;
+        ctx.scale(dpr, dpr);
         await page.render({ canvasContext: ctx, viewport }).promise;
         pageDiv.appendChild(canvas);
 
-        // Text layer
+        // Text layer - must match viewport exactly
         const textContent = await page.getTextContent();
         const textDiv = document.createElement("div");
-        textDiv.style.position = "absolute";
-        textDiv.style.top = "0";
-        textDiv.style.left = "0";
-        textDiv.style.width = `${viewport.width}px`;
-        textDiv.style.height = `${viewport.height}px`;
         textDiv.className = "pdf-text-layer";
+        textDiv.style.position = "absolute";
+        textDiv.style.left = "0";
+        textDiv.style.top = "0";
+        textDiv.style.right = "0";
+        textDiv.style.bottom = "0";
+        textDiv.style.overflow = "hidden";
         pageDiv.appendChild(textDiv);
 
         const textLayer = new TextLayer({
@@ -95,17 +102,17 @@ export function PdfViewer({
     }
 
     renderPages().catch(console.error);
-  }, [pdf]);
+  }, [pdf, scale]);
 
   const handleMouseUp = useCallback(() => {
     const sel = window.getSelection();
-    const text = sel?.toString().trim();
+    const rawText = sel?.toString() ?? "";
+    const text = rawText.replace(/\s+/g, " ").trim();
     if (!text || text.length < 3) {
       setSelection(null);
       return;
     }
 
-    // Find which page the selection is in
     const anchorNode = sel?.anchorNode;
     let pageEl = anchorNode instanceof HTMLElement ? anchorNode : anchorNode?.parentElement;
     while (pageEl && !pageEl.classList?.contains("pdf-page")) {
@@ -114,7 +121,6 @@ export function PdfViewer({
 
     const pageNumber = pageEl ? Number(pageEl.dataset.pageNumber) : 1;
 
-    // Position the button near the selection
     const range = sel?.getRangeAt(0);
     const rect = range?.getBoundingClientRect();
     const containerRect = containerRef.current?.getBoundingClientRect();
@@ -137,9 +143,38 @@ export function PdfViewer({
     window.getSelection()?.removeAllRanges();
   }
 
+  function zoomIn() {
+    const idx = SCALES.indexOf(scale);
+    if (idx < SCALES.length - 1) setScale(SCALES[idx + 1]!);
+  }
+
+  function zoomOut() {
+    const idx = SCALES.indexOf(scale);
+    if (idx > 0) setScale(SCALES[idx - 1]!);
+  }
+
   return (
     <div className="relative">
-      <div className="mb-2 text-xs text-muted">{totalPages > 0 ? `${totalPages} pages` : "Loading..."}</div>
+      <div className="mb-2 flex items-center gap-3">
+        <span className="text-xs text-muted">{totalPages > 0 ? `${totalPages} pages` : "Loading..."}</span>
+        <div className="flex items-center gap-1">
+          <button
+            className="rounded border border-border px-2 py-0.5 text-sm hover:bg-surface disabled:opacity-30"
+            onClick={zoomOut}
+            disabled={scale <= SCALES[0]!}
+          >
+            −
+          </button>
+          <span className="w-14 text-center text-xs text-muted">{Math.round(scale * 100)}%</span>
+          <button
+            className="rounded border border-border px-2 py-0.5 text-sm hover:bg-surface disabled:opacity-30"
+            onClick={zoomIn}
+            disabled={scale >= SCALES[SCALES.length - 1]!}
+          >
+            +
+          </button>
+        </div>
+      </div>
       <div
         ref={containerRef}
         className="h-[calc(100vh-200px)] overflow-auto rounded border border-border bg-gray-100 p-4"
@@ -157,18 +192,30 @@ export function PdfViewer({
       ) : null}
       <style>{`
         .pdf-text-layer {
-          opacity: 0.25;
           line-height: 1;
+          pointer-events: auto;
         }
-        .pdf-text-layer span {
+        .pdf-text-layer span,
+        .pdf-text-layer br {
+          color: transparent;
           position: absolute;
           white-space: pre;
-          color: transparent;
-          cursor: text;
+          pointer-events: all;
+          transform-origin: 0% 0%;
         }
         .pdf-text-layer span::selection {
-          background: rgba(37, 111, 143, 0.3);
-          color: transparent;
+          background: rgba(37, 111, 143, 0.35);
+        }
+        .pdf-text-layer .endOfContent {
+          display: block;
+          position: absolute;
+          left: 0;
+          top: 100%;
+          right: 0;
+          bottom: 0;
+          z-index: -1;
+          cursor: default;
+          user-select: none;
         }
       `}</style>
     </div>
