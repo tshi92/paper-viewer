@@ -1,10 +1,11 @@
 import { prisma } from "@paper-viewer/db";
-import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCurrentUser } from "@/lib/auth";
 
 const commentSchema = z.object({
-  body: z.string().min(1).max(5000)
+  body: z.string().min(1).max(5000),
+  pageNumber: z.coerce.number().int().positive().optional(),
+  quotedText: z.string().max(2000).optional()
 });
 
 export async function POST(request: Request, { params }: { params: Promise<{ paperId: string }> }) {
@@ -21,12 +22,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
   });
 
   if (!workspacePaper) {
-    return new Response("Paper not found", { status: 404 });
+    return Response.json({ error: "Paper not found" }, { status: 404 });
   }
 
   const formData = await request.formData();
   const input = commentSchema.parse({
-    body: formData.get("body")
+    body: formData.get("body"),
+    pageNumber: formData.get("pageNumber") || undefined,
+    quotedText: formData.get("quotedText") || undefined
   });
 
   await prisma.comment.create({
@@ -34,9 +37,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
       workspaceId: user.workspaceId,
       paperId,
       authorId: user.id,
-      body: input.body
+      body: input.body,
+      pageNumber: input.pageNumber ?? null,
+      quotedText: input.quotedText ?? null
     }
   });
 
-  redirect(`/papers/${paperId}`);
+  return Response.json({ ok: true });
 }

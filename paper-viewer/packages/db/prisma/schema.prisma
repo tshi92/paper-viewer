@@ -190,6 +190,8 @@ model Comment {
   authorId         String
   parentId         String?
   body             String
+  pageNumber       Int?
+  quotedText       String?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   workspacePaper   WorkspacePaper @relation(fields: [workspaceId, paperId], references: [workspaceId, paperId], onDelete: Cascade)

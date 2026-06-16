@@ -14,7 +14,15 @@ export function DiscoverButton() {
 
     try {
       const res = await fetch("/api/papers/discover", { method: "POST" });
-      const data = await res.json();
+      const text = await res.text();
+
+      let data: { error?: string };
+      try {
+        data = JSON.parse(text);
+      } catch {
+        setError(text || `Server error ${res.status}`);
+        return;
+      }
 
       if (!res.ok) {
         setError(data.error ?? "Discovery failed");

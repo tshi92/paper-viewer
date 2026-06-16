@@ -1,8 +1,6 @@
 import { prisma } from "@paper-viewer/db";
 import { notFound } from "next/navigation";
-import { CommentPanel } from "@/components/comment-panel";
-import { PdfViewer } from "@/components/pdf-viewer";
-import { ReadingStateSelect } from "@/components/reading-state-select";
+import { PaperWorkspace } from "@/components/paper-workspace";
 import { requireCurrentUser } from "@/lib/auth";
 
 export default async function PaperPage({ params }: { params: Promise<{ paperId: string }> }) {
@@ -19,7 +17,12 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
     include: {
       paper: {
         include: {
-          files: true
+          files: true,
+          analyses: {
+            where: { workspaceId: user.workspaceId },
+            orderBy: { createdAt: "desc" },
+            take: 1
+          }
         }
       }
     }
@@ -29,18 +32,14 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
     notFound();
   }
 
+  const { paper } = workspacePaper;
+  const analysis = paper.analyses[0];
+
   const [comments, readingState] = await Promise.all([
     prisma.comment.findMany({
-      where: {
-        workspaceId: user.workspaceId,
-        paperId
-      },
-      include: {
-        author: true
-      },
-      orderBy: {
-        createdAt: "asc"
-      }
+      where: { workspaceId: user.workspaceId, paperId },
+      include: { author: true },
+      orderBy: { createdAt: "asc" }
     }),
     prisma.readingStateRecord.findUnique({
       where: {
@@ -54,22 +53,34 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
   ]);
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-6">
-      <section>
-        <div className="mb-4 rounded border border-border bg-white p-4">
-          <h1 className="text-xl font-semibold">{workspacePaper.paper.title}</h1>
-          <p className="mt-2 text-sm text-muted">
-            {Array.isArray(workspacePaper.paper.authors) ? workspacePaper.paper.authors.join(", ") : ""}
-          </p>
-        </div>
-        <PdfViewer paperId={paperId} />
-      </section>
-      <aside className="grid content-start gap-4">
-        <div className="rounded border border-border bg-white p-4">
-          <ReadingStateSelect paperId={paperId} state={readingState?.state ?? "new"} />
-        </div>
-        <CommentPanel paperId={paperId} comments={comments} />
-      </aside>
-    </div>
+    <PaperWorkspace
+      paper={{
+        id: paper.id,
+        title: paper.title,
+        authors: Array.isArray(paper.authors) ? paper.authors as string[] : [],
+        arxivId: paper.arxivId,
+        abstract: paper.abstract,
+        hasPdf: paper.files.length > 0,
+        analysis: analysis
+          ? {
+              summary: analysis.summary,
+              problem: analysis.problem,
+              method: analysis.method,
+              keyFindings: analysis.keyFindings,
+              whyItMatters: analysis.whyItMatters,
+              keywords: analysis.keywords
+            }
+          : null,
+        comments: comments.map((c) => ({
+          id: c.id,
+          body: c.body,
+          pageNumber: c.pageNumber,
+          quotedText: c.quotedText,
+          createdAt: c.createdAt,
+          author: { email: c.author.email, name: c.author.name }
+        })),
+        readingState: readingState?.state ?? "new"
+      }}
+    />
   );
 }
