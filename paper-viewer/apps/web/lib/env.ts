@@ -12,6 +12,7 @@ const envSchema = z.object({
   S3_FORCE_PATH_STYLE: z.enum(["true", "false"]).default("true"),
   MAX_PDF_UPLOAD_MB: z.coerce.number().int().positive().default(50),
   INGEST_API_KEY: z.string().min(16),
+  RESEND_API_KEY: z.string().min(1),
   LLM_API_KEY: z.string().min(1),
   LLM_BASE_URL: z.string().url().default("https://api.moonshot.cn/v1"),
   LLM_MODEL: z.string().default("moonshot-v1-128k")
