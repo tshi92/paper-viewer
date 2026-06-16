@@ -4,7 +4,9 @@
   "type": "module",
   "main": "./src/validation.ts",
   "exports": {
-    ".": "./src/validation.ts"
+    ".": "./src/validation.ts",
+    "./permissions": "./src/permissions.ts",
+    "./paper-status": "./src/paper-status.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",

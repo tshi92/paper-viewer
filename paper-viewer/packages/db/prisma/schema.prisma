@@ -45,6 +45,7 @@ model User {
   memberships   WorkspaceMembership[]
   comments      Comment[]
   readingStates ReadingStateRecord[]
+  importedPapers WorkspacePaper[]
 }
 
 model Workspace {
@@ -55,8 +56,6 @@ model Workspace {
   memberships     WorkspaceMembership[]
   invitations     Invitation[]
   workspacePapers WorkspacePaper[]
-  comments        Comment[]
-  readingStates   ReadingStateRecord[]
 }
 
 model WorkspaceMembership {
@@ -87,7 +86,7 @@ model Invitation {
 }
 
 model Paper {
-  id              String               @id @default(cuid())
+  id              String           @id @default(cuid())
   title           String
   abstract        String?
   authors         Json
@@ -96,12 +95,10 @@ model Paper {
   doi             String?
   arxivId         String?
   publishedAt     DateTime?
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
   files           PaperFile[]
   workspacePapers WorkspacePaper[]
-  comments        Comment[]
-  readingStates   ReadingStateRecord[]
 
   @@unique([source, sourceId])
   @@unique([doi])
@@ -109,16 +106,19 @@ model Paper {
 }
 
 model WorkspacePaper {
-  id          String              @id @default(cuid())
-  workspaceId String
-  paperId     String
-  state       WorkspacePaperState @default(visible)
-  tags        String[]            @default([])
-  importedBy  String?
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  paper       Paper               @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  id            String              @id @default(cuid())
+  workspaceId   String
+  paperId       String
+  state         WorkspacePaperState @default(visible)
+  tags          String[]            @default([])
+  importedById  String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  workspace     Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  paper         Paper               @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  importedBy    User?               @relation(fields: [importedById], references: [id], onDelete: SetNull)
+  comments      Comment[]
+  readingStates ReadingStateRecord[]
 
   @@unique([workspaceId, paperId])
   @@index([paperId])
@@ -139,36 +139,38 @@ model PaperFile {
   paper       Paper           @relation(fields: [paperId], references: [id], onDelete: Cascade)
 }
 
+// Note: Prisma cannot enforce that a reply's parent belongs to the same
+// WorkspacePaper at the schema level. The API layer MUST check that
+// parent.workspaceId == child.workspaceId AND parent.paperId == child.paperId
+// before inserting a reply.
 model Comment {
-  id          String    @id @default(cuid())
-  workspaceId String
-  paperId     String
-  authorId    String
-  parentId    String?
-  body        String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  paper       Paper     @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  parent      Comment?  @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
-  replies     Comment[] @relation("CommentThread")
+  id               String         @id @default(cuid())
+  workspaceId      String
+  paperId          String
+  authorId         String
+  parentId         String?
+  body             String
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  workspacePaper   WorkspacePaper @relation(fields: [workspaceId, paperId], references: [workspaceId, paperId], onDelete: Cascade)
+  author           User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent           Comment?       @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies          Comment[]      @relation("CommentThread")
 
   @@index([workspaceId, paperId])
   @@index([authorId])
 }
 
 model ReadingStateRecord {
-  id          String       @id @default(cuid())
-  workspaceId String
-  paperId     String
-  userId      String
-  state       ReadingState @default(new)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  paper       Paper        @relation(fields: [paperId], references: [id], onDelete: Cascade)
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String         @id @default(cuid())
+  workspaceId    String
+  paperId        String
+  userId         String
+  state          ReadingState   @default(new)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  workspacePaper WorkspacePaper @relation(fields: [workspaceId, paperId], references: [workspaceId, paperId], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, paperId, userId])
   @@index([userId])
