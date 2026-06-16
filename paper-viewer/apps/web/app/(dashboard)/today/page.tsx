@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@paper-viewer/db";
 import { requireCurrentUser } from "@/lib/auth";
+import { DiscoverButton } from "@/components/discover-button";
 
 export default async function TodayPage() {
   const user = await requireCurrentUser();
@@ -33,19 +34,43 @@ export default async function TodayPage() {
       })
     : [];
 
+  // Sort papers to match digest order
+  const sortedPapers = digest
+    ? digest.paperIds
+        .map((id) => papers.find((p) => p.id === id))
+        .filter(Boolean)
+    : papers;
+
   const digestDate = digest
     ? new Date(digest.date).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" })
     : null;
 
+  const prefs = await prisma.researchPreferences.findUnique({
+    where: { workspaceId: user.workspaceId }
+  });
+  const hasPrefs = prefs && (prefs.topics.length > 0 || prefs.keywords.length > 0);
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Today</h1>
-        {digestDate ? (
-          <p className="mt-1 text-sm text-muted">{digestDate} · {papers.length} papers</p>
-        ) : (
-          <p className="mt-1 text-sm text-muted">No digest yet. Configure your Hermes agent to push papers here.</p>
-        )}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">Today</h1>
+          {digestDate ? (
+            <p className="mt-1 text-sm text-muted">{digestDate} · {sortedPapers.length} papers</p>
+          ) : (
+            <p className="mt-1 text-sm text-muted">
+              {hasPrefs
+                ? "No papers yet. Click Discover to fetch today's recommendations."
+                : "Set up your research preferences first, then discover papers."}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Link href="/settings/preferences" className="rounded border border-border px-3 py-2 text-sm">
+            Preferences
+          </Link>
+          <DiscoverButton />
+        </div>
       </div>
 
       {digest ? (
@@ -56,7 +81,8 @@ export default async function TodayPage() {
       ) : null}
 
       <div className="space-y-3">
-        {papers.map((paper, index) => {
+        {sortedPapers.map((paper, index) => {
+          if (!paper) return null;
           const analysis = paper.analyses[0];
           const wp = paper.workspacePapers[0];
           const readingState = wp?.readingStates[0]?.state ?? "new";
@@ -70,7 +96,7 @@ export default async function TodayPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-accent">{index + 1}/{papers.length}</span>
+                    <span className="text-sm font-medium text-accent">{index + 1}/{sortedPapers.length}</span>
                     <h2 className="font-semibold">{paper.title}</h2>
                   </div>
                   <p className="mt-1 text-sm text-muted">
@@ -100,7 +126,15 @@ export default async function TodayPage() {
                     {readingState}
                   </span>
                   {paper.arxivId ? (
-                    <span className="text-xs text-muted">arXiv:{paper.arxivId}</span>
+                    <a
+                      href={`https://arxiv.org/abs/${paper.arxivId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-accent hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      arXiv:{paper.arxivId}
+                    </a>
                   ) : null}
                 </div>
               </div>

@@ -123,6 +123,17 @@ model PaperAnalysis {
   @@index([paperId])
 }
 
+model ResearchPreferences {
+  id              String    @id @default(cuid())
+  workspaceId     String    @unique
+  topics          String[]  @default([])
+  keywords        String[]  @default([])
+  excludedTopics  String[]  @default([])
+  papersPerDay    Int       @default(10)
+  arxivCategories String[]  @default([])
+  updatedAt       DateTime  @updatedAt
+}
+
 model DailyDigest {
   id              String    @id @default(cuid())
   workspaceId     String

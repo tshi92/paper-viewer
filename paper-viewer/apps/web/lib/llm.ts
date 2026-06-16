@@ -1,0 +1,116 @@
+import { getEnv } from "./env";
+import type { ArxivPaper } from "./arxiv";
+
+type PaperAnalysisResult = {
+  title: string;
+  arxivId: string;
+  summary: string;
+  problem: string;
+  method: string;
+  keyFindings: string;
+  whyItMatters: string;
+  keywords: string[];
+  relevanceScore: number;
+};
+
+type DiscoveryResult = {
+  overviewSummary: string;
+  papers: PaperAnalysisResult[];
+};
+
+async function callLlm(messages: { role: string; content: string }[]): Promise<string> {
+  const env = getEnv();
+
+  const response = await fetch(`${env.LLM_BASE_URL}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${env.LLM_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: env.LLM_MODEL,
+      messages,
+      temperature: 0.3
+    })
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`LLM API error ${response.status}: ${text}`);
+  }
+
+  const data = await response.json() as {
+    choices: { message: { content: string } }[];
+  };
+  return data.choices[0]!.message.content;
+}
+
+export async function analyzeAndRankPapers(params: {
+  papers: ArxivPaper[];
+  topics: string[];
+  keywords: string[];
+  excludedTopics: string[];
+  papersPerDay: number;
+}): Promise<DiscoveryResult> {
+  const { papers, topics, keywords, excludedTopics, papersPerDay } = params;
+
+  const paperList = papers
+    .map((p, i) => `[${i + 1}] ${p.title}\narXiv: ${p.arxivId}\nAuthors: ${p.authors.join(", ")}\nAbstract: ${p.abstract}`)
+    .join("\n\n---\n\n");
+
+  const prompt = `你是一个研究论文推荐系统。用户的研究兴趣如下：
+
+研究方向：${topics.join("、") || "未指定"}
+关键词：${keywords.join("、") || "未指定"}
+排除方向：${excludedTopics.join("、") || "无"}
+
+以下是今天 arXiv 上的 ${papers.length} 篇候选论文：
+
+${paperList}
+
+请你完成以下任务：
+
+1. 从中筛选出最相关的 ${papersPerDay} 篇论文
+2. 对每篇论文生成结构化分析
+3. 生成一段整体概述
+
+请严格按照以下 JSON 格式返回，不要有其他文字：
+
+{
+  "overviewSummary": "今日论文整体概述（中文，200-400字，总结趋势和要点）",
+  "papers": [
+    {
+      "title": "论文标题",
+      "arxivId": "arXiv ID",
+      "summary": "这篇论文在解决什么问题，核心贡献是什么（中文，2-3句）",
+      "problem": "它要解决的系统/研究问题（中文，1-2句）",
+      "method": "核心方法/机制（中文，1-2句）",
+      "keyFindings": "最重要的实验结果或发现（中文，1-2句）",
+      "whyItMatters": "为什么值得看 / 风险点（中文，1-2句）",
+      "keywords": ["关键词1", "关键词2", "关键词3"],
+      "relevanceScore": 0.95
+    }
+  ]
+}
+
+注意：
+- papers 数组按 relevanceScore 从高到低排序
+- 只返回 JSON，不要 markdown code block`;
+
+  const result = await callLlm([
+    { role: "system", content: "你是一个专业的计算机科学研究助手，擅长分析和推荐学术论文。始终返回纯 JSON。" },
+    { role: "user", content: prompt }
+  ]);
+
+  // Parse JSON from response, handling possible markdown wrapping
+  let jsonStr = result.trim();
+  if (jsonStr.startsWith("```")) {
+    jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+  }
+
+  try {
+    return JSON.parse(jsonStr) as DiscoveryResult;
+  } catch {
+    throw new Error(`Failed to parse LLM response as JSON: ${jsonStr.slice(0, 200)}`);
+  }
+}

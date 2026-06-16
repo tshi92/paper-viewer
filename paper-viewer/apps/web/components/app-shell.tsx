@@ -11,6 +11,7 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
             <Link className="font-semibold" href="/today">Paper Viewer</Link>
             <Link href="/today">Today</Link>
             <Link href="/library">Library</Link>
+            <Link href="/settings/preferences">Preferences</Link>
             {user.role === "owner" ? <Link href="/settings/members">Members</Link> : null}
           </nav>
           <div className="flex items-center gap-3 text-sm text-muted">
