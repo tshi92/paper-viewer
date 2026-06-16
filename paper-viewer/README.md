@@ -6,12 +6,12 @@ Local-first research team paper workspace.
 
 1. Copy `.env.example` to `.env`.
 2. Run `docker compose up -d`.
-3. Run `pnpm install`.
-4. Run `pnpm build`.
-5. Run `pnpm dev`.
-6. Open `http://localhost:3000`.
-
-`pnpm db:generate` and `pnpm db:migrate` become active after the Prisma schema task lands. Do not run them during Task 1 scaffold setup.
+3. Run `docker compose run --rm minio-client` to create the PDF bucket.
+4. Run `pnpm install`.
+5. Run `pnpm db:generate`.
+6. Run `pnpm db:migrate`.
+7. Run `pnpm dev`.
+8. Open `http://localhost:3000`.
 
 ## Phase 1
 
@@ -35,3 +35,30 @@ Create the PDF bucket after services start:
 ```bash
 docker compose run --rm minio-client
 ```
+
+## Verification
+
+Run TypeScript and unit tests:
+
+```bash
+pnpm build
+pnpm test
+```
+
+Run browser smoke tests:
+
+```bash
+pnpm test:e2e
+```
+
+Manual Phase 1 smoke test:
+
+1. Start services with `docker compose up -d`.
+2. Start the app with `pnpm dev`.
+3. Open `http://localhost:3000/bootstrap`.
+4. Create the owner account.
+5. Upload a public PDF from `Library`.
+6. Open the paper workspace.
+7. Confirm the PDF loads.
+8. Add a comment.
+9. Change the reading state.
