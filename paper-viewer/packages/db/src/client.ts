@@ -1,20 +1,13 @@
-const dbNotReadyMessage =
-  "Prisma client is not generated yet. Task 3 will replace packages/db/src/client.ts with the real Prisma singleton.";
+import { PrismaClient } from "@prisma/client";
 
-export function createUnavailablePrismaClient() {
-  const fail = () => {
-    throw new Error(dbNotReadyMessage);
-  };
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-  return new Proxy({}, {
-    get() {
-      fail();
-    },
-    set() {
-      fail();
-      return false;
-    },
-  }) as never;
+export const prisma =
+  globalForPrisma.prisma ??
+  new PrismaClient({
+    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"]
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForPrisma.prisma = prisma;
 }
-
-export const prisma = createUnavailablePrismaClient();
