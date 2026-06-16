@@ -12,6 +12,9 @@
     "db:migrate": "corepack pnpm --filter @paper-viewer/db prisma:migrate",
     "db:seed": "corepack pnpm --filter @paper-viewer/db prisma:seed"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "prisma", "esbuild", "sharp"]
+  },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "typescript": "^5.7.0",
