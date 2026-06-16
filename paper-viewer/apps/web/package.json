@@ -2,7 +2,7 @@
   "name": "@paper-viewer/web",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0",
     "build": "next build",
     "lint": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
