@@ -99,10 +99,39 @@ model Paper {
   updatedAt       DateTime         @updatedAt
   files           PaperFile[]
   workspacePapers WorkspacePaper[]
+  analyses        PaperAnalysis[]
 
   @@unique([source, sourceId])
   @@unique([doi])
   @@unique([arxivId])
+}
+
+model PaperAnalysis {
+  id              String    @id @default(cuid())
+  paperId         String
+  workspaceId     String?
+  summary         String
+  problem         String?
+  method          String?
+  keyFindings     String?
+  whyItMatters    String?
+  keywords        String[]  @default([])
+  model           String?
+  createdAt       DateTime  @default(now())
+  paper           Paper     @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@index([paperId])
+}
+
+model DailyDigest {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  date            DateTime  @db.Date
+  overviewSummary String
+  paperIds        String[]
+  createdAt       DateTime  @default(now())
+
+  @@unique([workspaceId, date])
 }
 
 model WorkspacePaper {

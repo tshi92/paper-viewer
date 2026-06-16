@@ -8,7 +8,8 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
       <header className="border-b border-border bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
           <nav className="flex items-center gap-5 text-sm">
-            <Link className="font-semibold" href="/library">Paper Viewer</Link>
+            <Link className="font-semibold" href="/today">Paper Viewer</Link>
+            <Link href="/today">Today</Link>
             <Link href="/library">Library</Link>
             {user.role === "owner" ? <Link href="/settings/members">Members</Link> : null}
           </nav>
