@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireCurrentUser } from "@/lib/auth";
-import { getEnv } from "@/lib/env";
+import { getEnv, getS3Config } from "@/lib/env";
 
 const paperInputSchema = z.object({
   title: z.string().min(1),
@@ -59,40 +59,36 @@ export async function POST(request: Request) {
     }
   });
 
-  const objectKey = createPdfObjectKey({
-    workspaceId: user.workspaceId,
-    paperId: paper.id,
-    sha256
-  });
-
-  const client = createS3Client({
-    endpoint: env.S3_ENDPOINT,
-    region: env.S3_REGION,
-    accessKeyId: env.S3_ACCESS_KEY_ID,
-    secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-    bucket: env.S3_BUCKET,
-    forcePathStyle: env.S3_FORCE_PATH_STYLE === "true"
-  });
-
-  await putPdfObject({
-    client,
-    bucket: env.S3_BUCKET,
-    key: objectKey,
-    body: bytes,
-    contentType: "application/pdf"
-  });
-
-  await prisma.paperFile.create({
-    data: {
+  const s3 = getS3Config();
+  if (s3) {
+    const objectKey = createPdfObjectKey({
+      workspaceId: user.workspaceId,
       paperId: paper.id,
-      objectKey,
-      fileName: file.name,
-      contentType: "application/pdf",
-      byteLength: bytes.byteLength,
-      sha256,
-      status: "ready"
-    }
-  });
+      sha256
+    });
+
+    const client = createS3Client(s3);
+
+    await putPdfObject({
+      client,
+      bucket: s3.bucket,
+      key: objectKey,
+      body: bytes,
+      contentType: "application/pdf"
+    });
+
+    await prisma.paperFile.create({
+      data: {
+        paperId: paper.id,
+        objectKey,
+        fileName: file.name,
+        contentType: "application/pdf",
+        byteLength: bytes.byteLength,
+        sha256,
+        status: "ready"
+      }
+    });
+  }
 
   redirect(`/papers/${paper.id}`);
 }

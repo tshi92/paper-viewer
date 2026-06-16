@@ -3,7 +3,7 @@ import { createPdfObjectKey, createS3Client, putPdfObject } from "@paper-viewer/
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { requireCurrentUser } from "@/lib/auth";
-import { getEnv } from "@/lib/env";
+import { getS3Config } from "@/lib/env";
 
 const downloadSchema = z.object({
   arxivId: z.string().min(1)
@@ -11,13 +11,16 @@ const downloadSchema = z.object({
 
 export async function POST(request: Request, { params }: { params: Promise<{ paperId: string }> }) {
   const user = await requireCurrentUser();
-  const env = getEnv();
+  const s3 = getS3Config();
   const { paperId } = await params;
+
+  if (!s3) {
+    return Response.json({ error: "S3 storage not configured" }, { status: 501 });
+  }
 
   const body = await request.json();
   const { arxivId } = downloadSchema.parse(body);
 
-  // Verify paper belongs to workspace
   const workspacePaper = await prisma.workspacePaper.findUnique({
     where: {
       workspaceId_paperId: {
@@ -31,7 +34,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
     return Response.json({ error: "Paper not found" }, { status: 404 });
   }
 
-  // Check if PDF already exists
   const existingFile = await prisma.paperFile.findFirst({
     where: { paperId }
   });
@@ -40,7 +42,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
     return Response.json({ ok: true, message: "PDF already downloaded" });
   }
 
-  // Download from arXiv
   const pdfUrl = `https://arxiv.org/pdf/${arxivId}`;
   const pdfResponse = await fetch(pdfUrl);
 
@@ -57,18 +58,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
     sha256
   });
 
-  const client = createS3Client({
-    endpoint: env.S3_ENDPOINT,
-    region: env.S3_REGION,
-    accessKeyId: env.S3_ACCESS_KEY_ID,
-    secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-    bucket: env.S3_BUCKET,
-    forcePathStyle: env.S3_FORCE_PATH_STYLE === "true"
-  });
+  const client = createS3Client(s3);
 
   await putPdfObject({
     client,
-    bucket: env.S3_BUCKET,
+    bucket: s3.bucket,
     key: objectKey,
     body: bytes,
     contentType: "application/pdf"

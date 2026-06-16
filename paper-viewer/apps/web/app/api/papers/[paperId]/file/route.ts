@@ -1,12 +1,16 @@
 import { prisma } from "@paper-viewer/db";
 import { createS3Client, getPdfObject } from "@paper-viewer/storage/pdf-storage";
 import { requireCurrentUser } from "@/lib/auth";
-import { getEnv } from "@/lib/env";
+import { getS3Config } from "@/lib/env";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ paperId: string }> }) {
   const user = await requireCurrentUser();
-  const env = getEnv();
+  const s3 = getS3Config();
   const { paperId } = await params;
+
+  if (!s3) {
+    return new Response("S3 storage not configured", { status: 501 });
+  }
 
   const workspacePaper = await prisma.workspacePaper.findUnique({
     where: {
@@ -32,16 +36,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pap
     return new Response("PDF not found", { status: 404 });
   }
 
-  const client = createS3Client({
-    endpoint: env.S3_ENDPOINT,
-    region: env.S3_REGION,
-    accessKeyId: env.S3_ACCESS_KEY_ID,
-    secretAccessKey: env.S3_SECRET_ACCESS_KEY,
-    bucket: env.S3_BUCKET,
-    forcePathStyle: env.S3_FORCE_PATH_STYLE === "true"
-  });
-
-  const object = await getPdfObject({ client, bucket: env.S3_BUCKET, key: file.objectKey });
+  const client = createS3Client(s3);
+  const object = await getPdfObject({ client, bucket: s3.bucket, key: file.objectKey });
   const bytes = await object.Body?.transformToByteArray();
 
   if (!bytes) {

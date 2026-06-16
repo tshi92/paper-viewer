@@ -29,4 +29,19 @@ export function getEnv(): Env {
   return cached;
 }
 
+export function getS3Config() {
+  const env = getEnv();
+  if (!env.S3_ENDPOINT || !env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY) {
+    return null;
+  }
+  return {
+    endpoint: env.S3_ENDPOINT,
+    region: env.S3_REGION,
+    accessKeyId: env.S3_ACCESS_KEY_ID,
+    secretAccessKey: env.S3_SECRET_ACCESS_KEY,
+    bucket: env.S3_BUCKET,
+    forcePathStyle: env.S3_FORCE_PATH_STYLE === "true"
+  };
+}
+
 export { type Env };
