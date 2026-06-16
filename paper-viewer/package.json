@@ -15,6 +15,9 @@
   "pnpm": {
     "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "prisma", "esbuild", "sharp"]
   },
+  "dependencies": {
+    "next": "^15.1.0"
+  },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "typescript": "^5.7.0",
