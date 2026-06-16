@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/validation.ts",
     "./permissions": "./src/permissions.ts",
-    "./paper-status": "./src/paper-status.ts"
+    "./paper-status": "./src/paper-status.ts",
+    "./upload-validation": "./src/upload-validation.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
