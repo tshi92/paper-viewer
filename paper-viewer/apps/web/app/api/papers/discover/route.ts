@@ -2,9 +2,17 @@ import { prisma } from "@paper-viewer/db";
 import { requireCurrentUser } from "@/lib/auth";
 import { fetchArxivPapers } from "@/lib/arxiv";
 import { analyzeAndRankPapers } from "@/lib/llm";
+import { getExistingTopics, assignTopics } from "@/lib/topics";
+
+export const maxDuration = 60;
 
 export async function POST() {
-  const user = await requireCurrentUser();
+  let user;
+  try {
+    user = await requireCurrentUser();
+  } catch {
+    return Response.json({ error: "Authentication required" }, { status: 401 });
+  }
 
   // Get workspace preferences
   const prefs = await prisma.researchPreferences.findUnique({
@@ -28,18 +36,25 @@ export async function POST() {
     return Response.json({ error: "No papers found from arXiv" }, { status: 404 });
   }
 
-  // LLM analysis and ranking
-  const analysis = await analyzeAndRankPapers({
+  let analysis;
+  try {
+    analysis = await analyzeAndRankPapers({
     papers: candidates,
     topics,
     keywords,
     excludedTopics,
     papersPerDay
   });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "LLM analysis failed";
+    return Response.json({ error: message }, { status: 500 });
+  }
 
   // Store results
   const today = new Date().toISOString().slice(0, 10);
   const paperIds: string[] = [];
+
+  const existingTopics = await getExistingTopics(user.workspaceId);
 
   for (const entry of analysis.papers) {
     // Dedup by arxivId
@@ -64,6 +79,23 @@ export async function POST() {
 
     paperIds.push(paper.id);
 
+    // Assign normalized topics
+    let paperTopics: string[];
+    try {
+      paperTopics = await assignTopics({
+        title: entry.title,
+        abstract: candidates.find((c) => c.arxivId === entry.arxivId)?.abstract ?? "",
+        keywords: entry.keywords,
+        existingTopics
+      });
+      // Add any new topics to the running list
+      for (const t of paperTopics) {
+        if (!existingTopics.includes(t)) existingTopics.push(t);
+      }
+    } catch {
+      paperTopics = entry.keywords.slice(0, 3);
+    }
+
     // Ensure WorkspacePaper
     await prisma.workspacePaper.upsert({
       where: {
@@ -72,11 +104,11 @@ export async function POST() {
           paperId: paper.id
         }
       },
-      update: {},
+      update: { tags: paperTopics },
       create: {
         workspaceId: user.workspaceId,
         paperId: paper.id,
-        tags: entry.keywords
+        tags: paperTopics
       }
     });
 

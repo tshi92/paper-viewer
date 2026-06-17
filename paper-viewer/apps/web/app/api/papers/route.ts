@@ -4,6 +4,7 @@ import { createPdfObjectKey, createS3Client, putPdfObject } from "@paper-viewer/
 import { createHash } from "node:crypto";
 import { requireCurrentUser } from "@/lib/auth";
 import { getEnv, getS3Config } from "@/lib/env";
+import { getExistingTopics, assignTopics } from "@/lib/topics";
 
 type PaperMetadata = {
   title: string;
@@ -80,8 +81,10 @@ async function extractMetadataViaLlm(
   "authors": ["Author1 Full Name", "Author2 Full Name", "...每一个作者"],
   "abstract": "完整的英文摘要",
   "summary": "论文核心内容概述（中文，3-5句话）",
-  "keywords": ["keyword1", "keyword2", "keyword3"]
-}`
+  "keywords": ["english keyword1", "english keyword2", "english keyword3"]
+}
+
+注意：keywords 必须用英文，小写，简洁（1-4个词）。`
         }
       ],
       temperature: 0.1,
@@ -146,6 +149,20 @@ export async function POST(request: Request) {
 
   const sha256 = createHash("sha256").update(bytes).digest("hex");
 
+  // Assign normalized topics
+  const existingTopics = await getExistingTopics(user.workspaceId);
+  let topics: string[];
+  try {
+    topics = await assignTopics({
+      title: metadata.title,
+      abstract: metadata.abstract,
+      keywords: metadata.keywords,
+      existingTopics
+    });
+  } catch {
+    topics = metadata.keywords.slice(0, 3);
+  }
+
   const paper = await prisma.paper.create({
     data: {
       title: metadata.title,
@@ -156,7 +173,7 @@ export async function POST(request: Request) {
         create: {
           workspaceId: user.workspaceId,
           importedById: user.id,
-          tags: metadata.keywords
+          tags: topics
         }
       }
     }

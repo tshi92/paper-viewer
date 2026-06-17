@@ -40,12 +40,29 @@ export default async function LibraryPage({
     orderBy: { createdAt: "desc" }
   });
 
-  // Use preference keywords/topics as canonical tags
-  const prefs = await prisma.researchPreferences.findUnique({
-    where: { workspaceId: user.workspaceId },
-    select: { topics: true, keywords: true }
-  });
-  const canonicalTags = [...new Set([...(prefs?.keywords ?? []), ...(prefs?.topics ?? [])])].sort();
+  // Collect all topics from papers + preferences
+  const [allPaperTags, prefs] = await Promise.all([
+    prisma.workspacePaper.findMany({
+      where: { workspaceId: user.workspaceId, state: "visible" },
+      select: { tags: true }
+    }),
+    prisma.researchPreferences.findUnique({
+      where: { workspaceId: user.workspaceId },
+      select: { topics: true, keywords: true }
+    })
+  ]);
+
+  const prefTopics = [...(prefs?.topics ?? []), ...(prefs?.keywords ?? [])];
+  const paperTopics = allPaperTags.flatMap((p) => p.tags);
+  // Preference topics first, then any new topics discovered from papers
+  const canonicalTags = [...new Set([...prefTopics, ...paperTopics])];
+
+  // Count papers per topic for ordering
+  const topicCounts = new Map<string, number>();
+  for (const t of paperTopics) {
+    topicCounts.set(t, (topicCounts.get(t) ?? 0) + 1);
+  }
+  canonicalTags.sort((a, b) => (topicCounts.get(b) ?? 0) - (topicCounts.get(a) ?? 0));
 
   function buildUrl(params: { time?: string | null; tag?: string | null }) {
     const p = new URLSearchParams();
@@ -86,13 +103,14 @@ export default async function LibraryPage({
             <span className="text-xs font-medium text-muted mr-1">Topics:</span>
             {canonicalTags.map((t) => {
               const isActive = tag === t;
+              const count = topicCounts.get(t) ?? 0;
               return (
                 <Link
                   key={t}
                   href={buildUrl({ tag: isActive ? null : t })}
                   className={`rounded px-2 py-0.5 text-xs ${isActive ? "bg-accent text-white" : "bg-surface text-muted hover:bg-border"}`}
                 >
-                  {t}{isActive ? " ×" : ""}
+                  {t}{count > 0 ? ` (${count})` : ""}{isActive ? " ×" : ""}
                 </Link>
               );
             })}

@@ -91,7 +91,7 @@ ${paperList}
       "method": "核心方法（中文，1-2句）",
       "keyFindings": "关键发现（中文，1-2句）",
       "whyItMatters": "为什么值得看（中文，1-2句）",
-      "keywords": ["从用户关键词列表中选取最相关的2-3个，优先复用已有关键词"],
+      "keywords": ["english keyword1", "english keyword2"],
       "relevanceScore": 0.95
     }
   ]
@@ -99,8 +99,8 @@ ${paperList}
 
 重要：
 - papers 数组按 relevanceScore 从高到低排序
-- keywords 尽量从用户的研究方向和关键词中复用，避免创造含义相同的新词
-- 每篇论文最多3个keywords`;
+- keywords 必须用英文、小写、简洁（1-4个词）
+- 每篇论文最多3个 keywords`;
 
   const result = await callLlm([
     { role: "system", content: "你是一个专业的计算机科学研究助手，擅长分析和推荐学术论文。你只返回 JSON 格式的数据。" },

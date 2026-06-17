@@ -2,6 +2,7 @@ import { prisma } from "@paper-viewer/db";
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { getEnv } from "@/lib/env";
+import { getExistingTopics, assignTopics } from "@/lib/topics";
 
 const paperEntrySchema = z.object({
   title: z.string().min(1),
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
   }
 
   const results: { paperId: string; title: string; created: boolean }[] = [];
+  const existingTopics = await getExistingTopics(workspace.id);
 
   for (const entry of papers) {
     const arxivId = extractArxivId(entry.arxivId ?? entry.url) ?? null;
@@ -99,7 +101,22 @@ export async function POST(request: Request) {
       });
     }
 
-    // Ensure WorkspacePaper exists
+    // Assign normalized topics
+    let paperTopics: string[];
+    try {
+      paperTopics = await assignTopics({
+        title: entry.title,
+        abstract: entry.abstract ?? "",
+        keywords: entry.keywords,
+        existingTopics
+      });
+      for (const t of paperTopics) {
+        if (!existingTopics.includes(t)) existingTopics.push(t);
+      }
+    } catch {
+      paperTopics = entry.keywords.slice(0, 3);
+    }
+
     await prisma.workspacePaper.upsert({
       where: {
         workspaceId_paperId: {
@@ -107,11 +124,11 @@ export async function POST(request: Request) {
           paperId: paper.id
         }
       },
-      update: {},
+      update: { tags: paperTopics },
       create: {
         workspaceId: workspace.id,
         paperId: paper.id,
-        tags: entry.keywords
+        tags: paperTopics
       }
     });
 
