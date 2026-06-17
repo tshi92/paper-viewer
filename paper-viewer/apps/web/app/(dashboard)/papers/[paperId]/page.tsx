@@ -64,6 +64,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
         analysis: analysis
           ? {
               summary: analysis.summary,
+              motivation: analysis.motivation,
               problem: analysis.problem,
               method: analysis.method,
               keyFindings: analysis.keyFindings,

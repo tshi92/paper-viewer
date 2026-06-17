@@ -1,7 +1,7 @@
 import { prisma } from "@paper-viewer/db";
 import { requireCurrentUser } from "@/lib/auth";
 import { fetchArxivPapers } from "@/lib/arxiv";
-import { selectPapers, analyzeSinglePaper, generateOverview } from "@/lib/llm";
+import { selectPapers, analyzeSinglePaper, generateOverview, type PaperAnalysisResult } from "@/lib/llm";
 import { getExistingTopics, assignTopics } from "@/lib/topics";
 
 export const maxDuration = 120;
@@ -63,13 +63,15 @@ export async function POST() {
   }
 
   // Step 3: Analyze each paper individually (in parallel, batches of 3)
-  const analyses = [];
+  const analyses: PaperAnalysisResult[] = [];
   for (let i = 0; i < selectedPapers.length; i += 3) {
     const batch = selectedPapers.slice(i, i + 3);
     const batchResults = await Promise.all(
       batch.map((p) => analyzeSinglePaper(p!, topics).catch(() => null))
     );
-    analyses.push(...batchResults.filter(Boolean));
+    for (const r of batchResults) {
+      if (r) analyses.push(r);
+    }
   }
 
   if (analyses.length === 0) {
@@ -149,6 +151,7 @@ export async function POST() {
         paperId: paper.id,
         workspaceId: user.workspaceId,
         summary: entry.summary,
+        motivation: entry.motivation,
         problem: entry.problem,
         method: entry.method,
         keyFindings: entry.keyFindings,

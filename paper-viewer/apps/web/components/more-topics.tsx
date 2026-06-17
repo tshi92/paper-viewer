@@ -11,8 +11,8 @@ export function MoreTopics({
 }: {
   topics: string[];
   topicCounts: Record<string, number>;
-  currentTag?: string;
-  currentTime?: string;
+  currentTag: string | undefined;
+  currentTime: string | undefined;
 }) {
   const [open, setOpen] = useState(false);
 

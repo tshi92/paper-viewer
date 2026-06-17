@@ -21,7 +21,7 @@ async function extractMetadataViaLlm(
 ): Promise<PaperMetadata> {
   // Upload PDF to Kimi Files API for text extraction
   const uploadForm = new FormData();
-  uploadForm.append("file", new Blob([bytes], { type: "application/pdf" }), fileName);
+  uploadForm.append("file", new Blob([Buffer.from(bytes)], { type: "application/pdf" }), fileName);
   uploadForm.append("purpose", "file-extract");
 
   const uploadRes = await fetch(`${env.LLM_BASE_URL}/files`, {

@@ -105,11 +105,14 @@ export default async function TodayPage() {
                   {analysis ? (
                     <div className="mt-3 space-y-2 text-sm">
                       <p>{analysis.summary}</p>
-                      {analysis.keyFindings ? (
-                        <p className="text-muted"><span className="font-medium text-ink">Key findings:</span> {analysis.keyFindings}</p>
+                      {analysis.problem ? (
+                        <p className="text-muted"><span className="font-medium text-ink">Problem:</span> {analysis.problem}</p>
                       ) : null}
-                      {analysis.whyItMatters ? (
-                        <p className="text-muted"><span className="font-medium text-ink">Why it matters:</span> {analysis.whyItMatters}</p>
+                      {analysis.method ? (
+                        <p className="text-muted"><span className="font-medium text-ink">Method:</span> {analysis.method}</p>
+                      ) : null}
+                      {analysis.keyFindings ? (
+                        <p className="text-muted"><span className="font-medium text-ink">Results:</span> {analysis.keyFindings}</p>
                       ) : null}
                       {analysis.keywords.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5 pt-1">
@@ -126,15 +129,7 @@ export default async function TodayPage() {
                     {readingState}
                   </span>
                   {paper.arxivId ? (
-                    <a
-                      href={`https://arxiv.org/abs/${paper.arxivId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-accent hover:underline"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      arXiv:{paper.arxivId}
-                    </a>
+                    <span className="text-xs text-muted">arXiv:{paper.arxivId}</span>
                   ) : null}
                 </div>
               </div>

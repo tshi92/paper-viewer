@@ -15,6 +15,7 @@ type PaperData = {
   hasPdf: boolean;
   analysis: {
     summary: string;
+    motivation: string | null;
     problem: string | null;
     method: string | null;
     keyFindings: string | null;
@@ -69,10 +70,11 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             <h2 className="text-sm font-semibold uppercase text-muted">AI Analysis</h2>
             <div className="mt-3 space-y-3 text-sm">
               <p>{paper.analysis.summary}</p>
-              {paper.analysis.problem ? <div><span className="font-medium">Problem:</span> {paper.analysis.problem}</div> : null}
-              {paper.analysis.method ? <div><span className="font-medium">Method:</span> {paper.analysis.method}</div> : null}
-              {paper.analysis.keyFindings ? <div><span className="font-medium">Key findings:</span> {paper.analysis.keyFindings}</div> : null}
-              {paper.analysis.whyItMatters ? <div><span className="font-medium">Why it matters:</span> {paper.analysis.whyItMatters}</div> : null}
+              {paper.analysis.motivation ? <div><span className="font-medium">1. Motivation:</span> {paper.analysis.motivation}</div> : null}
+              {paper.analysis.problem ? <div><span className="font-medium">2. Problem:</span> {paper.analysis.problem}</div> : null}
+              {paper.analysis.method ? <div><span className="font-medium">3. Method:</span> {paper.analysis.method}</div> : null}
+              {paper.analysis.keyFindings ? <div><span className="font-medium">4. Results:</span> {paper.analysis.keyFindings}</div> : null}
+              {paper.analysis.whyItMatters ? <div><span className="font-medium">5. Limitations:</span> {paper.analysis.whyItMatters}</div> : null}
               {paper.analysis.keywords.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {paper.analysis.keywords.map((kw) => (
