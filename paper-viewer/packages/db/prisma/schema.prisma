@@ -135,6 +135,28 @@ model ResearchPreferences {
   updatedAt       DateTime  @updatedAt
 }
 
+model PaperChatMessage {
+  id          String   @id @default(cuid())
+  paperId     String
+  userId      String
+  role        String   // "user" | "assistant"
+  content     String
+  createdAt   DateTime @default(now())
+
+  @@index([paperId, userId])
+}
+
+// Stores Kimi file_id for uploaded PDFs to avoid re-uploading
+model PaperFileExtract {
+  id            String   @id @default(cuid())
+  paperId       String   @unique
+  llmFileId     String
+  textContent   String
+  createdAt     DateTime @default(now())
+
+  @@index([paperId])
+}
+
 model DailyDigest {
   id              String    @id @default(cuid())
   workspaceId     String
