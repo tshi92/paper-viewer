@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@paper-viewer/db";
 import { PaperUploadForm } from "@/components/paper-upload-form";
 import { RemovePaperButton } from "@/components/remove-paper-button";
+import { MoreTopics } from "@/components/more-topics";
 import { requireCurrentUser } from "@/lib/auth";
 
 const TIME_FILTERS: Record<string, { label: string; days: number }> = {
@@ -33,14 +34,12 @@ export default async function LibraryPage({
       ...(tag ? { tags: { has: tag } } : {})
     },
     include: {
-      paper: {
-        include: { files: true }
-      }
+      paper: { include: { files: true } }
     },
     orderBy: { createdAt: "desc" }
   });
 
-  // Collect all topics from papers + preferences
+  // Collect topics
   const [allPaperTags, prefs] = await Promise.all([
     prisma.workspacePaper.findMany({
       where: { workspaceId: user.workspaceId, state: "visible" },
@@ -52,17 +51,21 @@ export default async function LibraryPage({
     })
   ]);
 
-  const prefTopics = [...(prefs?.topics ?? []), ...(prefs?.keywords ?? [])];
+  const prefTopicSet = new Set([...(prefs?.topics ?? []), ...(prefs?.keywords ?? [])]);
   const paperTopics = allPaperTags.flatMap((p) => p.tags);
-  // Preference topics first, then any new topics discovered from papers
-  const canonicalTags = [...new Set([...prefTopics, ...paperTopics])];
 
-  // Count papers per topic for ordering
+  // Count papers per topic
   const topicCounts = new Map<string, number>();
   for (const t of paperTopics) {
     topicCounts.set(t, (topicCounts.get(t) ?? 0) + 1);
   }
-  canonicalTags.sort((a, b) => (topicCounts.get(b) ?? 0) - (topicCounts.get(a) ?? 0));
+
+  // Split: preference topics (main) vs discovered topics (more)
+  const mainTopics = [...prefTopicSet].filter((t) => topicCounts.has(t))
+    .sort((a, b) => (topicCounts.get(b) ?? 0) - (topicCounts.get(a) ?? 0));
+  const discoveredTopics = [...new Set(paperTopics)]
+    .filter((t) => !prefTopicSet.has(t))
+    .sort((a, b) => (topicCounts.get(b) ?? 0) - (topicCounts.get(a) ?? 0));
 
   function buildUrl(params: { time?: string | null; tag?: string | null }) {
     const p = new URLSearchParams();
@@ -73,6 +76,9 @@ export default async function LibraryPage({
     const qs = p.toString();
     return `/library${qs ? `?${qs}` : ""}`;
   }
+
+  // Check if current tag is a discovered (non-pref) topic
+  const isDiscoveredTag = tag && !prefTopicSet.has(tag);
 
   return (
     <section className="rounded border border-border bg-white">
@@ -98,10 +104,10 @@ export default async function LibraryPage({
           })}
         </div>
 
-        {canonicalTags.length > 0 ? (
+        {(mainTopics.length > 0 || discoveredTopics.length > 0) ? (
           <div className="flex items-center gap-1 flex-wrap">
             <span className="text-xs font-medium text-muted mr-1">Topics:</span>
-            {canonicalTags.map((t) => {
+            {mainTopics.map((t) => {
               const isActive = tag === t;
               const count = topicCounts.get(t) ?? 0;
               return (
@@ -110,10 +116,26 @@ export default async function LibraryPage({
                   href={buildUrl({ tag: isActive ? null : t })}
                   className={`rounded px-2 py-0.5 text-xs ${isActive ? "bg-accent text-white" : "bg-surface text-muted hover:bg-border"}`}
                 >
-                  {t}{count > 0 ? ` (${count})` : ""}{isActive ? " ×" : ""}
+                  {t} ({count}){isActive ? " ×" : ""}
                 </Link>
               );
             })}
+            {isDiscoveredTag ? (
+              <Link
+                href={buildUrl({ tag: null })}
+                className="rounded bg-accent px-2 py-0.5 text-xs text-white"
+              >
+                {tag} ({topicCounts.get(tag) ?? 0}) ×
+              </Link>
+            ) : null}
+            {discoveredTopics.length > 0 ? (
+              <MoreTopics
+                topics={discoveredTopics}
+                topicCounts={Object.fromEntries(topicCounts)}
+                currentTag={tag}
+                currentTime={time}
+              />
+            ) : null}
           </div>
         ) : null}
       </div>

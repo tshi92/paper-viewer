@@ -1,10 +1,10 @@
 import { prisma } from "@paper-viewer/db";
 import { requireCurrentUser } from "@/lib/auth";
 import { fetchArxivPapers } from "@/lib/arxiv";
-import { analyzeAndRankPapers } from "@/lib/llm";
+import { selectPapers, analyzeSinglePaper, generateOverview } from "@/lib/llm";
 import { getExistingTopics, assignTopics } from "@/lib/topics";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function POST() {
   let user;
@@ -14,7 +14,6 @@ export async function POST() {
     return Response.json({ error: "Authentication required" }, { status: 401 });
   }
 
-  // Get workspace preferences
   const prefs = await prisma.researchPreferences.findUnique({
     where: { workspaceId: user.workspaceId }
   });
@@ -25,39 +24,74 @@ export async function POST() {
   const arxivCategories = prefs?.arxivCategories.length ? prefs.arxivCategories : ["cs.AI", "cs.CL", "cs.LG"];
   const papersPerDay = prefs?.papersPerDay ?? 10;
 
-  // Fetch candidate papers from arXiv
-  const candidates = await fetchArxivPapers({
-    categories: arxivCategories,
-    keywords,
-    maxResults: Math.max(papersPerDay * 4, 40)
-  });
+  // Step 1: Fetch candidates from arXiv
+  let candidates;
+  try {
+    candidates = await fetchArxivPapers({
+      categories: arxivCategories,
+      keywords,
+      maxResults: Math.max(papersPerDay * 4, 30)
+    });
+  } catch (err) {
+    return Response.json({ error: `arXiv fetch failed: ${err instanceof Error ? err.message : "unknown"}` }, { status: 502 });
+  }
 
   if (candidates.length === 0) {
     return Response.json({ error: "No papers found from arXiv" }, { status: 404 });
   }
 
-  let analysis;
+  // Step 2: LLM selects most relevant papers
+  let selectedIds: string[];
   try {
-    analysis = await analyzeAndRankPapers({
-    papers: candidates,
-    topics,
-    keywords,
-    excludedTopics,
-    papersPerDay
-  });
+    selectedIds = await selectPapers({
+      papers: candidates,
+      topics,
+      keywords,
+      excludedTopics,
+      papersPerDay
+    });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "LLM analysis failed";
-    return Response.json({ error: message }, { status: 500 });
+    return Response.json({ error: `Paper selection failed: ${err instanceof Error ? err.message : "unknown"}` }, { status: 500 });
   }
 
-  // Store results
+  const selectedPapers = selectedIds
+    .map((id) => candidates.find((c) => c.arxivId === id))
+    .filter(Boolean);
+
+  if (selectedPapers.length === 0) {
+    return Response.json({ error: "No papers selected" }, { status: 500 });
+  }
+
+  // Step 3: Analyze each paper individually (in parallel, batches of 3)
+  const analyses = [];
+  for (let i = 0; i < selectedPapers.length; i += 3) {
+    const batch = selectedPapers.slice(i, i + 3);
+    const batchResults = await Promise.all(
+      batch.map((p) => analyzeSinglePaper(p!, topics).catch(() => null))
+    );
+    analyses.push(...batchResults.filter(Boolean));
+  }
+
+  if (analyses.length === 0) {
+    return Response.json({ error: "Paper analysis failed" }, { status: 500 });
+  }
+
+  // Step 4: Generate overview
+  let overviewSummary: string;
+  try {
+    overviewSummary = await generateOverview(analyses, topics);
+  } catch {
+    overviewSummary = `今日推荐 ${analyses.length} 篇论文。`;
+  }
+
+  // Step 5: Store results
   const today = new Date().toISOString().slice(0, 10);
   const paperIds: string[] = [];
-
   const existingTopics = await getExistingTopics(user.workspaceId);
 
-  for (const entry of analysis.papers) {
-    // Dedup by arxivId
+  for (const entry of analyses) {
+    if (!entry) continue;
+
     let paper = await prisma.paper.findUnique({
       where: { arxivId: entry.arxivId }
     });
@@ -88,7 +122,6 @@ export async function POST() {
         keywords: entry.keywords,
         existingTopics
       });
-      // Add any new topics to the running list
       for (const t of paperTopics) {
         if (!existingTopics.includes(t)) existingTopics.push(t);
       }
@@ -96,7 +129,6 @@ export async function POST() {
       paperTopics = entry.keywords.slice(0, 3);
     }
 
-    // Ensure WorkspacePaper
     await prisma.workspacePaper.upsert({
       where: {
         workspaceId_paperId: {
@@ -112,7 +144,6 @@ export async function POST() {
       }
     });
 
-    // Store analysis
     await prisma.paperAnalysis.create({
       data: {
         paperId: paper.id,
@@ -137,14 +168,11 @@ export async function POST() {
         date: digestDate
       }
     },
-    update: {
-      overviewSummary: analysis.overviewSummary,
-      paperIds
-    },
+    update: { overviewSummary, paperIds },
     create: {
       workspaceId: user.workspaceId,
       date: digestDate,
-      overviewSummary: analysis.overviewSummary,
+      overviewSummary,
       paperIds
     }
   });
@@ -152,6 +180,6 @@ export async function POST() {
   return Response.json({
     ok: true,
     date: today,
-    discovered: analysis.papers.length
+    discovered: analyses.length
   });
 }
