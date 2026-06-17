@@ -1,12 +1,47 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+
 export function PaperUploadForm() {
+  const router = useRouter();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setLoading(true);
+    const formData = new FormData();
+    formData.append("pdf", file);
+
+    try {
+      const res = await fetch("/api/papers", { method: "POST", body: formData });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.paperId) {
+          router.push(`/papers/${data.paperId}`);
+          return;
+        }
+      }
+      router.refresh();
+    } finally {
+      setLoading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
   return (
-    <form className="grid gap-3 rounded border border-border bg-white p-4" action="/api/papers" method="post" encType="multipart/form-data">
-      <h2 className="text-base font-semibold">Upload paper</h2>
-      <input className="rounded border border-border px-3 py-2" name="title" placeholder="Paper title" required />
-      <textarea className="min-h-24 rounded border border-border px-3 py-2" name="abstract" placeholder="Abstract" />
-      <input className="rounded border border-border px-3 py-2" name="authors" placeholder="Authors, comma separated" required />
-      <input className="rounded border border-border px-3 py-2" name="pdf" type="file" accept="application/pdf" required />
-      <button className="rounded bg-accent px-3 py-2 font-medium text-white" type="submit">Upload</button>
-    </form>
+    <>
+      <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={handleFile} />
+      <button
+        className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+        onClick={() => fileRef.current?.click()}
+        disabled={loading}
+      >
+        {loading ? "Uploading..." : "Upload PDF"}
+      </button>
+    </>
   );
 }
