@@ -189,6 +189,11 @@ ${paperSummaries}
     }
   ], 16000);
 
-  const parsed = parseJson<{ overviewSummary: string }>(result);
-  return parsed.overviewSummary;
+  const parsed = parseJson<{ overviewSummary: string | Record<string, unknown> }>(result);
+  if (typeof parsed.overviewSummary === "string") {
+    return parsed.overviewSummary;
+  }
+  return Object.values(parsed.overviewSummary)
+    .map((v) => (Array.isArray(v) ? v.join("\n") : String(v)))
+    .join("\n\n");
 }
