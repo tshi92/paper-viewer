@@ -61,13 +61,15 @@ export async function POST() {
     return Response.json({ error: "No papers selected" }, { status: 500 });
   }
 
-  // Step 3: Analyze each paper individually (all in parallel)
+  // Step 3: Analyze each paper sequentially (avoid LLM rate limits)
   const analyses: PaperAnalysisResult[] = [];
-  const batchResults = await Promise.all(
-    selectedPapers.map((p) => analyzeSinglePaper(p!, topics).catch(() => null))
-  );
-  for (const r of batchResults) {
-    if (r) analyses.push(r);
+  for (const p of selectedPapers) {
+    try {
+      const result = await analyzeSinglePaper(p!, topics);
+      analyses.push(result);
+    } catch {
+      // skip failed analysis, continue with remaining papers
+    }
   }
 
   if (analyses.length === 0) {
