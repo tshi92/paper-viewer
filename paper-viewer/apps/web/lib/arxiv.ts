@@ -68,11 +68,26 @@ export async function fetchArxivPapers(params: {
 
   const url = `http://export.arxiv.org/api/query?search_query=${searchQuery}&sortBy=submittedDate&sortOrder=descending&max_results=${maxResults}`;
 
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`arXiv API error: ${response.status}`);
+  let lastStatus = 0;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, 3000 * attempt));
+    }
+
+    const response = await fetch(url, {
+      headers: { "User-Agent": "PaperViewer/1.0 (research-workspace)" }
+    });
+    lastStatus = response.status;
+
+    if (response.ok) {
+      const xml = await response.text();
+      return parseArxivXml(xml);
+    }
+
+    if (response.status !== 429 && response.status !== 503) {
+      throw new Error(`arXiv API error: ${response.status}`);
+    }
   }
 
-  const xml = await response.text();
-  return parseArxivXml(xml);
+  throw new Error(`arXiv API error: ${lastStatus} (after 3 retries)`);
 }
