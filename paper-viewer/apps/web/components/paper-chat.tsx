@@ -8,13 +8,15 @@ type ChatMessage = {
   content: string;
 };
 
-export function PaperChat({ paperId }: { paperId: string }) {
+export function PaperChat({ paperId, onSaveKeynote }: { paperId: string; onSaveKeynote?: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const shouldAutoScroll = useRef(false);
 
   // Load chat history
   useEffect(() => {
@@ -25,7 +27,9 @@ export function PaperChat({ paperId }: { paperId: string }) {
   }, [paperId]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!shouldAutoScroll.current) return;
+    const el = scrollContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages, streaming]);
 
   const handleSubmit = useCallback(async () => {
@@ -35,6 +39,7 @@ export function PaperChat({ paperId }: { paperId: string }) {
     setInput("");
     setLoading(true);
     setStreaming("");
+    shouldAutoScroll.current = true;
 
     // Optimistic add user message
     const userMsg: ChatMessage = { id: `temp-${Date.now()}`, role: "user", content: text };
@@ -94,6 +99,18 @@ export function PaperChat({ paperId }: { paperId: string }) {
     }
   }, [input, loading, paperId]);
 
+  const saveToKeynote = useCallback(async (msgId: string, content: string) => {
+    const res = await fetch(`/api/papers/${paperId}/keynotes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content, source: "chat" })
+    });
+    if (res.ok) {
+      setSavedIds((prev) => new Set(prev).add(msgId));
+      onSaveKeynote?.();
+    }
+  }, [paperId, onSaveKeynote]);
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -107,7 +124,7 @@ export function PaperChat({ paperId }: { paperId: string }) {
         <h2 className="font-semibold">Chat with Paper</h2>
       </div>
 
-      <div className="flex-1 overflow-auto px-4 py-3 space-y-3">
+      <div ref={scrollContainerRef} className="flex-1 overflow-auto px-4 py-3 space-y-3">
         {messages.length === 0 && !streaming ? (
           <div className="text-center text-sm text-muted py-8">
             <p>Ask anything about this paper.</p>
@@ -121,7 +138,7 @@ export function PaperChat({ paperId }: { paperId: string }) {
         ) : null}
 
         {messages.map((msg) => (
-          <div key={msg.id} className={msg.role === "user" ? "flex justify-end" : ""}>
+          <div key={msg.id} className={msg.role === "user" ? "flex justify-end" : "group"}>
             <div
               className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                 msg.role === "user"
@@ -130,6 +147,20 @@ export function PaperChat({ paperId }: { paperId: string }) {
               }`}
             >
               <div className="whitespace-pre-wrap">{msg.content}</div>
+              {msg.role === "assistant" ? (
+                <div className="mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {savedIds.has(msg.id) ? (
+                    <span className="text-xs text-green-600">Saved to Keynotes</span>
+                  ) : (
+                    <button
+                      className="text-xs text-accent hover:underline"
+                      onClick={() => saveToKeynote(msg.id, msg.content)}
+                    >
+                      Save to Keynotes
+                    </button>
+                  )}
+                </div>
+              ) : null}
             </div>
           </div>
         ))}
@@ -142,7 +173,6 @@ export function PaperChat({ paperId }: { paperId: string }) {
           </div>
         ) : null}
 
-        <div ref={messagesEndRef} />
       </div>
 
       <div className="border-t border-border p-3">

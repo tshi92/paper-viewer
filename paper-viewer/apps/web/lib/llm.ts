@@ -20,7 +20,7 @@ export type DiscoveryResult = {
   papers: PaperAnalysisResult[];
 };
 
-async function callLlm(messages: { role: string; content: string }[], maxTokens = 4000): Promise<string> {
+async function callLlm(messages: { role: string; content: string }[], maxTokens = 16000): Promise<string> {
   const env = getEnv();
 
   const response = await fetch(`${env.LLM_BASE_URL}/chat/completions`, {
@@ -44,9 +44,13 @@ async function callLlm(messages: { role: string; content: string }[], maxTokens 
   }
 
   const data = await response.json() as {
-    choices: { message: { content: string } }[];
+    choices: { message: { content: string; reasoning_content?: string } }[];
   };
-  return data.choices[0]!.message.content;
+  const content = data.choices[0]!.message.content;
+  if (!content) {
+    throw new Error("LLM returned empty content (reasoning model may need higher max_tokens)");
+  }
+  return content;
 }
 
 function parseJson<T>(text: string): T {
@@ -95,7 +99,7 @@ ${paperList}
 
 Return JSON: {"selectedArxivIds": ["arxivId1", "arxivId2", ...]}`
     }
-  ], 1000);
+  ], 16000);
 
   const parsed = parseJson<{ selectedArxivIds: string[] }>(result);
   return parsed.selectedArxivIds;
@@ -138,7 +142,7 @@ Abstract: ${paper.abstract}
 - keywords 用英文、小写、1-4个词
 - relevanceScore 根据与用户研究方向的相关性打分 0-1`
     }
-  ], 3000);
+  ], 16000);
 
   return parseJson<PaperAnalysisResult>(result);
 }
@@ -172,7 +176,7 @@ ${paperSummaries}
   "overviewSummary": "完整的今日简报（中文，400-600字）"
 }`
     }
-  ], 3000);
+  ], 16000);
 
   const parsed = parseJson<{ overviewSummary: string }>(result);
   return parsed.overviewSummary;

@@ -2,9 +2,8 @@ import { prisma } from "@paper-viewer/db";
 import { requireCurrentUser } from "@/lib/auth";
 import { fetchArxivPapers } from "@/lib/arxiv";
 import { selectPapers, analyzeSinglePaper, generateOverview, type PaperAnalysisResult } from "@/lib/llm";
-import { getExistingTopics, assignTopics } from "@/lib/topics";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 export async function POST() {
   let user;
@@ -62,16 +61,13 @@ export async function POST() {
     return Response.json({ error: "No papers selected" }, { status: 500 });
   }
 
-  // Step 3: Analyze each paper individually (in parallel, batches of 3)
+  // Step 3: Analyze each paper individually (all in parallel)
   const analyses: PaperAnalysisResult[] = [];
-  for (let i = 0; i < selectedPapers.length; i += 3) {
-    const batch = selectedPapers.slice(i, i + 3);
-    const batchResults = await Promise.all(
-      batch.map((p) => analyzeSinglePaper(p!, topics).catch(() => null))
-    );
-    for (const r of batchResults) {
-      if (r) analyses.push(r);
-    }
+  const batchResults = await Promise.all(
+    selectedPapers.map((p) => analyzeSinglePaper(p!, topics).catch(() => null))
+  );
+  for (const r of batchResults) {
+    if (r) analyses.push(r);
   }
 
   if (analyses.length === 0) {
@@ -86,10 +82,9 @@ export async function POST() {
     overviewSummary = `今日推荐 ${analyses.length} 篇论文。`;
   }
 
-  // Step 5: Store results
+  // Step 5: Store results (use analysis keywords as tags directly, skip extra LLM calls)
   const today = new Date().toISOString().slice(0, 10);
   const paperIds: string[] = [];
-  const existingTopics = await getExistingTopics(user.workspaceId);
 
   for (const entry of analyses) {
     if (!entry) continue;
@@ -115,21 +110,7 @@ export async function POST() {
 
     paperIds.push(paper.id);
 
-    // Assign normalized topics
-    let paperTopics: string[];
-    try {
-      paperTopics = await assignTopics({
-        title: entry.title,
-        abstract: candidates.find((c) => c.arxivId === entry.arxivId)?.abstract ?? "",
-        keywords: entry.keywords,
-        existingTopics
-      });
-      for (const t of paperTopics) {
-        if (!existingTopics.includes(t)) existingTopics.push(t);
-      }
-    } catch {
-      paperTopics = entry.keywords.slice(0, 3);
-    }
+    const paperTopics = entry.keywords.slice(0, 3);
 
     await prisma.workspacePaper.upsert({
       where: {
@@ -157,7 +138,7 @@ export async function POST() {
         keyFindings: entry.keyFindings,
         whyItMatters: entry.whyItMatters,
         keywords: entry.keywords,
-        model: "kimi"
+        model: "deepseek"
       }
     });
   }

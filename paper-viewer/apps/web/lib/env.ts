@@ -14,8 +14,8 @@ const envSchema = z.object({
   INGEST_API_KEY: z.string().min(16),
   RESEND_API_KEY: z.string().min(1).optional(),
   LLM_API_KEY: z.string().min(1),
-  LLM_BASE_URL: z.string().url().default("https://api.moonshot.ai/v1"),
-  LLM_MODEL: z.string().default("moonshot-v1-128k")
+  LLM_BASE_URL: z.string().url().default("https://api.deepseek.com"),
+  LLM_MODEL: z.string().default("deepseek-v4-pro")
 });
 
 type Env = z.infer<typeof envSchema>;

@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { requireCurrentUser } from "@/lib/auth";
 import { getEnv, getS3Config } from "@/lib/env";
 import { getExistingTopics, assignTopics } from "@/lib/topics";
+import { extractPdfText } from "@/lib/pdf-extract";
 
 type PaperMetadata = {
   title: string;
@@ -14,41 +15,41 @@ type PaperMetadata = {
   keywords: string[];
 };
 
-async function extractMetadataViaLlm(
-  bytes: Uint8Array,
-  fileName: string,
-  env: { LLM_API_KEY: string; LLM_BASE_URL: string; LLM_MODEL: string }
-): Promise<PaperMetadata> {
-  // Upload PDF to Kimi Files API for text extraction
-  const uploadForm = new FormData();
-  uploadForm.append("file", new Blob([Buffer.from(bytes)], { type: "application/pdf" }), fileName);
-  uploadForm.append("purpose", "file-extract");
+function parseArxivId(url: string): string | null {
+  const m = url.match(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5}(?:v\d+)?)/);
+  return m ? m[1]! : null;
+}
 
-  const uploadRes = await fetch(`${env.LLM_BASE_URL}/files`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${env.LLM_API_KEY}` },
-    body: uploadForm
-  });
+async function fetchPdfFromUrl(url: string): Promise<{ bytes: Uint8Array; fileName: string; arxivId: string | null }> {
+  let pdfUrl = url;
+  const arxivId = parseArxivId(url);
 
-  if (!uploadRes.ok) {
-    throw new Error(`File upload failed: ${uploadRes.status} ${await uploadRes.text()}`);
+  if (arxivId) {
+    pdfUrl = `https://arxiv.org/pdf/${arxivId}.pdf`;
   }
 
-  const fileData = await uploadRes.json() as { id: string };
-  const fileId = fileData.id;
+  const res = await fetch(pdfUrl, { redirect: "follow" });
+  if (!res.ok) {
+    throw new Error(`Failed to fetch PDF: ${res.status}`);
+  }
 
-  // Get extracted text content
-  const contentRes = await fetch(`${env.LLM_BASE_URL}/files/${fileId}/content`, {
-    headers: { "Authorization": `Bearer ${env.LLM_API_KEY}` }
-  });
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  const fileName = arxivId ? `${arxivId}.pdf` : (pdfUrl.split("/").pop() || "paper.pdf");
 
-  const fileContent = contentRes.ok ? await contentRes.text() : "";
+  return { bytes, fileName, arxivId };
+}
+
+async function extractMetadataViaLlm(
+  bytes: Uint8Array,
+  _fileName: string,
+  env: { LLM_API_KEY: string; LLM_BASE_URL: string; LLM_MODEL: string }
+): Promise<PaperMetadata> {
+  const fileContent = await extractPdfText(bytes);
 
   if (!fileContent) {
     throw new Error("Failed to extract text from PDF");
   }
 
-  // Ask LLM to extract metadata from the content
   const response = await fetch(`${env.LLM_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
@@ -88,16 +89,10 @@ async function extractMetadataViaLlm(
         }
       ],
       temperature: 0.1,
-      max_tokens: 3000,
+      max_tokens: 16000,
       response_format: { type: "json_object" }
     })
   });
-
-  // Clean up uploaded file (fire and forget)
-  fetch(`${env.LLM_BASE_URL}/files/${fileId}`, {
-    method: "DELETE",
-    headers: { "Authorization": `Bearer ${env.LLM_API_KEY}` }
-  }).catch(() => {});
 
   if (!response.ok) {
     throw new Error(`LLM API error: ${response.status}`);
@@ -114,32 +109,75 @@ async function extractMetadataViaLlm(
 export async function POST(request: Request) {
   const user = await requireCurrentUser();
   const env = getEnv();
-  const formData = await request.formData();
-  const file = formData.get("pdf");
 
-  if (!(file instanceof File)) {
-    return new Response("PDF file is required", { status: 400 });
+  const contentType = request.headers.get("content-type") || "";
+
+  let bytes: Uint8Array;
+  let fileName: string;
+  let arxivId: string | null = null;
+
+  if (contentType.includes("application/json")) {
+    const body = await request.json() as { url?: string };
+    const url = body.url?.trim();
+    if (!url) {
+      return new Response("URL is required", { status: 400 });
+    }
+
+    try {
+      const result = await fetchPdfFromUrl(url);
+      bytes = result.bytes;
+      fileName = result.fileName;
+      arxivId = result.arxivId;
+    } catch (e) {
+      return new Response(e instanceof Error ? e.message : "Failed to fetch PDF", { status: 400 });
+    }
+
+    if (bytes.byteLength > env.MAX_PDF_UPLOAD_MB * 1024 * 1024) {
+      return new Response(`PDF exceeds ${env.MAX_PDF_UPLOAD_MB}MB limit`, { status: 400 });
+    }
+  } else {
+    const formData = await request.formData();
+    const file = formData.get("pdf");
+
+    if (!(file instanceof File)) {
+      return new Response("PDF file is required", { status: 400 });
+    }
+
+    bytes = new Uint8Array(await file.arrayBuffer());
+    fileName = file.name;
+
+    const validation = validatePdfUpload({
+      fileName: file.name,
+      contentType: file.type,
+      byteLength: bytes.byteLength,
+      maxBytes: env.MAX_PDF_UPLOAD_MB * 1024 * 1024
+    });
+
+    if (!validation.ok) {
+      return new Response(validation.reason, { status: 400 });
+    }
   }
 
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const validation = validatePdfUpload({
-    fileName: file.name,
-    contentType: file.type,
-    byteLength: bytes.byteLength,
-    maxBytes: env.MAX_PDF_UPLOAD_MB * 1024 * 1024
-  });
-
-  if (!validation.ok) {
-    return new Response(validation.reason, { status: 400 });
+  // If arxiv URL, check for existing paper to avoid duplicates
+  if (arxivId) {
+    const existing = await prisma.workspacePaper.findFirst({
+      where: {
+        workspaceId: user.workspaceId,
+        paper: { arxivId },
+        state: "visible"
+      }
+    });
+    if (existing) {
+      return Response.json({ ok: true, paperId: existing.paperId });
+    }
   }
 
-  // Extract metadata via LLM (upload PDF → extract text → analyze)
   let metadata: PaperMetadata;
   try {
-    metadata = await extractMetadataViaLlm(bytes, file.name, env);
+    metadata = await extractMetadataViaLlm(bytes, fileName, env);
   } catch {
     metadata = {
-      title: file.name.replace(/\.pdf$/i, ""),
+      title: fileName.replace(/\.pdf$/i, ""),
       authors: [],
       abstract: "",
       summary: "",
@@ -149,7 +187,6 @@ export async function POST(request: Request) {
 
   const sha256 = createHash("sha256").update(bytes).digest("hex");
 
-  // Assign normalized topics
   const existingTopics = await getExistingTopics(user.workspaceId);
   let topics: string[];
   try {
@@ -168,7 +205,8 @@ export async function POST(request: Request) {
       title: metadata.title,
       abstract: metadata.abstract || null,
       authors: metadata.authors,
-      source: "manual",
+      source: arxivId ? "arxiv" : "manual",
+      ...(arxivId ? { arxivId } : {}),
       workspacePapers: {
         create: {
           workspaceId: user.workspaceId,
@@ -186,7 +224,7 @@ export async function POST(request: Request) {
         workspaceId: user.workspaceId,
         summary: metadata.summary,
         keywords: metadata.keywords,
-        model: "kimi"
+        model: "deepseek"
       }
     });
   }
@@ -205,7 +243,7 @@ export async function POST(request: Request) {
       data: {
         paperId: paper.id,
         objectKey,
-        fileName: file.name,
+        fileName,
         contentType: "application/pdf",
         byteLength: bytes.byteLength,
         sha256,

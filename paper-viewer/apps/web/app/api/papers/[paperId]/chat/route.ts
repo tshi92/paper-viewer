@@ -1,20 +1,19 @@
 import { prisma } from "@paper-viewer/db";
 import { requireCurrentUser } from "@/lib/auth";
 import { getEnv } from "@/lib/env";
+import { extractPdfText } from "@/lib/pdf-extract";
 import { z } from "zod";
 
 const chatSchema = z.object({
   message: z.string().min(1).max(5000)
 });
 
-async function ensurePaperExtract(paperId: string, env: { LLM_API_KEY: string; LLM_BASE_URL: string }): Promise<string> {
-  // Check if we already have extracted text
+async function ensurePaperExtract(paperId: string): Promise<string> {
   const existing = await prisma.paperFileExtract.findUnique({
     where: { paperId }
   });
   if (existing) return existing.textContent;
 
-  // Get paper info to find PDF source
   const paper = await prisma.paper.findUnique({
     where: { id: paperId },
     include: { files: { take: 1 } }
@@ -24,7 +23,6 @@ async function ensurePaperExtract(paperId: string, env: { LLM_API_KEY: string; L
 
   let pdfBytes: Uint8Array | null = null;
 
-  // Try to get PDF from arXiv if available
   if (paper.arxivId) {
     const res = await fetch(`https://arxiv.org/pdf/${paper.arxivId}`, {
       headers: { "User-Agent": "PaperViewer/1.0" }
@@ -35,40 +33,25 @@ async function ensurePaperExtract(paperId: string, env: { LLM_API_KEY: string; L
   }
 
   if (!pdfBytes) {
-    // Fallback: use abstract as context
     return paper.abstract ?? paper.title;
   }
 
-  // Upload to Kimi Files API
-  const uploadForm = new FormData();
-  uploadForm.append("file", new Blob([Buffer.from(pdfBytes)], { type: "application/pdf" }), `${paper.arxivId ?? paperId}.pdf`);
-  uploadForm.append("purpose", "file-extract");
-
-  const uploadRes = await fetch(`${env.LLM_BASE_URL}/files`, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${env.LLM_API_KEY}` },
-    body: uploadForm
-  });
-
-  if (!uploadRes.ok) {
+  let textContent: string;
+  try {
+    textContent = await extractPdfText(pdfBytes);
+  } catch {
     return paper.abstract ?? paper.title;
   }
 
-  const fileData = await uploadRes.json() as { id: string };
+  if (!textContent.trim()) {
+    return paper.abstract ?? paper.title;
+  }
 
-  // Get extracted text
-  const contentRes = await fetch(`${env.LLM_BASE_URL}/files/${fileData.id}/content`, {
-    headers: { "Authorization": `Bearer ${env.LLM_API_KEY}` }
-  });
-
-  const textContent = contentRes.ok ? await contentRes.text() : (paper.abstract ?? paper.title);
-
-  // Cache it
   await prisma.paperFileExtract.create({
     data: {
       paperId,
-      llmFileId: fileData.id,
-      textContent: textContent.slice(0, 100000) // limit storage
+      llmFileId: "local-extract",
+      textContent: textContent.slice(0, 100000)
     }
   });
 
@@ -101,7 +84,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
   // Get paper text content
   let paperContent: string;
   try {
-    paperContent = await ensurePaperExtract(paperId, env);
+    paperContent = await ensurePaperExtract(paperId);
   } catch {
     paperContent = wp.paper.abstract ?? wp.paper.title;
   }
@@ -146,7 +129,7 @@ ${paperContent.slice(0, 60000)}`
       model: env.LLM_MODEL,
       messages,
       temperature: 0.3,
-      max_tokens: 4000,
+      max_tokens: 16000,
       stream: true
     })
   });
@@ -176,7 +159,7 @@ ${paperContent.slice(0, 60000)}`
 
             try {
               const parsed = JSON.parse(data) as {
-                choices: { delta: { content?: string } }[];
+                choices: { delta: { content?: string; reasoning_content?: string } }[];
               };
               const content = parsed.choices[0]?.delta?.content;
               if (content) {

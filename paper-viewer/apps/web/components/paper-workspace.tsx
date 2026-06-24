@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PdfViewer } from "./pdf-viewer";
 import { CommentPanel } from "./comment-panel";
 import { PaperChat } from "./paper-chat";
+import { KeynotePanel } from "./keynote-panel";
 import { ReadingStateSelect } from "./reading-state-select";
 import { DownloadPdfButton } from "./download-pdf-button";
 
@@ -34,11 +35,12 @@ type PaperData = {
   readingState: string;
 };
 
-type SidebarTab = "chat" | "comments";
+type SidebarTab = "chat" | "keynotes" | "comments";
 
 export function PaperWorkspace({ paper }: { paper: PaperData }) {
   const [pendingQuote, setPendingQuote] = useState<{ text: string; pageNumber: number } | null>(null);
   const [activeTab, setActiveTab] = useState<SidebarTab>("chat");
+  const [keynoteVersion, setKeynoteVersion] = useState(0);
 
   const pdfUrl = paper.hasPdf
     ? `/api/papers/${paper.id}/file`
@@ -119,22 +121,24 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
 
         {/* Tab switcher */}
         <div className="flex rounded border border-border bg-white overflow-hidden">
-          <button
-            className={`flex-1 px-3 py-2 text-sm font-medium ${activeTab === "chat" ? "bg-accent text-white" : "text-muted hover:bg-surface"}`}
-            onClick={() => setActiveTab("chat")}
-          >
-            AI Chat
-          </button>
-          <button
-            className={`flex-1 px-3 py-2 text-sm font-medium ${activeTab === "comments" ? "bg-accent text-white" : "text-muted hover:bg-surface"}`}
-            onClick={() => { setActiveTab("comments"); }}
-          >
-            Comments ({paper.comments.length})
-          </button>
+          {(["chat", "keynotes", "comments"] as const).map((tab) => {
+            const labels = { chat: "AI Chat", keynotes: "Keynotes", comments: `Comments (${paper.comments.length})` };
+            return (
+              <button
+                key={tab}
+                className={`flex-1 px-2 py-2 text-sm font-medium ${activeTab === tab ? "bg-accent text-white" : "text-muted hover:bg-surface"}`}
+                onClick={() => setActiveTab(tab)}
+              >
+                {labels[tab]}
+              </button>
+            );
+          })}
         </div>
 
         {activeTab === "chat" ? (
-          <PaperChat paperId={paper.id} />
+          <PaperChat paperId={paper.id} onSaveKeynote={() => { setKeynoteVersion((v) => v + 1); setActiveTab("keynotes"); }} />
+        ) : activeTab === "keynotes" ? (
+          <KeynotePanel paperId={paper.id} key={`keynotes-${keynoteVersion}`} />
         ) : (
           <CommentPanel
             paperId={paper.id}
