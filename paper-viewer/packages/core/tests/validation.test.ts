@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { invariant } from "../src/validation";
+import { invariant } from "@paper-viewer/core";
 
 describe("invariant", () => {
   it("throws when the condition is false", () => {

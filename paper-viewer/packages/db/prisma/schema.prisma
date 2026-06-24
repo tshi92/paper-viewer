@@ -1,0 +1,261 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum WorkspaceRole {
+  owner
+  admin
+  member
+}
+
+enum ReadingState {
+  new
+  reading
+  saved
+  discussed
+  skipped
+  archived
+}
+
+enum WorkspacePaperState {
+  visible
+  archived
+}
+
+enum PaperFileStatus {
+  uploaded
+  processing
+  ready
+  failed
+}
+
+model User {
+  id            String                @id @default(cuid())
+  email         String                @unique
+  name          String?
+  passwordHash  String
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+  memberships   WorkspaceMembership[]
+  comments      Comment[]
+  readingStates ReadingStateRecord[]
+  importedPapers WorkspacePaper[]
+  keynotes      PaperKeynote[]
+}
+
+model Workspace {
+  id              String                @id @default(cuid())
+  name            String
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  memberships     WorkspaceMembership[]
+  invitations     Invitation[]
+  workspacePapers WorkspacePaper[]
+}
+
+model WorkspaceMembership {
+  id          String        @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole
+  createdAt   DateTime      @default(now())
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+model Invitation {
+  id          String        @id @default(cuid())
+  workspaceId String
+  email       String
+  role        WorkspaceRole
+  tokenHash   String        @unique
+  acceptedAt  DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime      @default(now())
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, email])
+}
+
+model Paper {
+  id              String           @id @default(cuid())
+  title           String
+  abstract        String?
+  authors         Json
+  source          String
+  sourceId        String?
+  doi             String?
+  arxivId         String?
+  publishedAt     DateTime?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  files           PaperFile[]
+  workspacePapers WorkspacePaper[]
+  analyses        PaperAnalysis[]
+
+  @@unique([source, sourceId])
+  @@unique([doi])
+  @@unique([arxivId])
+}
+
+model PaperAnalysis {
+  id              String    @id @default(cuid())
+  paperId         String
+  workspaceId     String?
+  summary         String
+  motivation      String?
+  problem         String?
+  method          String?
+  keyFindings     String?
+  whyItMatters    String?
+  keywords        String[]  @default([])
+  model           String?
+  createdAt       DateTime  @default(now())
+  paper           Paper     @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@index([paperId])
+}
+
+model ResearchPreferences {
+  id              String    @id @default(cuid())
+  workspaceId     String    @unique
+  topics          String[]  @default([])
+  keywords        String[]  @default([])
+  excludedTopics  String[]  @default([])
+  papersPerDay    Int       @default(10)
+  arxivCategories String[]  @default([])
+  updatedAt       DateTime  @updatedAt
+}
+
+model PaperKeynote {
+  id          String   @id @default(cuid())
+  workspaceId String
+  paperId     String
+  authorId    String
+  content     String
+  source      String   @default("manual") // "manual" | "chat" | "comment"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspacePaper WorkspacePaper @relation(fields: [workspaceId, paperId], references: [workspaceId, paperId], onDelete: Cascade)
+  author         User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, paperId])
+  @@index([authorId])
+}
+
+model PaperChatMessage {
+  id          String   @id @default(cuid())
+  paperId     String
+  userId      String
+  role        String   // "user" | "assistant"
+  content     String
+  createdAt   DateTime @default(now())
+
+  @@index([paperId, userId])
+}
+
+// Stores Kimi file_id for uploaded PDFs to avoid re-uploading
+model PaperFileExtract {
+  id            String   @id @default(cuid())
+  paperId       String   @unique
+  llmFileId     String
+  textContent   String
+  createdAt     DateTime @default(now())
+
+  @@index([paperId])
+}
+
+model DailyDigest {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  date            DateTime  @db.Date
+  overviewSummary String
+  paperIds        String[]
+  createdAt       DateTime  @default(now())
+
+  @@unique([workspaceId, date])
+}
+
+model WorkspacePaper {
+  id            String              @id @default(cuid())
+  workspaceId   String
+  paperId       String
+  state         WorkspacePaperState @default(visible)
+  tags          String[]            @default([])
+  importedById  String?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  workspace     Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  paper         Paper               @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  importedBy    User?               @relation(fields: [importedById], references: [id], onDelete: SetNull)
+  comments      Comment[]
+  readingStates ReadingStateRecord[]
+  keynotes      PaperKeynote[]
+
+  @@unique([workspaceId, paperId])
+  @@index([paperId])
+}
+
+model PaperFile {
+  id          String          @id @default(cuid())
+  paperId     String
+  objectKey   String          @unique
+  fileName    String
+  contentType String
+  byteLength  Int
+  sha256      String
+  pageCount   Int?
+  status      PaperFileStatus @default(uploaded)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  paper       Paper           @relation(fields: [paperId], references: [id], onDelete: Cascade)
+}
+
+// Note: Prisma cannot enforce that a reply's parent belongs to the same
+// WorkspacePaper at the schema level. The API layer MUST check that
+// parent.workspaceId == child.workspaceId AND parent.paperId == child.paperId
+// before inserting a reply.
+model Comment {
+  id               String         @id @default(cuid())
+  workspaceId      String
+  paperId          String
+  authorId         String
+  parentId         String?
+  body             String
+  pageNumber       Int?
+  quotedText       String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  workspacePaper   WorkspacePaper @relation(fields: [workspaceId, paperId], references: [workspaceId, paperId], onDelete: Cascade)
+  author           User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent           Comment?       @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies          Comment[]      @relation("CommentThread")
+
+  @@index([workspaceId, paperId])
+  @@index([authorId])
+}
+
+model ReadingStateRecord {
+  id             String         @id @default(cuid())
+  workspaceId    String
+  paperId        String
+  userId         String
+  state          ReadingState   @default(new)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  workspacePaper WorkspacePaper @relation(fields: [workspaceId, paperId], references: [workspaceId, paperId], onDelete: Cascade)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, paperId, userId])
+  @@index([userId])
+}

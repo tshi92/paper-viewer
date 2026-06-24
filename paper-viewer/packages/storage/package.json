@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "main": "./src/object-storage.ts",
+  "exports": {
+    ".": "./src/object-storage.ts",
+    "./pdf-storage": "./src/pdf-storage.ts"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",

@@ -1,37 +1,86 @@
 # Paper Viewer
 
-Local-first research team paper workspace.
+Research team paper workspace with daily arXiv recommendations, PDF viewing, comments, and reading states.
 
-## Development
+**Production**: https://paper-viewer-five.vercel.app
 
-1. Copy `.env.example` to `.env`.
-2. Run `docker compose up -d`.
-3. Run `pnpm install`.
-4. Run `pnpm build`.
-5. Run `pnpm dev`.
-6. Open `http://localhost:3000`.
-
-`pnpm db:generate` and `pnpm db:migrate` become active after the Prisma schema task lands. Do not run them during Task 1 scaffold setup.
-
-## Phase 1
-
-Phase 1 supports owner bootstrap, login, workspace membership, manual PDF upload, paper library, PDF viewing, comments, and reading states.
-
-## Local Services
-
-Start local services:
+## Quick Start (Local)
 
 ```bash
+# 1. Start services
 docker compose up -d
+docker compose run --rm minio-client
+
+# 2. Setup
+cp .env.example .env        # edit API keys
+pnpm install
+pnpm db:generate
+pnpm db:migrate
+
+# 3. Run
+pnpm dev
+# Open http://localhost:3000/bootstrap
 ```
 
-Postgres runs on `localhost:5432`.
-Redis runs on `localhost:6379`.
-MinIO API runs on `localhost:9000`.
-MinIO console runs on `localhost:9001`.
+## Development Workflow
 
-Create the PDF bucket after services start:
+### Local → Deploy
 
 ```bash
-docker compose run --rm minio-client
+# 1. Work locally
+pnpm dev                     # http://localhost:3000
+
+# 2. Test
+pnpm build && pnpm test
+
+# 3. Commit
+git add -A && git commit -m "feat: ..."
+
+# 4. Deploy to production
+pnpm deploy                  # runs: vercel deploy --prod
 ```
+
+### Database Migrations
+
+```bash
+# Local: create and apply migration
+pnpm db:migrate --name my_change
+
+# Production: apply to Neon (run once after migration)
+DATABASE_URL="<neon-pooler-url>" DIRECT_URL="<neon-direct-url>" \
+  pnpm --filter @paper-viewer/db exec prisma migrate deploy --schema prisma/schema.prisma
+```
+
+## Architecture
+
+| Component | Local | Production |
+|-----------|-------|------------|
+| App | Next.js dev server | Vercel |
+| Database | Docker Postgres | Neon |
+| PDF Storage | Docker MinIO | arXiv proxy (S3 optional) |
+| LLM | DeepSeek V4 Pro | DeepSeek V4 Pro |
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | Postgres connection (pooled) |
+| `DIRECT_URL` | Yes | Postgres connection (direct) |
+| `AUTH_SECRET` | Yes | Session signing key (32+ chars) |
+| `APP_URL` | No | App URL (default: localhost:3000) |
+| `INGEST_API_KEY` | Yes | API key for paper ingest endpoint |
+| `LLM_API_KEY` | Yes | DeepSeek API key |
+| `LLM_BASE_URL` | No | LLM endpoint (default: deepseek) |
+| `LLM_MODEL` | No | Model name (default: deepseek-v4-pro) |
+| `S3_ENDPOINT` | No | MinIO/S3 endpoint (local only) |
+| `S3_ACCESS_KEY_ID` | No | S3 access key |
+| `S3_SECRET_ACCESS_KEY` | No | S3 secret key |
+| `RESEND_API_KEY` | No | Email service for invitations |
+
+## Features
+
+- **Today**: Daily paper recommendations from arXiv with LLM analysis
+- **Library**: Paper collection with manual PDF upload and arXiv URL import
+- **Paper Workspace**: PDF viewer with text selection comments, AI chat, and keynotes
+- **Preferences**: Configure research interests and arXiv categories
+- **Members**: Invite team members via shareable links

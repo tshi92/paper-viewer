@@ -2,9 +2,9 @@
   "name": "@paper-viewer/web",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -H 0.0.0.0",
     "build": "next build",
-    "lint": "next lint",
+    "lint": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test"
   },
@@ -13,12 +13,16 @@
     "@paper-viewer/db": "workspace:*",
     "@paper-viewer/storage": "workspace:*",
     "@prisma/client": "^6.1.0",
+    "@types/pdf-parse": "^1.1.5",
     "bcryptjs": "^2.4.3",
     "lucide-react": "^0.468.0",
     "next": "^15.1.0",
+    "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^4.10.38",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "resend": "^6.12.4",
+    "unpdf": "^1.6.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {
