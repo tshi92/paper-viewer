@@ -8,7 +8,7 @@ export type ArxivPaper = {
   url: string;
 };
 
-function parseArxivXml(xml: string): ArxivPaper[] {
+function parseAtomXml(xml: string): ArxivPaper[] {
   const papers: ArxivPaper[] = [];
   const entries = xml.split("<entry>").slice(1);
 
@@ -44,6 +44,85 @@ function parseArxivXml(xml: string): ArxivPaper[] {
   return papers;
 }
 
+function parseRssXml(xml: string): ArxivPaper[] {
+  const papers: ArxivPaper[] = [];
+  const items = xml.split("<item>").slice(1);
+
+  for (const item of items) {
+    const get = (tag: string) => {
+      const match = item.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
+      return match ? match[1]!.trim() : "";
+    };
+
+    const link = get("link");
+    const arxivMatch = link.match(/\/abs\/(\d{4}\.\d{4,5})/);
+    if (!arxivMatch) continue;
+    const arxivId = arxivMatch[1]!;
+
+    const rawTitle = get("title").replace(/<[^>]+>/g, "").replace(/\s+/g, " ");
+    const title = rawTitle.replace(/\(arXiv:[\d.]+v?\d*.*\)$/i, "").trim();
+
+    const rawDesc = get("description");
+    const abstract = rawDesc.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+
+    const creatorTag = item.match(/<dc:creator>([^<]+)<\/dc:creator>/);
+    const authors = creatorTag
+      ? creatorTag[1]!.split(",").map((a) => a.trim()).filter(Boolean)
+      : [];
+
+    papers.push({
+      arxivId,
+      title,
+      abstract,
+      authors,
+      publishedAt: get("pubDate") || new Date().toISOString(),
+      categories: [],
+      url: `https://arxiv.org/abs/${arxivId}`
+    });
+  }
+
+  return papers;
+}
+
+async function fetchViaRss(categories: string[], maxResults: number): Promise<ArxivPaper[]> {
+  const allPapers: ArxivPaper[] = [];
+  const seen = new Set<string>();
+
+  for (const cat of categories) {
+    const url = `https://rss.arxiv.org/rss/${cat}`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "PaperViewer/1.0 (research-workspace)" }
+    });
+    if (!res.ok) continue;
+
+    const xml = await res.text();
+    for (const p of parseRssXml(xml)) {
+      if (!seen.has(p.arxivId)) {
+        seen.add(p.arxivId);
+        allPapers.push({ ...p, categories: [cat] });
+      }
+    }
+
+    if (allPapers.length >= maxResults) break;
+  }
+
+  return allPapers.slice(0, maxResults);
+}
+
+async function fetchViaApi(searchQuery: string, maxResults: number): Promise<ArxivPaper[]> {
+  const url = `http://export.arxiv.org/api/query?search_query=${searchQuery}&sortBy=submittedDate&sortOrder=descending&max_results=${maxResults}`;
+
+  const response = await fetch(url, {
+    headers: { "User-Agent": "PaperViewer/1.0 (research-workspace)" }
+  });
+
+  if (!response.ok) {
+    throw new Error(`arXiv API error: ${response.status}`);
+  }
+
+  return parseAtomXml(await response.text());
+}
+
 export async function fetchArxivPapers(params: {
   categories: string[];
   keywords: string[];
@@ -51,43 +130,26 @@ export async function fetchArxivPapers(params: {
 }): Promise<ArxivPaper[]> {
   const { categories, keywords, maxResults = 40 } = params;
 
-  // Build search query
+  // Build search query for API fallback
   const parts: string[] = [];
-
   if (categories.length > 0) {
     const catQuery = categories.map((c) => `cat:${c}`).join("+OR+");
     parts.push(`(${catQuery})`);
   }
-
   if (keywords.length > 0) {
     const kwQuery = keywords.map((k) => `all:${encodeURIComponent(k)}`).join("+OR+");
     parts.push(`(${kwQuery})`);
   }
-
   const searchQuery = parts.length > 0 ? parts.join("+AND+") : "cat:cs.AI";
 
-  const url = `http://export.arxiv.org/api/query?search_query=${searchQuery}&sortBy=submittedDate&sortOrder=descending&max_results=${maxResults}`;
-
-  let lastStatus = 0;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) {
-      await new Promise((r) => setTimeout(r, 3000 * attempt));
-    }
-
-    const response = await fetch(url, {
-      headers: { "User-Agent": "PaperViewer/1.0 (research-workspace)" }
-    });
-    lastStatus = response.status;
-
-    if (response.ok) {
-      const xml = await response.text();
-      return parseArxivXml(xml);
-    }
-
-    if (response.status !== 429 && response.status !== 503) {
-      throw new Error(`arXiv API error: ${response.status}`);
-    }
+  // Primary: RSS feed (CDN-served, no rate limiting)
+  try {
+    const papers = await fetchViaRss(categories, maxResults);
+    if (papers.length > 0) return papers;
+  } catch {
+    // fall through to API
   }
 
-  throw new Error(`arXiv API error: ${lastStatus} (after 3 retries)`);
+  // Fallback: arXiv API (may 429 on shared IPs)
+  return fetchViaApi(searchQuery, maxResults);
 }
