@@ -71,27 +71,38 @@ export async function selectPapers(params: {
 }): Promise<string[]> {
   const { papers, topics, keywords, excludedTopics, papersPerDay } = params;
 
-  const paperList = papers
-    .slice(0, 30)
+  // Pre-filter: score papers by keyword relevance, take top candidates
+  const allTerms = [...topics, ...keywords].map((t) => t.toLowerCase());
+  const scored = papers.map((p) => {
+    const text = `${p.title} ${p.abstract}`.toLowerCase();
+    const hits = allTerms.filter((t) => text.includes(t)).length;
+    return { paper: p, hits };
+  });
+  scored.sort((a, b) => b.hits - a.hits);
+  const topPapers = scored.slice(0, 50).map((s) => s.paper);
+
+  const paperList = topPapers
     .map((p, i) => `[${i + 1}] ${p.arxivId} | ${p.title}\nAuthors: ${p.authors.slice(0, 3).join(", ")}\nAbstract: ${p.abstract.slice(0, 300)}`)
     .join("\n\n");
 
+  const topicStr = topics.join(", ") || "AI/ML research";
+  const keywordStr = keywords.join(", ") || "machine learning";
+
   const result = await callLlm([
-    { role: "system", content: "You are a research paper recommender for systems researchers. Return pure JSON." },
+    { role: "system", content: "You are a research paper recommender. Return pure JSON." },
     {
       role: "user",
-      content: `Select the ${papersPerDay} most relevant papers for a researcher working on large language model systems.
+      content: `Select the ${papersPerDay} most relevant papers for a researcher.
 
-Research interests: ${topics.join(", ") || "LLM systems, distributed training, model serving"}
-Keywords: ${keywords.join(", ") || "LLM serving, KV cache, MoE, distributed training"}
+Research interests: ${topicStr}
+Keywords: ${keywordStr}
 Exclude: ${excludedTopics.join(", ") || "none"}
 
 Selection criteria:
-- Focus on systems papers (infrastructure, serving, training, scheduling, memory management)
-- Prefer papers from strong research groups and institutions
-- Papers should be relevant to building, optimizing, or deploying large language models
-- Include papers from systems venues (EuroSys, OSDI, SOSP, ASPLOS, NSDI) and AI venues (ICML, NeurIPS, ICLR) when applicable
-- Avoid pure application papers without systems contributions
+- Prioritize papers closely related to the researcher's interests and keywords
+- Prefer papers with novel methods, strong experiments, or from recognized research groups
+- Include a mix of core-topic papers and interesting adjacent work
+- You MUST select exactly ${papersPerDay} papers (no more, no less)
 
 Candidate papers:
 
