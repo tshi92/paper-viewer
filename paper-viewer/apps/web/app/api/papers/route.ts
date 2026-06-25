@@ -20,7 +20,7 @@ function parseArxivId(url: string): string | null {
   return m ? m[1]! : null;
 }
 
-async function fetchPdfFromUrl(url: string): Promise<{ bytes: Uint8Array; fileName: string; arxivId: string | null }> {
+async function fetchPdfFromUrl(url: string): Promise<{ bytes: Uint8Array; fileName: string; arxivId: string | null; sourceUrl: string }> {
   let pdfUrl = url;
   const arxivId = parseArxivId(url);
 
@@ -36,7 +36,7 @@ async function fetchPdfFromUrl(url: string): Promise<{ bytes: Uint8Array; fileNa
   const bytes = new Uint8Array(await res.arrayBuffer());
   const fileName = arxivId ? `${arxivId}.pdf` : (pdfUrl.split("/").pop() || "paper.pdf");
 
-  return { bytes, fileName, arxivId };
+  return { bytes, fileName, arxivId, sourceUrl: pdfUrl };
 }
 
 async function extractMetadataViaLlm(
@@ -115,6 +115,7 @@ export async function POST(request: Request) {
   let bytes: Uint8Array;
   let fileName: string;
   let arxivId: string | null = null;
+  let pdfUrl: string | null = null;
 
   if (contentType.includes("application/json")) {
     const body = await request.json() as { url?: string };
@@ -128,6 +129,7 @@ export async function POST(request: Request) {
       bytes = result.bytes;
       fileName = result.fileName;
       arxivId = result.arxivId;
+      pdfUrl = result.sourceUrl;
     } catch (e) {
       return new Response(e instanceof Error ? e.message : "Failed to fetch PDF", { status: 400 });
     }
@@ -207,6 +209,7 @@ export async function POST(request: Request) {
       authors: metadata.authors,
       source: arxivId ? "arxiv" : "manual",
       ...(arxivId ? { arxivId } : {}),
+      ...(pdfUrl ? { pdfUrl } : {}),
       workspacePapers: {
         create: {
           workspaceId: user.workspaceId,
