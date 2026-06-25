@@ -59,6 +59,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
         title: paper.title,
         authors: Array.isArray(paper.authors) ? paper.authors as string[] : [],
         arxivId: paper.arxivId,
+        pdfUrl: paper.pdfUrl,
         abstract: paper.abstract,
         hasPdf: paper.files.length > 0,
         analysis: analysis

@@ -13,6 +13,7 @@ type PaperData = {
   title: string;
   authors: string[];
   arxivId: string | null;
+  pdfUrl: string | null;
   abstract: string | null;
   hasPdf: boolean;
   analysis: {
@@ -46,7 +47,9 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
     ? `/api/papers/${paper.id}/file`
     : paper.arxivId
       ? `/api/papers/${paper.id}/arxiv-pdf`
-      : null;
+      : paper.pdfUrl
+        ? `/api/papers/${paper.id}/proxy-pdf`
+        : null;
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-6">
