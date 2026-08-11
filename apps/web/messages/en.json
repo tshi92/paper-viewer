@@ -130,7 +130,10 @@
     "inputPlaceholder": "Ask about this paper… (Enter to send)",
     "send": "Send",
     "errorResponse": "Error: Failed to get response",
-    "errorNetwork": "Error: Network error"
+    "errorNetwork": "Error: Network error",
+    "saveToComments": "Save to comments",
+    "savedToComments": "Saved to comments",
+    "saveToCommentsFailed": "Save failed, try again"
   },
   "comments": {
     "heading": "Discussion",

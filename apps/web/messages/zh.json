@@ -130,7 +130,10 @@
     "inputPlaceholder": "问点关于这篇论文的问题…（回车发送）",
     "send": "发送",
     "errorResponse": "错误：获取回复失败",
-    "errorNetwork": "错误：网络异常"
+    "errorNetwork": "错误：网络异常",
+    "saveToComments": "存入评论",
+    "savedToComments": "已存入评论",
+    "saveToCommentsFailed": "保存失败，请重试"
   },
   "comments": {
     "heading": "讨论",

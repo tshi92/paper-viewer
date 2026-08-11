@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 type ChatMessage = {
@@ -9,12 +10,26 @@ type ChatMessage = {
   content: string;
 };
 
+/** Per-message state of the "save to comments" action. */
+type SaveState = "saving" | "saved" | "failed";
+
+/** The comments API rejects bodies above this length. */
+const MAX_COMMENT_LENGTH = 5000;
+
+/** Chat replies are rarely this long; truncating beats losing the save outright. */
+function toCommentBody(content: string): string {
+  if (content.length <= MAX_COMMENT_LENGTH) return content;
+  return `${content.slice(0, MAX_COMMENT_LENGTH - 1)}…`;
+}
+
 export function PaperChat({ paperId }: { paperId: string }) {
   const t = useTranslations("chat");
+  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState("");
+  const [saveStates, setSaveStates] = useState<Record<string, SaveState>>({});
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const shouldAutoScroll = useRef(false);
@@ -100,6 +115,27 @@ export function PaperChat({ paperId }: { paperId: string }) {
     }
   }, [input, loading, paperId, t]);
 
+  const saveToComments = useCallback(
+    async (messageId: string, content: string) => {
+      setSaveStates((prev) => ({ ...prev, [messageId]: "saving" }));
+      try {
+        const res = await fetch(`/api/papers/${paperId}/comments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ body: toCommentBody(content) })
+        });
+        if (!res.ok) throw new Error("save failed");
+        setSaveStates((prev) => ({ ...prev, [messageId]: "saved" }));
+        // Comments reach the workspace as server props, so the panel and the tab
+        // count only pick the new one up after a server re-render.
+        router.refresh();
+      } catch {
+        setSaveStates((prev) => ({ ...prev, [messageId]: "failed" }));
+      }
+    },
+    [paperId, router]
+  );
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -126,19 +162,39 @@ export function PaperChat({ paperId }: { paperId: string }) {
           </div>
         ) : null}
 
-        {messages.map((msg) => (
-          <div key={msg.id} className={msg.role === "user" ? "flex justify-end" : undefined}>
-            <div
-              className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
-                msg.role === "user"
-                  ? "bg-accent text-white"
-                  : "bg-surface text-ink"
-              }`}
-            >
-              <div className="whitespace-pre-wrap">{msg.content}</div>
+        {messages.map((msg) => {
+          const saveState = saveStates[msg.id];
+          return (
+            <div key={msg.id} className={msg.role === "user" ? "flex justify-end" : undefined}>
+              <div
+                className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                  msg.role === "user"
+                    ? "bg-accent text-white"
+                    : "bg-surface text-ink"
+                }`}
+              >
+                <div className="whitespace-pre-wrap">{msg.content}</div>
+                {msg.role === "assistant" ? (
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <button
+                      type="button"
+                      className={`text-xs ${saveState === "saved" ? "text-green-600" : "text-accent"} ${
+                        saveState ? "" : "hover:underline"
+                      }`}
+                      onClick={() => void saveToComments(msg.id, msg.content)}
+                      disabled={saveState === "saving" || saveState === "saved"}
+                    >
+                      {saveState === "saved" ? t("savedToComments") : t("saveToComments")}
+                    </button>
+                    {saveState === "failed" ? (
+                      <span className="text-xs text-red-600">{t("saveToCommentsFailed")}</span>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {streaming ? (
           <div>
