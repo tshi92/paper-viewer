@@ -55,12 +55,20 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
   const [keynoteVersion, setKeynoteVersion] = useState(0);
   const [annotations, setAnnotations] = useState<AnnotationView[]>([]);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const scrollToAnnotation = useRef<((annotation: AnnotationView) => void) | null>(null);
 
+  // Local mutations apply optimistically, so a poll response that started before
+  // a mutation would resurrect deleted rows or drop just-created ones. Bumping
+  // `mutationSeq` on every mutation invalidates any snapshot already in flight.
+  const mutationSeq = useRef(0);
+
   const refreshAnnotations = useCallback(async () => {
+    const seq = mutationSeq.current;
     const response = await fetch(`/api/papers/${paper.id}/annotations`);
     if (!response.ok) return;
     const data = (await response.json()) as { annotations: AnnotationView[] };
+    if (seq !== mutationSeq.current) return;
     setAnnotations(data.annotations);
   }, [paper.id]);
 
@@ -78,22 +86,34 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(input)
       });
-      if (!response.ok) return;
+      if (!response.ok) {
+        setActionError("标注保存失败，请重试");
+        return;
+      }
+      mutationSeq.current += 1;
       const { annotation } = (await response.json()) as { annotation: AnnotationView };
+      setActionError(null);
       setAnnotations((prev) => [...prev, annotation]);
       setSelectedAnnotationId(annotation.id);
       setActiveTab("annotations");
+      void refreshAnnotations();
     },
-    [paper.id]
+    [paper.id, refreshAnnotations]
   );
 
   const handleReply = useCallback(
     async (annotationId: string, body: string, parentId?: string) => {
-      await fetch(`/api/papers/${paper.id}/comments`, {
+      const response = await fetch(`/api/papers/${paper.id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ body, annotationId, ...(parentId ? { parentId } : {}) })
       });
+      if (!response.ok) {
+        setActionError("回复发送失败");
+        throw new Error("Failed to post reply");
+      }
+      mutationSeq.current += 1;
+      setActionError(null);
       await refreshAnnotations();
     },
     [paper.id, refreshAnnotations]
@@ -104,11 +124,17 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
       const response = await fetch(`/api/papers/${paper.id}/annotations/${annotation.id}`, {
         method: "DELETE"
       });
-      if (!response.ok) return;
+      if (!response.ok) {
+        setActionError("删除失败，请重试");
+        return;
+      }
+      mutationSeq.current += 1;
+      setActionError(null);
       setAnnotations((prev) => prev.filter((it) => it.id !== annotation.id));
       setSelectedAnnotationId((current) => (current === annotation.id ? null : current));
+      void refreshAnnotations();
     },
-    [paper.id]
+    [paper.id, refreshAnnotations]
   );
 
   const registerScrollTo = useCallback((fn: (annotation: AnnotationView) => void) => {
@@ -198,6 +224,15 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           <ReadingStateSelect paperId={paper.id} state={paper.readingState as "new"} />
         </div>
 
+        {actionError ? (
+          <p
+            role="alert"
+            className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-600"
+          >
+            {actionError}
+          </p>
+        ) : null}
+
         {/* Tab switcher */}
         <div className="flex rounded border border-border bg-white overflow-hidden">
           {(["annotations", "chat", "keynotes", "comments"] as const).map((tab) => {
@@ -238,11 +273,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         ) : activeTab === "keynotes" ? (
           <KeynotePanel paperId={paper.id} key={`keynotes-${keynoteVersion}`} />
         ) : (
-          <CommentPanel
-            paperId={paper.id}
-            comments={paper.comments}
-            pendingQuote={null}
-          />
+          <CommentPanel paperId={paper.id} comments={paper.comments} />
         )}
       </aside>
     </div>

@@ -61,31 +61,36 @@ async function downloadPdf(sourceUrl: string): Promise<Uint8Array | null> {
  * 确保论文有固化 PDF 快照（标注锚定不随 arXiv 更新漂移）。
  * 优先级：已有快照(PaperFile 或 blobUrl) → Blob(生产) → S3/MinIO(本地) → 放弃(降级 arXiv 代理)。
  * 幂等，可在页面打开时安全调用。
+ * 调用方必须先校验 paper 属于当前 workspace——本函数只按 paperId 取数据。
+ * 返回值表示调用结束后论文是否已有可用快照。
  */
-export async function ensurePdfSnapshot(paperId: string, workspaceId: string): Promise<void> {
+export async function ensurePdfSnapshot(paperId: string, workspaceId: string): Promise<boolean> {
   const paper = await prisma.paper.findUnique({
     where: { id: paperId },
     include: { files: { take: 1 } }
   });
-  if (!paper || paper.files.length > 0 || paper.blobUrl) {
-    return;
+  if (!paper) {
+    return false;
+  }
+  if (paper.files.length > 0 || paper.blobUrl) {
+    return true;
   }
 
   const sourceUrl = paper.arxivId ? `https://arxiv.org/pdf/${paper.arxivId}` : paper.pdfUrl;
   if (!sourceUrl) {
-    return;
+    return false;
   }
 
   const env = getEnv();
   const s3 = getS3Config();
   // 两种后端都没配置时不必浪费一次下载
   if (!env.BLOB_READ_WRITE_TOKEN && !s3) {
-    return;
+    return false;
   }
 
   const bytes = await downloadPdf(sourceUrl);
   if (!bytes) {
-    return;
+    return false;
   }
   const sha256 = createHash("sha256").update(bytes).digest("hex");
 
@@ -97,7 +102,7 @@ export async function ensurePdfSnapshot(paperId: string, workspaceId: string): P
       token: env.BLOB_READ_WRITE_TOKEN
     });
     await prisma.paper.update({ where: { id: paperId }, data: { blobUrl: blob.url } });
-    return;
+    return true;
   }
 
   if (s3) {
@@ -121,5 +126,8 @@ export async function ensurePdfSnapshot(paperId: string, workspaceId: string): P
         status: "ready"
       }
     });
+    return true;
   }
+
+  return false;
 }

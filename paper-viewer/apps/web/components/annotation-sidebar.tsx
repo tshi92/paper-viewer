@@ -134,8 +134,14 @@ export function AnnotationSidebar({
                   const body = (replyDrafts[annotation.id] ?? "").trim();
                   if (!body) return;
                   event.preventDefault();
+                  try {
+                    await onReply(annotation.id, body);
+                  } catch {
+                    // Keep the draft so the reply is not lost; the workspace
+                    // surfaces the failure in its error banner.
+                    return;
+                  }
                   setReplyDrafts((drafts) => ({ ...drafts, [annotation.id]: "" }));
-                  await onReply(annotation.id, body);
                 }}
               />
               {annotation.author.id === currentUserId || isAdmin ? (

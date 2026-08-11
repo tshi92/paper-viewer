@@ -155,7 +155,8 @@ export default async function LibraryPage({
               <div className="mt-1 flex items-center gap-2">
                 <span className="text-xs text-muted">
                   {paper.source === "arxiv" || paper.source === "hermes" ? `arXiv:${paper.arxivId ?? ""}` : paper.source}
-                  {paper.files.length > 0 ? " · PDF" : ""}
+                  {/* 与论文详情页的 hasPdf 判定保持一致：Blob 快照也算有 PDF */}
+                  {paper.files.length > 0 || paper.blobUrl ? " · PDF" : ""}
                 </span>
                 {tags.length > 0 ? (
                   <div className="flex gap-1">

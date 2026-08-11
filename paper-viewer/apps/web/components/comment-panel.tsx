@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
 
 type CommentView = {
   id: string;
@@ -17,23 +17,13 @@ type CommentView = {
 
 export function CommentPanel({
   paperId,
-  comments,
-  pendingQuote
+  comments
 }: {
   paperId: string;
   comments: CommentView[];
-  pendingQuote?: { text: string; pageNumber: number } | null;
 }) {
   const router = useRouter();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
-
-  useEffect(() => {
-    if (pendingQuote && textareaRef.current) {
-      textareaRef.current.focus();
-      textareaRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
-  }, [pendingQuote]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -78,21 +68,10 @@ export function CommentPanel({
         className="grid gap-2 border-t border-border p-4"
         onSubmit={handleSubmit}
       >
-        {pendingQuote ? (
-          <div className="rounded bg-surface p-2">
-            <div className="text-xs font-medium text-accent">Commenting on p.{pendingQuote.pageNumber}</div>
-            <blockquote className="mt-1 border-l-2 border-accent/30 pl-2 text-xs italic text-muted line-clamp-3">
-              &ldquo;{pendingQuote.text}&rdquo;
-            </blockquote>
-            <input type="hidden" name="pageNumber" value={pendingQuote.pageNumber} />
-            <input type="hidden" name="quotedText" value={pendingQuote.text} />
-          </div>
-        ) : null}
         <textarea
-          ref={textareaRef}
           className="min-h-20 rounded border border-border px-3 py-2 text-sm"
           name="body"
-          placeholder={pendingQuote ? "Add your comment on this selection..." : "Add a comment"}
+          placeholder="Add a comment"
           required
         />
         <button className="rounded bg-accent px-3 py-2 text-sm font-medium text-white" type="submit">Comment</button>

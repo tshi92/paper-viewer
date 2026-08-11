@@ -64,12 +64,19 @@ const HIGHLIGHT_STYLES = `
 }
 `;
 
+/**
+ * Rendered highlights never round-trip through the library's `content.image`
+ * path — `HighlightLayer` hands every highlight straight to `highlightTransform`
+ * and `AreaHighlight` positions itself from `position.boundingRect`. Only the
+ * live selection flow (`onSelectionFinished`) receives a screenshot, and the
+ * library produces that itself. So area annotations carry empty content here and
+ * their type is resolved from the annotation record instead.
+ */
 function toHighlight(annotation: AnnotationView): IHighlight {
   return {
     id: annotation.id,
     position: annotation.position as ScaledPosition,
-    content:
-      annotation.type === "area" ? { image: "" } : { text: annotation.quotedText ?? "" },
+    content: annotation.type === "area" ? {} : { text: annotation.quotedText ?? "" },
     comment: { text: annotation.comments[0]?.body ?? "", emoji: "" }
   };
 }
@@ -225,10 +232,20 @@ export function PdfAnnotator({
     registerScrollTo?.(scrollToAnnotation);
   }, [registerScrollTo, scrollToAnnotation]);
 
+  // Scroll only when the selection itself changes. The 30s poll rebuilds
+  // `highlights` with a fresh identity, and reacting to that would yank the
+  // reader back to the selected annotation every poll tick.
+  const lastScrolledIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId) {
+      lastScrolledIdRef.current = null;
+      return;
+    }
+    if (lastScrolledIdRef.current === selectedId) return;
     const target = highlights.find((it) => it.id === selectedId);
-    if (target) scrollToRef.current?.(target);
+    if (!target) return;
+    lastScrolledIdRef.current = selectedId;
+    scrollToRef.current?.(target);
   }, [selectedId, highlights]);
 
   const handleSelectionFinished = useCallback(
@@ -274,7 +291,12 @@ export function PdfAnnotator({
       const showPopup = (popupContent: ReactElement) => setTip(highlight, () => popupContent);
       const popupContent = annotation ? <AnnotationPreview annotation={annotation} /> : <span />;
 
-      const inner = highlight.content?.image ? (
+      // Persisted highlights resolve their kind from the annotation record; the
+      // library's transient ghost highlight has no record, and for those an
+      // `image` is the only area marker available.
+      const isArea = annotation ? annotation.type === "area" : Boolean(highlight.content?.image);
+
+      const inner = isArea ? (
         <AreaHighlightBox
           highlight={highlight}
           onChange={noop}
@@ -305,6 +327,7 @@ export function PdfAnnotator({
         <div
           key={`${highlight.id}-${index}`}
           className="pv-highlight"
+          data-annotation-type={isArea ? "area" : "highlight"}
           data-scrolled-to={isScrolledTo ? "true" : "false"}
           style={{ "--pv-highlight-color": color } as CSSProperties}
         >

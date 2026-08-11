@@ -20,7 +20,10 @@ const createAnnotationSchema = z
     pageNumber: z.number().int().positive(),
     position: z.object({
       boundingRect: scaledRect,
-      rects: z.array(scaledRect).min(1),
+      // Area selections legitimately carry no rects — react-pdf-highlighter
+      // builds them from `boundingRect` alone and emits `rects: []`. Text
+      // highlights must still ship at least one rect (checked below).
+      rects: z.array(scaledRect),
       pageNumber: z.number().int().positive(),
       usePdfCoordinates: z.boolean().optional()
     }),
@@ -31,6 +34,10 @@ const createAnnotationSchema = z
   .refine((input) => input.position.pageNumber === input.pageNumber, {
     message: "pageNumber mismatch",
     path: ["position", "pageNumber"]
+  })
+  .refine((input) => input.type !== "highlight" || input.position.rects.length > 0, {
+    message: "highlight requires at least one rect",
+    path: ["position", "rects"]
   });
 
 async function resolveCurrentUser(): Promise<CurrentUser | null> {

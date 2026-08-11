@@ -2,16 +2,19 @@ import { createServer, type Server } from "node:http";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { DEFAULT_ANNOTATION_LABELS } from "@paper-viewer/core/labels";
 import { prisma } from "@paper-viewer/db";
 import bcrypt from "bcryptjs";
 
 /**
- * The workspace has no object storage in dev, so the paper is anchored to a
- * `pdfUrl` and the app streams it back through `/api/papers/:id/proxy-pdf`.
- * Serving the fixture from a throwaway local server keeps the run offline and
- * deterministic.
+ * The paper is anchored to a `pdfUrl`, and how the bytes reach the browser
+ * depends on the environment: with object storage configured (MinIO/Blob) the
+ * paper page snapshots the PDF on first open and serves it from
+ * `/api/papers/:id/file`; without it — or when the snapshot upload fails — the
+ * page falls back to streaming the origin through `/api/papers/:id/proxy-pdf`.
+ * Either way the bytes are the fixture below, served from a throwaway local
+ * server so the run stays offline and deterministic.
  */
 const fixture = readFileSync(join(__dirname, "fixtures", "sample-paper.pdf"));
 const password = "annotation-e2e-password";
@@ -89,12 +92,16 @@ test.afterAll(async () => {
   await new Promise<void>((resolve) => pdfServer.close(() => resolve()));
 });
 
-test("highlight → label → comment → persists after reload", async ({ page }) => {
+async function signIn(page: Page): Promise<void> {
   await page.goto("/login");
   await page.getByPlaceholder("Email").fill(email);
   await page.getByPlaceholder("Password").fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(page).toHaveURL(/\/library/);
+}
+
+test("highlight → label → comment → persists after reload", async ({ page }) => {
+  await signIn(page);
 
   await page.goto(`/papers/${paperId}`);
 
@@ -118,4 +125,49 @@ test("highlight → label → comment → persists after reload", async ({ page 
 
   await expect(page.getByText("1 条")).toBeVisible();
   await expect(page.getByText("interesting")).toBeVisible();
+});
+
+/**
+ * Area selections travel a different path than text ones: react-pdf-highlighter
+ * emits `rects: []` (the box lives in `boundingRect` alone) and the rendered
+ * highlight carries no screenshot, so both the API schema and the renderer have
+ * to key off the annotation type. This covers ⌥-drag end to end.
+ */
+test("⌥ drag area → label → paints a coloured box and persists", async ({ page }) => {
+  await signIn(page);
+  await page.goto(`/papers/${paperId}`);
+
+  const canvas = page.locator(".page canvas").first();
+  await expect(canvas).toBeVisible({ timeout: 30_000 });
+  const canvasBox = (await canvas.boundingBox())!;
+
+  // Alt is what `enableAreaSelection` checks; holding it down makes Playwright
+  // stamp `altKey` on the mouse events the library listens to.
+  await page.keyboard.down("Alt");
+  await page.mouse.move(canvasBox.x + 60, canvasBox.y + 100);
+  await page.mouse.down();
+  await page.mouse.move(canvasBox.x + 260, canvasBox.y + 220, { steps: 12 });
+  await page.mouse.up();
+  await page.keyboard.up("Alt");
+
+  await page.getByRole("button", { name: "result" }).click();
+  await page.getByRole("button", { name: "保存标注" }).click();
+
+  await expect(page.getByText("划区")).toBeVisible();
+
+  // The box must actually paint: right kind, label colour ("result" = #22c55e)
+  // and a real area — an area highlight carries no rects, so a renderer that
+  // treats it as a text highlight would draw nothing at all.
+  const areaHighlight = page.locator('.pv-highlight[data-annotation-type="area"]');
+  await expect(areaHighlight).toBeVisible({ timeout: 15_000 });
+  const painted = areaHighlight.locator('[style*="background"]').first();
+  await expect(painted).toHaveCSS("background-color", "rgb(34, 197, 94)");
+  const paintedBox = (await painted.boundingBox())!;
+  expect(paintedBox.width).toBeGreaterThan(20);
+  expect(paintedBox.height).toBeGreaterThan(20);
+
+  // Reload proves the API stored it: area positions ship `rects: []`, which an
+  // over-strict schema rejects outright.
+  await page.reload();
+  await expect(page.getByText("划区")).toBeVisible();
 });
