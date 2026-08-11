@@ -124,25 +124,10 @@
     "emptySuggestionContribution": "Summarize the main contribution",
     "emptySuggestionMethod": "Explain the method in simple terms",
     "emptySuggestionLimitations": "What are the limitations?",
-    "saveToKeynotes": "Save to Keynotes",
-    "savedToKeynotes": "Saved to Keynotes",
     "inputPlaceholder": "Ask about this paper… (Enter to send)",
     "send": "Send",
     "errorResponse": "Error: Failed to get response",
     "errorNetwork": "Error: Network error"
-  },
-  "keynotes": {
-    "heading": "Keynotes",
-    "empty": "No keynotes yet.",
-    "emptyHint": "Add your key takeaways and insights.",
-    "sourceChat": "from chat",
-    "sourceComment": "from comment",
-    "save": "Save",
-    "cancel": "Cancel",
-    "edit": "Edit",
-    "delete": "Delete",
-    "inputPlaceholder": "Add a keynote… (Enter to save)",
-    "add": "Add"
   },
   "comments": {
     "heading": "Discussion",

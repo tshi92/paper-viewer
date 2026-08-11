@@ -54,7 +54,6 @@ model User {
   comments      Comment[]
   readingStates ReadingStateRecord[]
   importedPapers WorkspacePaper[]
-  keynotes      PaperKeynote[]
   annotations   Annotation[]
 }
 
@@ -151,23 +150,6 @@ model ResearchPreferences {
   updatedAt        DateTime @updatedAt
 }
 
-model PaperKeynote {
-  id          String   @id @default(cuid())
-  workspaceId String
-  paperId     String
-  authorId    String
-  content     String
-  source      String   @default("manual") // "manual" | "chat" | "comment"
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  workspacePaper WorkspacePaper @relation(fields: [workspaceId, paperId], references: [workspaceId, paperId], onDelete: Cascade)
-  author         User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  @@index([workspaceId, paperId])
-  @@index([authorId])
-}
-
 model PaperChatMessage {
   id          String   @id @default(cuid())
   paperId     String
@@ -227,7 +209,6 @@ model WorkspacePaper {
   importedBy    User?               @relation(fields: [importedById], references: [id], onDelete: SetNull)
   comments      Comment[]
   readingStates ReadingStateRecord[]
-  keynotes      PaperKeynote[]
   annotations   Annotation[]
   labelLinks    WorkspacePaperLabel[]
 

@@ -124,25 +124,10 @@
     "emptySuggestionContribution": "总结一下主要贡献",
     "emptySuggestionMethod": "用简单的话讲讲这个方法",
     "emptySuggestionLimitations": "它有哪些局限？",
-    "saveToKeynotes": "存为要点",
-    "savedToKeynotes": "已存为要点",
     "inputPlaceholder": "问点关于这篇论文的问题…（回车发送）",
     "send": "发送",
     "errorResponse": "错误：获取回复失败",
     "errorNetwork": "错误：网络异常"
-  },
-  "keynotes": {
-    "heading": "要点",
-    "empty": "暂无要点。",
-    "emptyHint": "把你的关键收获与洞察记在这里。",
-    "sourceChat": "来自对话",
-    "sourceComment": "来自评论",
-    "save": "保存",
-    "cancel": "取消",
-    "edit": "编辑",
-    "delete": "删除",
-    "inputPlaceholder": "添加要点…（回车保存）",
-    "add": "添加"
   },
   "comments": {
     "heading": "讨论",

@@ -9,13 +9,12 @@ type ChatMessage = {
   content: string;
 };
 
-export function PaperChat({ paperId, onSaveKeynote }: { paperId: string; onSaveKeynote?: () => void }) {
+export function PaperChat({ paperId }: { paperId: string }) {
   const t = useTranslations("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streaming, setStreaming] = useState("");
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const shouldAutoScroll = useRef(false);
@@ -101,18 +100,6 @@ export function PaperChat({ paperId, onSaveKeynote }: { paperId: string; onSaveK
     }
   }, [input, loading, paperId, t]);
 
-  const saveToKeynote = useCallback(async (msgId: string, content: string) => {
-    const res = await fetch(`/api/papers/${paperId}/keynotes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content, source: "chat" })
-    });
-    if (res.ok) {
-      setSavedIds((prev) => new Set(prev).add(msgId));
-      onSaveKeynote?.();
-    }
-  }, [paperId, onSaveKeynote]);
-
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -140,7 +127,7 @@ export function PaperChat({ paperId, onSaveKeynote }: { paperId: string; onSaveK
         ) : null}
 
         {messages.map((msg) => (
-          <div key={msg.id} className={msg.role === "user" ? "flex justify-end" : "group"}>
+          <div key={msg.id} className={msg.role === "user" ? "flex justify-end" : undefined}>
             <div
               className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                 msg.role === "user"
@@ -149,20 +136,6 @@ export function PaperChat({ paperId, onSaveKeynote }: { paperId: string; onSaveK
               }`}
             >
               <div className="whitespace-pre-wrap">{msg.content}</div>
-              {msg.role === "assistant" ? (
-                <div className="mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {savedIds.has(msg.id) ? (
-                    <span className="text-xs text-green-600">{t("savedToKeynotes")}</span>
-                  ) : (
-                    <button
-                      className="text-xs text-accent hover:underline"
-                      onClick={() => saveToKeynote(msg.id, msg.content)}
-                    >
-                      {t("saveToKeynotes")}
-                    </button>
-                  )}
-                </div>
-              ) : null}
             </div>
           </div>
         ))}
