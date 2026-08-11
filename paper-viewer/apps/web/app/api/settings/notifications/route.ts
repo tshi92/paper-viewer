@@ -113,6 +113,10 @@ export async function POST(request: Request) {
   if (!webhookUrl) {
     return Response.json({ ok: false, message: "未配置 webhook" });
   }
+  // 测试发送与保存同规则：仅 https，防止 admin 侧的 SSRF 面
+  if (!z.string().url().safeParse(webhookUrl).success || !webhookUrl.startsWith("https://")) {
+    return Response.json({ error: "Webhook 必须是 https 地址" }, { status: 400 });
+  }
 
   const ok = await sendFeishuCard(webhookUrl, buildTestCard());
   return Response.json({ ok });
