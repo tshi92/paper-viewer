@@ -10,6 +10,7 @@ import { prisma } from "@paper-viewer/db";
 import { timingSafeEqual } from "node:crypto";
 import { runDailyDigest, type DigestRunStatus } from "@/lib/daily-digest";
 import { getEnv } from "@/lib/env";
+import { rotateForDay } from "@/lib/workspace-rotation";
 
 export const maxDuration = 300;
 
@@ -61,11 +62,14 @@ export async function GET(request: Request) {
 
   const deadline = Date.now() + RUN_BUDGET_MS;
   const onlyWorkspaceId = devWorkspaceFilter(request);
-  const workspaces = await prisma.researchPreferences.findMany({
+  const allWorkspaces = await prisma.researchPreferences.findMany({
     ...(onlyWorkspaceId ? { where: { workspaceId: onlyWorkspaceId } } : {}),
     select: { workspaceId: true },
     orderBy: { workspaceId: "asc" }
   });
+  // workspaceId 升序只是稳定基准；真正的执行顺序每天旋转，
+  // 否则预算不够时永远是同几个尾部 workspace 被 deferred。
+  const workspaces = rotateForDay(allWorkspaces, new Date());
 
   const results: WorkspaceResult[] = [];
   for (const { workspaceId } of workspaces) {

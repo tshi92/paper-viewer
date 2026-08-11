@@ -26,6 +26,10 @@ function ok(processed: number) {
 }
 
 beforeEach(() => {
+  vi.useFakeTimers();
+  // 执行顺序每天轮转，所以把「今天」钉在第 6 天：6 % n === 0（n = 1/2/3），
+  // 偏移量为 0，下面这些用例的顺序期望才有意义。
+  vi.setSystemTime(new Date("2026-01-06T09:00:00Z"));
   getEnv.mockReturnValue({ CRON_SECRET: SECRET });
   findMany.mockResolvedValue(prefsOf("ws-1"));
   runDailyDigest.mockResolvedValue(ok(2));
@@ -86,7 +90,6 @@ describe("cron auth", () => {
 
 describe("cron budget", () => {
   it("defers the workspaces it no longer has time for instead of dropping them", async () => {
-    vi.useFakeTimers();
     findMany.mockResolvedValue(prefsOf("ws-1", "ws-2", "ws-3"));
     runDailyDigest.mockImplementation(async () => {
       vi.advanceTimersByTime(200_000);
@@ -103,6 +106,35 @@ describe("cron budget", () => {
       ]
     });
     expect(runDailyDigest).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("workspace rotation", () => {
+  it("starts from a different workspace each day so the tail is not always deferred", async () => {
+    findMany.mockResolvedValue(prefsOf("ws-1", "ws-2", "ws-3"));
+
+    vi.setSystemTime(new Date("2026-01-07T09:00:00Z")); // 第 7 天，7 % 3 === 1
+    await GET(request("http://localhost/api/cron/daily-digest", AUTHORIZED));
+    expect(runDailyDigest.mock.calls.map((call) => call[0])).toEqual(["ws-2", "ws-3", "ws-1"]);
+
+    runDailyDigest.mockClear();
+    vi.setSystemTime(new Date("2026-01-08T09:00:00Z")); // 第 8 天，8 % 3 === 2
+    await GET(request("http://localhost/api/cron/daily-digest", AUTHORIZED));
+    expect(runDailyDigest.mock.calls.map((call) => call[0])).toEqual(["ws-3", "ws-1", "ws-2"]);
+  });
+});
+
+describe("concurrent runs", () => {
+  it("reports a workspace whose digest another run already holds as locked", async () => {
+    runDailyDigest.mockResolvedValue({ status: "locked" as const, processed: 0, remaining: 3 });
+
+    const response = await GET(request("http://localhost/api/cron/daily-digest", AUTHORIZED));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      results: [{ workspaceId: "ws-1", status: "locked", processed: 0, remaining: 3 }]
+    });
   });
 });
 

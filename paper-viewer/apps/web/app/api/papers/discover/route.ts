@@ -31,6 +31,9 @@ export async function POST() {
       return Response.json({ ok: true, date, discovered: 0, message: "今日无新论文" });
     case "skipped_done":
       return Response.json({ ok: true, date, alreadyDone: true });
+    // 定时任务（或另一个标签页）正在跑今天的 digest，不是错误，让前端刷新即可
+    case "locked":
+      return Response.json({ ok: true, date, running: true });
     default:
       return Response.json({ error: result.message ?? "Daily digest failed" }, { status: 500 });
   }

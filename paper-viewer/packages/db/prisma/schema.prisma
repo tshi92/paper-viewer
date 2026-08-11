@@ -197,6 +197,8 @@ model DailyDigest {
   paperIds        String[]
   pendingPaperIds String[]  @default([])
   feishuSentAt    DateTime?
+  // 并发运行的互斥锁：抢到的运行独占推进这一天的 digest，超过 10 分钟未刷新视作失效
+  lockedAt        DateTime?
   createdAt       DateTime  @default(now())
 
   @@unique([workspaceId, date])

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { isDigestComplete, latestAnalysisPerPaper, summaryLineOf, toArxivPaper } from "./daily-digest";
+import {
+  isDigestComplete,
+  isUniqueViolation,
+  latestAnalysisPerPaper,
+  summaryLineOf,
+  toArxivPaper
+} from "./daily-digest";
 
 function digest(overrides: Partial<Parameters<typeof isDigestComplete>[0]> = {}) {
   return {
@@ -96,6 +102,22 @@ describe("toArxivPaper", () => {
     expect(paper.arxivId).toBe("");
     expect(paper.publishedAt).toBe("");
     expect(paper.url).toBe("");
+  });
+});
+
+describe("isUniqueViolation", () => {
+  it("recognises the prisma unique-constraint code", () => {
+    const error = Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
+    expect(isUniqueViolation(error)).toBe(true);
+    // 裸对象也认：并发路径只关心 code，不依赖 Prisma 的错误类
+    expect(isUniqueViolation({ code: "P2002" })).toBe(true);
+  });
+
+  it("does not swallow other failures", () => {
+    expect(isUniqueViolation(Object.assign(new Error("nope"), { code: "P2025" }))).toBe(false);
+    expect(isUniqueViolation(new Error("connection reset"))).toBe(false);
+    expect(isUniqueViolation(null)).toBe(false);
+    expect(isUniqueViolation("P2002")).toBe(false);
   });
 });
 
