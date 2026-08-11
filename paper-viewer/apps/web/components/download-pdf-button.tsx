@@ -1,9 +1,11 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export function DownloadPdfButton({ paperId, arxivId }: { paperId: string; arxivId: string }) {
+  const t = useTranslations("workspace");
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
@@ -30,7 +32,7 @@ export function DownloadPdfButton({ paperId, arxivId }: { paperId: string; arxiv
       onClick={handleDownload}
       disabled={loading}
     >
-      {loading ? "Downloading..." : "Download PDF to server"}
+      {loading ? t("downloadingPdf") : t("downloadPdf")}
     </button>
   );
 }

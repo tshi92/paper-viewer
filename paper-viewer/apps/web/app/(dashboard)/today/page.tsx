@@ -7,6 +7,7 @@ import { DiscoverButton } from "@/components/discover-button";
 export default async function TodayPage() {
   const user = await requireCurrentUser();
   const t = await getTranslations("home");
+  const tReadingState = await getTranslations("readingState");
   const locale = await getLocale();
 
   // Find the most recent digest
@@ -132,7 +133,7 @@ export default async function TodayPage() {
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <span className={`rounded px-2 py-0.5 text-xs ${readingState === "new" ? "bg-accent/10 text-accent" : "bg-surface text-muted"}`}>
-                    {readingState}
+                    {tReadingState(readingState)}
                   </span>
                   {paper.arxivId ? (
                     <span className="text-xs text-muted">arXiv:{paper.arxivId}</span>

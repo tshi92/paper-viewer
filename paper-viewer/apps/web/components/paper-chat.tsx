@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 
 type ChatMessage = {
   id: string;
@@ -9,6 +10,7 @@ type ChatMessage = {
 };
 
 export function PaperChat({ paperId, onSaveKeynote }: { paperId: string; onSaveKeynote?: () => void }) {
+  const t = useTranslations("chat");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -53,7 +55,7 @@ export function PaperChat({ paperId, onSaveKeynote }: { paperId: string; onSaveK
       });
 
       if (!res.ok || !res.body) {
-        setStreaming("Error: Failed to get response");
+        setStreaming(t("errorResponse"));
         setLoading(false);
         return;
       }
@@ -92,12 +94,12 @@ export function PaperChat({ paperId, onSaveKeynote }: { paperId: string; onSaveK
       }
       setStreaming("");
     } catch {
-      setStreaming("Error: Network error");
+      setStreaming(t("errorNetwork"));
     } finally {
       setLoading(false);
       inputRef.current?.focus();
     }
-  }, [input, loading, paperId]);
+  }, [input, loading, paperId, t]);
 
   const saveToKeynote = useCallback(async (msgId: string, content: string) => {
     const res = await fetch(`/api/papers/${paperId}/keynotes`, {
@@ -121,18 +123,18 @@ export function PaperChat({ paperId, onSaveKeynote }: { paperId: string; onSaveK
   return (
     <section className="flex flex-col rounded border border-border bg-white" style={{ height: "calc(100vh - 280px)" }}>
       <div className="border-b border-border px-4 py-3">
-        <h2 className="font-semibold">Chat with Paper</h2>
+        <h2 className="font-semibold">{t("heading")}</h2>
       </div>
 
       <div ref={scrollContainerRef} className="flex-1 overflow-auto px-4 py-3 space-y-3">
         {messages.length === 0 && !streaming ? (
           <div className="text-center text-sm text-muted py-8">
-            <p>Ask anything about this paper.</p>
+            <p>{t("emptyTitle")}</p>
             <div className="mt-3 space-y-1 text-xs">
-              <p className="text-muted/70">Try:</p>
-              <p>&ldquo;Summarize the main contribution&rdquo;</p>
-              <p>&ldquo;Explain the method in simple terms&rdquo;</p>
-              <p>&ldquo;What are the limitations?&rdquo;</p>
+              <p className="text-muted/70">{t("emptyTryLabel")}</p>
+              <p>&ldquo;{t("emptySuggestionContribution")}&rdquo;</p>
+              <p>&ldquo;{t("emptySuggestionMethod")}&rdquo;</p>
+              <p>&ldquo;{t("emptySuggestionLimitations")}&rdquo;</p>
             </div>
           </div>
         ) : null}
@@ -150,13 +152,13 @@ export function PaperChat({ paperId, onSaveKeynote }: { paperId: string; onSaveK
               {msg.role === "assistant" ? (
                 <div className="mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   {savedIds.has(msg.id) ? (
-                    <span className="text-xs text-green-600">Saved to Keynotes</span>
+                    <span className="text-xs text-green-600">{t("savedToKeynotes")}</span>
                   ) : (
                     <button
                       className="text-xs text-accent hover:underline"
                       onClick={() => saveToKeynote(msg.id, msg.content)}
                     >
-                      Save to Keynotes
+                      {t("saveToKeynotes")}
                     </button>
                   )}
                 </div>
@@ -181,7 +183,7 @@ export function PaperChat({ paperId, onSaveKeynote }: { paperId: string; onSaveK
             ref={inputRef}
             className="flex-1 resize-none rounded border border-border px-3 py-2 text-sm"
             rows={2}
-            placeholder="Ask about this paper... (Enter to send)"
+            placeholder={t("inputPlaceholder")}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -192,7 +194,7 @@ export function PaperChat({ paperId, onSaveKeynote }: { paperId: string; onSaveK
             onClick={handleSubmit}
             disabled={loading || !input.trim()}
           >
-            Send
+            {t("send")}
           </button>
         </div>
       </div>

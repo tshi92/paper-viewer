@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import { CommentPanel } from "./comment-panel";
 import { PaperChat } from "./paper-chat";
 import { KeynotePanel } from "./keynote-panel";
@@ -9,6 +10,7 @@ import { ReadingStateSelect } from "./reading-state-select";
 import { DownloadPdfButton } from "./download-pdf-button";
 import { AnnotationSidebar } from "./annotation-sidebar";
 import type { CreateAnnotationInput } from "./pdf-annotator";
+import type { ReadingState } from "@paper-viewer/core/paper-status";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
 
 // react-pdf-highlighter touches the DOM at import time, so the annotator is
@@ -50,12 +52,16 @@ type PaperData = {
 
 type SidebarTab = "annotations" | "chat" | "keynotes" | "comments";
 
+/** Errors are stored as message keys, not rendered strings, so the banner follows the locale. */
+type WorkspaceErrorKey = "errorAnnotationCreate" | "errorAnnotationDelete" | "errorReply";
+
 export function PaperWorkspace({ paper }: { paper: PaperData }) {
+  const t = useTranslations("workspace");
   const [activeTab, setActiveTab] = useState<SidebarTab>("annotations");
   const [keynoteVersion, setKeynoteVersion] = useState(0);
   const [annotations, setAnnotations] = useState<AnnotationView[]>([]);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<WorkspaceErrorKey | null>(null);
   const scrollToAnnotation = useRef<((annotation: AnnotationView) => void) | null>(null);
 
   // Local mutations apply optimistically, so a poll response that started before
@@ -87,7 +93,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         body: JSON.stringify(input)
       });
       if (!response.ok) {
-        setActionError("标注保存失败，请重试");
+        setActionError("errorAnnotationCreate");
         // Throw so the selection tip stays open and the typed comment survives.
         throw new Error("annotation create failed");
       }
@@ -110,7 +116,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         body: JSON.stringify({ body, annotationId, ...(parentId ? { parentId } : {}) })
       });
       if (!response.ok) {
-        setActionError("回复发送失败");
+        setActionError("errorReply");
         throw new Error("Failed to post reply");
       }
       mutationSeq.current += 1;
@@ -126,7 +132,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         method: "DELETE"
       });
       if (!response.ok) {
-        setActionError("删除失败，请重试");
+        setActionError("errorAnnotationDelete");
         return;
       }
       mutationSeq.current += 1;
@@ -164,7 +170,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
                 rel="noopener noreferrer"
                 className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90"
               >
-                View on arXiv
+                {t("viewOnArxiv")}
               </a>
             ) : null}
             {!paper.hasPdf && paper.arxivId ? (
@@ -175,14 +181,14 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
 
         {paper.analysis ? (
           <div className="mb-4 rounded border border-border bg-white p-4">
-            <h2 className="text-sm font-semibold uppercase text-muted">AI Analysis</h2>
+            <h2 className="text-sm font-semibold uppercase text-muted">{t("analysisHeading")}</h2>
             <div className="mt-3 space-y-3 text-sm">
               <p>{paper.analysis.summary}</p>
-              {paper.analysis.motivation ? <div><span className="font-medium">1. Motivation:</span> {paper.analysis.motivation}</div> : null}
-              {paper.analysis.problem ? <div><span className="font-medium">2. Problem:</span> {paper.analysis.problem}</div> : null}
-              {paper.analysis.method ? <div><span className="font-medium">3. Method:</span> {paper.analysis.method}</div> : null}
-              {paper.analysis.keyFindings ? <div><span className="font-medium">4. Results:</span> {paper.analysis.keyFindings}</div> : null}
-              {paper.analysis.whyItMatters ? <div><span className="font-medium">5. Limitations:</span> {paper.analysis.whyItMatters}</div> : null}
+              {paper.analysis.motivation ? <div><span className="font-medium">{t("analysisMotivation")}</span> {paper.analysis.motivation}</div> : null}
+              {paper.analysis.problem ? <div><span className="font-medium">{t("analysisProblem")}</span> {paper.analysis.problem}</div> : null}
+              {paper.analysis.method ? <div><span className="font-medium">{t("analysisMethod")}</span> {paper.analysis.method}</div> : null}
+              {paper.analysis.keyFindings ? <div><span className="font-medium">{t("analysisFindings")}</span> {paper.analysis.keyFindings}</div> : null}
+              {paper.analysis.whyItMatters ? <div><span className="font-medium">{t("analysisWhyItMatters")}</span> {paper.analysis.whyItMatters}</div> : null}
               {paper.analysis.keywords.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {paper.analysis.keywords.map((kw) => (
@@ -211,18 +217,18 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           <div className="flex items-center justify-center rounded border border-border bg-white p-12 text-sm text-muted">
             {paper.abstract ? (
               <div className="max-w-2xl">
-                <h2 className="font-semibold text-ink">Abstract</h2>
+                <h2 className="font-semibold text-ink">{t("abstractHeading")}</h2>
                 <p className="mt-2 leading-relaxed">{paper.abstract}</p>
               </div>
             ) : (
-              <p>No PDF available.</p>
+              <p>{t("noPdf")}</p>
             )}
           </div>
         )}
       </section>
       <aside className="grid content-start gap-3">
         <div className="rounded border border-border bg-white p-4">
-          <ReadingStateSelect paperId={paper.id} state={paper.readingState as "new"} />
+          <ReadingStateSelect paperId={paper.id} state={paper.readingState as ReadingState} />
         </div>
 
         {actionError ? (
@@ -230,7 +236,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             role="alert"
             className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-600"
           >
-            {actionError}
+            {t(actionError)}
           </p>
         ) : null}
 
@@ -238,10 +244,10 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         <div className="flex rounded border border-border bg-white overflow-hidden">
           {(["annotations", "chat", "keynotes", "comments"] as const).map((tab) => {
             const labels = {
-              annotations: "标注",
-              chat: "AI Chat",
-              keynotes: "Keynotes",
-              comments: `Comments (${paper.comments.length})`
+              annotations: t("tabAnnotations"),
+              chat: t("tabChat"),
+              keynotes: t("tabKeynotes"),
+              comments: t("tabComments", { count: paper.comments.length })
             };
             return (
               <button

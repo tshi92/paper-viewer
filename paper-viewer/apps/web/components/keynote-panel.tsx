@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 
 type Keynote = {
   id: string;
@@ -11,6 +12,8 @@ type Keynote = {
 };
 
 export function KeynotePanel({ paperId }: { paperId: string }) {
+  const t = useTranslations("keynotes");
+  const locale = useLocale();
   const [keynotes, setKeynotes] = useState<Keynote[]>([]);
   const [input, setInput] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -75,23 +78,23 @@ export function KeynotePanel({ paperId }: { paperId: string }) {
     }
   }
 
+  // `manual` keynotes carry no provenance note, so they get no suffix at all.
   const sourceLabel: Record<string, string> = {
-    manual: "",
-    chat: "from chat",
-    comment: "from comment"
+    chat: t("sourceChat"),
+    comment: t("sourceComment")
   };
 
   return (
     <section className="flex flex-col rounded border border-border bg-white" style={{ height: "calc(100vh - 280px)" }}>
       <div className="border-b border-border px-4 py-3">
-        <h2 className="font-semibold">Keynotes</h2>
+        <h2 className="font-semibold">{t("heading")}</h2>
       </div>
 
       <div className="flex-1 overflow-auto px-4 py-3 space-y-3">
         {keynotes.length === 0 ? (
           <div className="text-center text-sm text-muted py-8">
-            <p>No keynotes yet.</p>
-            <p className="mt-1 text-xs text-muted/70">Add your key takeaways and insights.</p>
+            <p>{t("empty")}</p>
+            <p className="mt-1 text-xs text-muted/70">{t("emptyHint")}</p>
           </div>
         ) : null}
 
@@ -111,8 +114,8 @@ export function KeynotePanel({ paperId }: { paperId: string }) {
                   autoFocus
                 />
                 <div className="mt-1.5 flex gap-1.5">
-                  <button className="rounded bg-accent px-2 py-1 text-xs text-white" onClick={() => handleUpdate(k.id)}>Save</button>
-                  <button className="rounded px-2 py-1 text-xs text-muted hover:bg-surface" onClick={() => setEditingId(null)}>Cancel</button>
+                  <button className="rounded bg-accent px-2 py-1 text-xs text-white" onClick={() => handleUpdate(k.id)}>{t("save")}</button>
+                  <button className="rounded px-2 py-1 text-xs text-muted hover:bg-surface" onClick={() => setEditingId(null)}>{t("cancel")}</button>
                 </div>
               </div>
             ) : (
@@ -120,7 +123,7 @@ export function KeynotePanel({ paperId }: { paperId: string }) {
                 <div className="whitespace-pre-wrap">{k.content}</div>
                 <div className="mt-2 flex items-center justify-between">
                   <span className="text-xs text-muted">
-                    {new Date(k.createdAt).toLocaleDateString()}
+                    {new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(k.createdAt))}
                     {sourceLabel[k.source] ? ` · ${sourceLabel[k.source]}` : ""}
                   </span>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -128,13 +131,13 @@ export function KeynotePanel({ paperId }: { paperId: string }) {
                       className="rounded px-1.5 py-0.5 text-xs text-muted hover:bg-surface"
                       onClick={() => { setEditingId(k.id); setEditContent(k.content); }}
                     >
-                      Edit
+                      {t("edit")}
                     </button>
                     <button
                       className="rounded px-1.5 py-0.5 text-xs text-red-500 hover:bg-red-50"
                       onClick={() => handleDelete(k.id)}
                     >
-                      Delete
+                      {t("delete")}
                     </button>
                   </div>
                 </div>
@@ -150,7 +153,7 @@ export function KeynotePanel({ paperId }: { paperId: string }) {
             ref={inputRef}
             className="flex-1 resize-none rounded border border-border px-3 py-2 text-sm"
             rows={2}
-            placeholder="Add a keynote... (Enter to save)"
+            placeholder={t("inputPlaceholder")}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -161,7 +164,7 @@ export function KeynotePanel({ paperId }: { paperId: string }) {
             onClick={handleAdd}
             disabled={saving || !input.trim()}
           >
-            Add
+            {t("add")}
           </button>
         </div>
       </div>

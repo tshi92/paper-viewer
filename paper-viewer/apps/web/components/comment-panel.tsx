@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
 
@@ -22,6 +23,7 @@ export function CommentPanel({
   paperId: string;
   comments: CommentView[];
 }) {
+  const t = useTranslations("comments");
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -42,7 +44,7 @@ export function CommentPanel({
   return (
     <section className="rounded border border-border bg-white">
       <div className="border-b border-border px-4 py-3">
-        <h2 className="font-semibold">Discussion</h2>
+        <h2 className="font-semibold">{t("heading")}</h2>
       </div>
       <div className="max-h-96 divide-y divide-border overflow-auto">
         {comments.map((comment) => (
@@ -50,7 +52,9 @@ export function CommentPanel({
             <div className="flex items-center gap-2 text-xs text-muted">
               <span>{comment.author.name ?? comment.author.email}</span>
               {comment.pageNumber ? (
-                <span className="rounded bg-surface px-1.5 py-0.5">p.{comment.pageNumber}</span>
+                <span className="rounded bg-surface px-1.5 py-0.5">
+                  {t("pageBadge", { page: comment.pageNumber })}
+                </span>
               ) : null}
             </div>
             {comment.quotedText ? (
@@ -61,7 +65,7 @@ export function CommentPanel({
             <p className="mt-1.5 text-sm">{comment.body}</p>
           </article>
         ))}
-        {comments.length === 0 ? <p className="px-4 py-6 text-sm text-muted">No comments yet.</p> : null}
+        {comments.length === 0 ? <p className="px-4 py-6 text-sm text-muted">{t("empty")}</p> : null}
       </div>
       <form
         ref={formRef}
@@ -71,10 +75,10 @@ export function CommentPanel({
         <textarea
           className="min-h-20 rounded border border-border px-3 py-2 text-sm"
           name="body"
-          placeholder="Add a comment"
+          placeholder={t("placeholder")}
           required
         />
-        <button className="rounded bg-accent px-3 py-2 text-sm font-medium text-white" type="submit">Comment</button>
+        <button className="rounded bg-accent px-3 py-2 text-sm font-medium text-white" type="submit">{t("submit")}</button>
       </form>
     </section>
   );

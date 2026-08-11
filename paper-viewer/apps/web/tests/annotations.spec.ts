@@ -92,11 +92,13 @@ test.afterAll(async () => {
   await new Promise<void>((resolve) => pdfServer.close(() => resolve()));
 });
 
+// The suite runs with a `zh-CN` browser locale (see playwright.config.ts), so the
+// UI copy asserted below — here and in the annotation flows — is the Chinese one.
 async function signIn(page: Page): Promise<void> {
   await page.goto("/login");
-  await page.getByPlaceholder("Email").fill(email);
-  await page.getByPlaceholder("Password").fill(password);
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByPlaceholder("邮箱").fill(email);
+  await page.getByPlaceholder("密码").fill(password);
+  await page.getByRole("button", { name: "登录" }).click();
   await expect(page).toHaveURL(/\/library/);
 }
 

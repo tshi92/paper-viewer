@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { ComponentType, CSSProperties, MouseEvent as ReactMouseEvent, ReactElement } from "react";
 import {
   AreaHighlight,
@@ -102,6 +103,7 @@ function LabelChip({ label, dimmed }: { label: LabelView; dimmed: boolean }) {
 }
 
 function AnnotationPreview({ annotation }: { annotation: AnnotationView }) {
+  const t = useTranslations("annotations");
   const firstComment = annotation.comments[0];
   return (
     <div className="max-w-[260px] rounded border border-border bg-white p-2 text-xs shadow-lg">
@@ -110,7 +112,7 @@ function AnnotationPreview({ annotation }: { annotation: AnnotationView }) {
         // eslint-disable-next-line @next/next/no-img-element -- data URL, not a routable asset
         <img
           src={annotation.areaImage}
-          alt="划区截图"
+          alt={t("areaImageAlt")}
           className="mt-1 max-h-16 w-auto rounded border border-border"
         />
       ) : null}
@@ -137,6 +139,7 @@ function SelectionTip({
   onCancel: () => void;
   onMount: () => void;
 }) {
+  const t = useTranslations("annotations");
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
   const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
@@ -187,7 +190,7 @@ function SelectionTip({
       <textarea
         className="mt-2 w-full rounded border border-border px-2 py-1 text-xs"
         rows={2}
-        placeholder="首条评论（可选）"
+        placeholder={t("tipCommentPlaceholder")}
         value={comment}
         onChange={(event) => setComment(event.target.value)}
       />
@@ -198,7 +201,7 @@ function SelectionTip({
           onClick={onCancel}
           disabled={saving}
         >
-          取消
+          {t("tipCancel")}
         </button>
         <button
           type="button"
@@ -206,7 +209,7 @@ function SelectionTip({
           onClick={handleSave}
           disabled={saving}
         >
-          保存标注
+          {t("tipSave")}
         </button>
       </div>
     </div>
@@ -230,6 +233,7 @@ export function PdfAnnotator({
   onCreate: (input: CreateAnnotationInput) => Promise<void>;
   registerScrollTo?: (fn: (annotation: AnnotationView) => void) => void;
 }) {
+  const t = useTranslations("annotations");
   const highlights = useMemo(() => annotations.map(toHighlight), [annotations]);
   const annotationById = useMemo(
     () => new Map(annotations.map((annotation) => [annotation.id, annotation])),
@@ -369,8 +373,8 @@ export function PdfAnnotator({
       <PdfLoader
         workerSrc="/pdf.worker.min.mjs"
         url={pdfUrl}
-        beforeLoad={<p className="p-4 text-sm text-muted">Loading PDF…</p>}
-        errorMessage={<p className="p-4 text-sm text-muted">Failed to load PDF.</p>}
+        beforeLoad={<p className="p-4 text-sm text-muted">{t("pdfLoading")}</p>}
+        errorMessage={<p className="p-4 text-sm text-muted">{t("pdfError")}</p>}
       >
         {(pdfDocument) => (
           <PdfHighlighter<IHighlight>

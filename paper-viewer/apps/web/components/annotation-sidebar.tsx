@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { annotationColor } from "@paper-viewer/core/labels";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
 
@@ -23,6 +24,7 @@ export function AnnotationSidebar({
   onReply: (annotationId: string, body: string, parentId?: string) => Promise<void>;
   onDelete: (annotation: AnnotationView) => Promise<void>;
 }) {
+  const t = useTranslations("annotations");
   const [labelFilter, setLabelFilter] = useState<string>("all");
   const [authorFilter, setAuthorFilter] = useState<string>("all");
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
@@ -50,7 +52,7 @@ export function AnnotationSidebar({
           value={labelFilter}
           onChange={(event) => setLabelFilter(event.target.value)}
         >
-          <option value="all">全部 label</option>
+          <option value="all">{t("filterAllLabels")}</option>
           {labels.map((label) => (
             <option key={label.id} value={label.id}>
               {label.name}
@@ -62,14 +64,14 @@ export function AnnotationSidebar({
           value={authorFilter}
           onChange={(event) => setAuthorFilter(event.target.value)}
         >
-          <option value="all">全部成员</option>
+          <option value="all">{t("filterAllMembers")}</option>
           {authors.map(([id, name]) => (
             <option key={id} value={id}>
               {name}
             </option>
           ))}
         </select>
-        <span className="ml-auto text-xs text-muted">{filtered.length} 条</span>
+        <span className="ml-auto text-xs text-muted">{t("count", { count: filtered.length })}</span>
       </div>
       <div className="max-h-[calc(100vh-320px)] divide-y divide-border overflow-auto">
         {filtered.map((annotation) => (
@@ -84,14 +86,16 @@ export function AnnotationSidebar({
                   style={{ background: annotationColor(annotation.labels) }}
                 />
                 <span>{annotation.author.name ?? annotation.author.email}</span>
-                <span className="rounded bg-surface px-1.5 py-0.5">p.{annotation.pageNumber}</span>
-                <span>{annotation.type === "area" ? "划区" : "高亮"}</span>
+                <span className="rounded bg-surface px-1.5 py-0.5">
+                  {t("pageBadge", { page: annotation.pageNumber })}
+                </span>
+                <span>{annotation.type === "area" ? t("typeArea") : t("typeHighlight")}</span>
               </div>
               {annotation.areaImage ? (
                 // eslint-disable-next-line @next/next/no-img-element -- data URL, not a routable asset
                 <img
                   src={annotation.areaImage}
-                  alt="划区截图"
+                  alt={t("areaImageAlt")}
                   className="mt-1 max-h-24 w-auto rounded border border-border"
                 />
               ) : null}
@@ -132,7 +136,7 @@ export function AnnotationSidebar({
             <div className="mt-1.5 flex items-center gap-2">
               <input
                 className="min-w-0 flex-1 rounded border border-border px-2 py-1 text-xs"
-                placeholder="回复…"
+                placeholder={t("replyPlaceholder")}
                 value={replyDrafts[annotation.id] ?? ""}
                 onChange={(event) =>
                   setReplyDrafts((drafts) => ({ ...drafts, [annotation.id]: event.target.value }))
@@ -158,20 +162,20 @@ export function AnnotationSidebar({
                   className="text-xs text-red-500"
                   onClick={async () => {
                     if (
-                      confirm(`删除该标注？其下 ${annotation.comments.length} 条评论将一并删除。`)
+                      confirm(t("deleteConfirm", { count: annotation.comments.length }))
                     ) {
                       await onDelete(annotation);
                     }
                   }}
                 >
-                  删除
+                  {t("delete")}
                 </button>
               ) : null}
             </div>
           </article>
         ))}
         {filtered.length === 0 ? (
-          <p className="px-3 py-6 text-sm text-muted">暂无标注。选中文字或按住 ⌥ 拖拽即可创建。</p>
+          <p className="px-3 py-6 text-sm text-muted">{t("empty")}</p>
         ) : null}
       </div>
     </section>
