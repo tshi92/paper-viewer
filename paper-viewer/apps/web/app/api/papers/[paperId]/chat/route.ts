@@ -128,7 +128,6 @@ ${paperContent.slice(0, 60000)}`
     body: JSON.stringify({
       model: env.LLM_MODEL,
       messages,
-      temperature: 0.3,
       max_tokens: 16000,
       stream: true
     })

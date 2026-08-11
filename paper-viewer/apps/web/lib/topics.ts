@@ -61,7 +61,6 @@ Rules:
 Return JSON: {"topics": ["topic1", "topic2"]}`
         }
       ],
-      temperature: 0.1,
       max_tokens: 16000,
       response_format: { type: "json_object" }
     })

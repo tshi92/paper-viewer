@@ -89,7 +89,6 @@ async function extractMetadataViaLlm(
 注意：keywords 必须用英文，小写，简洁（1-4个词）。`
         }
       ],
-      temperature: 0.1,
       max_tokens: 16000,
       response_format: { type: "json_object" }
     })
