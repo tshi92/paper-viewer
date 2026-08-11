@@ -4,6 +4,7 @@ import { prisma } from "@paper-viewer/db";
 import { PaperUploadForm } from "@/components/paper-upload-form";
 import { RemovePaperButton } from "@/components/remove-paper-button";
 import { MoreTopics } from "@/components/more-topics";
+import { LibrarySearch } from "@/components/library-search";
 import { requireCurrentUser } from "@/lib/auth";
 
 /** Filter keys map to a translation key plus the window they select. */
@@ -23,18 +24,19 @@ const SOURCE_LABEL_KEYS: Record<string, string> = {
 export default async function LibraryPage({
   searchParams
 }: {
-  searchParams: Promise<{ time?: string; tag?: string }>;
+  searchParams: Promise<{ time?: string; tag?: string; q?: string }>;
 }) {
   const user = await requireCurrentUser();
   const t = await getTranslations("library");
-  const { time = "all", tag } = await searchParams;
+  const { time = "all", tag, q } = await searchParams;
+  const query = (q ?? "").trim().toLowerCase();
 
   const timeFilter = TIME_FILTERS[time] ?? TIME_FILTERS.all!;
   const dateFilter = timeFilter.days > 0
     ? { gte: new Date(Date.now() - timeFilter.days * 24 * 60 * 60 * 1000) }
     : undefined;
 
-  const workspacePapers = await prisma.workspacePaper.findMany({
+  const matchedPapers = await prisma.workspacePaper.findMany({
     where: {
       workspaceId: user.workspaceId,
       state: "visible",
@@ -46,6 +48,17 @@ export default async function LibraryPage({
     },
     orderBy: { createdAt: "desc" }
   });
+
+  // 关键词匹配放在 JS 里做：authors 是 Json 数组，Prisma 的 array_contains 只能整元素相等，
+  // 做不了作者名的子串匹配；而单个 workspace 的论文量在几十到几百条，全量取回再过滤足够。
+  // 若将来单库论文量上万，应改成 `authors::text ILIKE` 的原生 SQL 或建全文索引。
+  const workspacePapers = query
+    ? matchedPapers.filter(({ paper }) => {
+        if (paper.title.toLowerCase().includes(query)) return true;
+        const authors = Array.isArray(paper.authors) ? paper.authors : [];
+        return authors.some((author) => typeof author === "string" && author.toLowerCase().includes(query));
+      })
+    : matchedPapers;
 
   // Collect topics
   const [allPaperTags, prefs] = await Promise.all([
@@ -81,6 +94,7 @@ export default async function LibraryPage({
     const newTag = params.tag !== undefined ? params.tag : tag;
     if (newTime && newTime !== "all") p.set("time", newTime);
     if (newTag) p.set("tag", newTag);
+    if (q) p.set("q", q);
     const qs = p.toString();
     return `/library${qs ? `?${qs}` : ""}`;
   }
@@ -115,6 +129,7 @@ export default async function LibraryPage({
               </Link>
             );
           })}
+          <LibrarySearch />
         </div>
 
         {(mainTopics.length > 0 || discoveredTopics.length > 0) ? (
@@ -147,6 +162,7 @@ export default async function LibraryPage({
                 topicCounts={Object.fromEntries(topicCounts)}
                 currentTag={tag}
                 currentTime={time}
+                currentQuery={q}
               />
             ) : null}
           </div>
@@ -157,6 +173,7 @@ export default async function LibraryPage({
         {t("paperCount", { count: workspacePapers.length })}
         {time !== "all" ? ` · ${t(timeFilter.labelKey)}` : ""}
         {tag ? ` · ${tag}` : ""}
+        {query ? ` · "${q?.trim()}"` : ""}
       </div>
 
       <div className="divide-y divide-border">
@@ -197,7 +214,7 @@ export default async function LibraryPage({
         ))}
         {workspacePapers.length === 0 ? (
           <p className="px-4 py-8 text-sm text-muted">
-            {time !== "all" || tag ? t("emptyFiltered") : t("empty")}
+            {query ? t("emptySearch") : time !== "all" || tag ? t("emptyFiltered") : t("empty")}
           </p>
         ) : null}
       </div>
