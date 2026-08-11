@@ -1,22 +1,25 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { getTranslations } from "next-intl/server";
 import type { CurrentUser } from "@/lib/auth";
 
-export function AppShell({ user, children }: { user: CurrentUser; children: ReactNode }) {
+export async function AppShell({ user, children }: { user: CurrentUser; children: ReactNode }) {
+  const t = await getTranslations("nav");
+
   return (
     <div className="min-h-screen">
       <header className="border-b border-border bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
           <nav className="flex items-center gap-5 text-sm">
-            <Link className="font-semibold" href="/today">Paper Viewer</Link>
-            <Link href="/today">Today</Link>
-            <Link href="/library">Library</Link>
-            <Link href="/settings">Settings</Link>
+            <Link className="font-semibold" href="/today">{t("brand")}</Link>
+            <Link href="/today">{t("today")}</Link>
+            <Link href="/library">{t("library")}</Link>
+            <Link href="/settings">{t("settings")}</Link>
           </nav>
           <div className="flex items-center gap-3 text-sm text-muted">
             <span>{user.email}</span>
             <form action="/api/auth/logout" method="post">
-              <button className="rounded border border-border px-3 py-1" type="submit">Sign out</button>
+              <button className="rounded border border-border px-3 py-1" type="submit">{t("signOut")}</button>
             </form>
           </div>
         </div>

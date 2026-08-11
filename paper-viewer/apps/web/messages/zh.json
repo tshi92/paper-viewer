@@ -1,0 +1,19 @@
+{
+  "nav": {
+    "brand": "Paper Viewer",
+    "today": "今日",
+    "library": "文库",
+    "settings": "设置",
+    "signOut": "退出登录"
+  },
+  "settingsNav": {
+    "general": "通用",
+    "preferences": "研究偏好",
+    "llm": "LLM",
+    "members": "成员"
+  },
+  "settingsGeneral": {
+    "title": "通用",
+    "languageComingSoon": "语言设置即将上线。"
+  }
+}

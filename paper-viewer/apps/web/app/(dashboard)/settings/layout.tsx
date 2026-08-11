@@ -1,19 +1,21 @@
 import type { ReactNode } from "react";
+import { getTranslations } from "next-intl/server";
 import { canManageWorkspaceSettings } from "@paper-viewer/core/permissions";
 import { requireCurrentUser } from "@/lib/auth";
 import { SettingsNav, type SettingsNavItem } from "@/components/settings-nav";
 
 export default async function SettingsLayout({ children }: { children: ReactNode }) {
   const user = await requireCurrentUser();
+  const t = await getTranslations("settingsNav");
 
   const items: SettingsNavItem[] = [
-    { href: "/settings/general", label: "通用" },
-    { href: "/settings/preferences", label: "Preferences" },
-    { href: "/settings/llm", label: "LLM" }
+    { href: "/settings/general", label: t("general") },
+    { href: "/settings/preferences", label: t("preferences") },
+    { href: "/settings/llm", label: t("llm") }
   ];
 
   if (canManageWorkspaceSettings(user.role)) {
-    items.push({ href: "/settings/members", label: "Members" });
+    items.push({ href: "/settings/members", label: t("members") });
   }
 
   return (

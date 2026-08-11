@@ -1,0 +1,19 @@
+{
+  "nav": {
+    "brand": "Paper Viewer",
+    "today": "Today",
+    "library": "Library",
+    "settings": "Settings",
+    "signOut": "Sign out"
+  },
+  "settingsNav": {
+    "general": "General",
+    "preferences": "Preferences",
+    "llm": "LLM",
+    "members": "Members"
+  },
+  "settingsGeneral": {
+    "title": "General",
+    "languageComingSoon": "Language settings are coming soon."
+  }
+}
