@@ -47,7 +47,6 @@ type PaperData = {
   readingState: string;
   annotationLabels: LabelView[];
   currentUserId: string;
-  isAdmin: boolean;
 };
 
 type SidebarTab = "annotations" | "chat" | "keynotes" | "comments";
@@ -266,7 +265,6 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             annotations={annotations}
             labels={paper.annotationLabels}
             currentUserId={paper.currentUserId}
-            isAdmin={paper.isAdmin}
             selectedId={selectedAnnotationId}
             onJump={(annotation) => {
               setSelectedAnnotationId(annotation.id);

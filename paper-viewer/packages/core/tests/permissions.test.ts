@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   canDeleteAnnotation,
   canDeleteComment,
-  canManageLabels,
   canManageWorkspace,
   canManageWorkspaceSettings,
   canReadWorkspace,
@@ -38,24 +37,25 @@ describe("permissions", () => {
     expect(canManageWorkspace(null)).toBe(false);
   });
 
-  it("allows owner and admin to manage labels, not members", () => {
-    expect(canManageLabels("owner")).toBe(true);
-    expect(canManageLabels("admin")).toBe(true);
-    expect(canManageLabels("member")).toBe(false);
-    expect(canManageLabels(null)).toBe(false);
-  });
-
-  it("lets authors delete their own annotations and admins delete anyone's", () => {
+  it("lets only the author delete an annotation, whatever the role", () => {
     expect(canDeleteAnnotation("member", true)).toBe(true);
+    expect(canDeleteAnnotation("admin", true)).toBe(true);
+    expect(canDeleteAnnotation("owner", true)).toBe(true);
     expect(canDeleteAnnotation("member", false)).toBe(false);
-    expect(canDeleteAnnotation("admin", false)).toBe(true);
-    expect(canDeleteAnnotation("owner", false)).toBe(true);
+    expect(canDeleteAnnotation("admin", false)).toBe(false);
+    expect(canDeleteAnnotation("owner", false)).toBe(false);
     expect(canDeleteAnnotation(null, false)).toBe(false);
   });
 
-  it("applies the same policy to comments", () => {
+  it("rejects an author who is no longer a workspace member", () => {
+    expect(canDeleteAnnotation(null, true)).toBe(false);
+    expect(canDeleteComment(null, true)).toBe(false);
+  });
+
+  it("applies the same author-only policy to comments", () => {
     expect(canDeleteComment("member", true)).toBe(true);
     expect(canDeleteComment("member", false)).toBe(false);
-    expect(canDeleteComment("admin", false)).toBe(true);
+    expect(canDeleteComment("admin", false)).toBe(false);
+    expect(canDeleteComment("owner", false)).toBe(false);
   });
 });

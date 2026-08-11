@@ -1,4 +1,3 @@
-import { canManageLabels } from "@paper-viewer/core/permissions";
 import { prisma } from "@paper-viewer/db";
 import { notFound } from "next/navigation";
 import { PaperWorkspace } from "@/components/paper-workspace";
@@ -113,8 +112,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
             scope: label.scope as LabelView["scope"]
           })
         ),
-        currentUserId: user.id,
-        isAdmin: canManageLabels(user.role)
+        currentUserId: user.id
       }}
     />
   );

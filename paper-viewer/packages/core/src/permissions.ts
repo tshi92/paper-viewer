@@ -16,13 +16,9 @@ export function canManageWorkspaceSettings(role: WorkspaceRole | null): boolean 
   return role === "owner" || role === "admin";
 }
 
-export function canManageLabels(role: WorkspaceRole | null): boolean {
-  return role === "owner" || role === "admin";
-}
-
+/** Authors alone may delete their annotations; admins and owners may not delete other people's. */
 export function canDeleteAnnotation(role: WorkspaceRole | null, isAuthor: boolean): boolean {
-  if (isAuthor) return role !== null;
-  return role === "owner" || role === "admin";
+  return isAuthor && role !== null;
 }
 
 export function canDeleteComment(role: WorkspaceRole | null, isAuthor: boolean): boolean {

@@ -9,7 +9,6 @@ export function AnnotationSidebar({
   annotations,
   labels,
   currentUserId,
-  isAdmin,
   selectedId,
   onJump,
   onReply,
@@ -18,7 +17,6 @@ export function AnnotationSidebar({
   annotations: AnnotationView[];
   labels: LabelView[];
   currentUserId: string;
-  isAdmin: boolean;
   selectedId: string | null;
   onJump: (annotation: AnnotationView) => void;
   onReply: (annotationId: string, body: string, parentId?: string) => Promise<void>;
@@ -156,7 +154,7 @@ export function AnnotationSidebar({
                   setReplyDrafts((drafts) => ({ ...drafts, [annotation.id]: "" }));
                 }}
               />
-              {annotation.author.id === currentUserId || isAdmin ? (
+              {annotation.author.id === currentUserId ? (
                 <button
                   type="button"
                   className="text-xs text-red-500"
