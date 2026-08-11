@@ -5,7 +5,7 @@ import { requireCurrentUser, type CurrentUser } from "@/lib/auth";
 const commentSchema = z.object({
   body: z.string().min(1).max(5000),
   pageNumber: z.coerce.number().int().positive().optional(),
-  quotedText: z.string().max(2000).optional(),
+  quotedText: z.string().max(4000).optional(),
   parentId: z.string().optional(),
   annotationId: z.string().optional()
 });
@@ -57,15 +57,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
     annotationId: raw.annotationId || undefined
   });
 
+  // A reply always carries its parent's exact annotationId (null included), so an
+  // annotation's comment thread is fully identified by annotationId alone.
+  let annotationId: string | null = input.annotationId ?? null;
+
   if (input.parentId) {
     const parent = await prisma.comment.findUnique({ where: { id: input.parentId } });
     if (!parent || parent.workspaceId !== user.workspaceId || parent.paperId !== paperId) {
       return Response.json({ error: "Invalid parent comment" }, { status: 400 });
     }
-  }
-
-  if (input.annotationId) {
-    const annotation = await prisma.annotation.findUnique({ where: { id: input.annotationId } });
+    if (input.annotationId && input.annotationId !== parent.annotationId) {
+      return Response.json({ error: "Reply must stay in its parent's thread" }, { status: 400 });
+    }
+    annotationId = parent.annotationId;
+  } else if (annotationId) {
+    const annotation = await prisma.annotation.findUnique({ where: { id: annotationId } });
     if (!annotation || annotation.workspaceId !== user.workspaceId || annotation.paperId !== paperId) {
       return Response.json({ error: "Invalid annotation" }, { status: 400 });
     }
@@ -80,7 +86,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
       pageNumber: input.pageNumber ?? null,
       quotedText: input.quotedText ?? null,
       parentId: input.parentId ?? null,
-      annotationId: input.annotationId ?? null
+      annotationId
     },
     include: commentInclude
   });

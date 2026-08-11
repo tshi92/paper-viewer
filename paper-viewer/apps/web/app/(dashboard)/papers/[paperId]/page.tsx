@@ -37,7 +37,10 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
 
   const [comments, readingState] = await Promise.all([
     prisma.comment.findMany({
-      where: { workspaceId: user.workspaceId, paperId },
+      // annotationId: null keeps annotation-thread comments out of the paper-level
+      // Discussion list; parentId stays unfiltered so replies to paper-level
+      // comments (which inherit annotationId null) remain visible.
+      where: { workspaceId: user.workspaceId, paperId, annotationId: null },
       include: { author: true },
       orderBy: { createdAt: "asc" }
     }),

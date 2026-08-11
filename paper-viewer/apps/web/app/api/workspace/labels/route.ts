@@ -3,12 +3,20 @@ import { z } from "zod";
 import { canManageLabels } from "@paper-viewer/core/permissions";
 import { labelScopes } from "@paper-viewer/core/labels";
 import { requireCurrentUser, type CurrentUser } from "@/lib/auth";
+import type { LabelView } from "@/lib/annotation-types";
 
 const createLabelSchema = z.object({
-  name: z.string().min(1).max(50),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  name: z.string().trim().min(1).max(50),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .transform((color) => color.toLowerCase()),
   scope: z.enum(labelScopes)
 });
+
+function toLabelView(label: { id: string; name: string; color: string; scope: LabelView["scope"] }): LabelView {
+  return { id: label.id, name: label.name, color: label.color, scope: label.scope };
+}
 
 function isUniqueConstraintError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === "P2002";
@@ -33,7 +41,7 @@ export async function GET() {
     orderBy: [{ scope: "asc" }, { createdAt: "asc" }]
   });
 
-  return Response.json({ labels });
+  return Response.json({ labels: labels.map(toLabelView) });
 }
 
 export async function POST(request: Request) {
@@ -52,7 +60,7 @@ export async function POST(request: Request) {
     const label = await prisma.label.create({
       data: { workspaceId: user.workspaceId, ...input }
     });
-    return Response.json({ label }, { status: 201 });
+    return Response.json({ label: toLabelView(label) }, { status: 201 });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
       return Response.json({ error: `A ${input.scope} label named "${input.name}" already exists` }, { status: 409 });

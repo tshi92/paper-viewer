@@ -2,14 +2,20 @@ import { prisma } from "@paper-viewer/db";
 import { z } from "zod";
 import { canManageLabels } from "@paper-viewer/core/permissions";
 import { requireCurrentUser, type CurrentUser } from "@/lib/auth";
+import type { LabelView } from "@/lib/annotation-types";
 
 const updateLabelSchema = z.object({
-  name: z.string().min(1).max(50).optional(),
+  name: z.string().trim().min(1).max(50).optional(),
   color: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/)
+    .transform((color) => color.toLowerCase())
     .optional()
 });
+
+function toLabelView(label: { id: string; name: string; color: string; scope: LabelView["scope"] }): LabelView {
+  return { id: label.id, name: label.name, color: label.color, scope: label.scope };
+}
 
 function isUniqueConstraintError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === "P2002";
@@ -52,7 +58,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ la
 
   try {
     const label = await prisma.label.update({ where: { id: labelId }, data });
-    return Response.json({ label });
+    return Response.json({ label: toLabelView(label) });
   } catch (error) {
     if (isUniqueConstraintError(error)) {
       return Response.json(

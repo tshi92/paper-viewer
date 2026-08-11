@@ -1,9 +1,8 @@
 import { prisma } from "@paper-viewer/db";
-import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { annotationTypes } from "@paper-viewer/core/labels";
 import { requireCurrentUser, type CurrentUser } from "@/lib/auth";
-import type { AnnotationView } from "@/lib/annotation-types";
+import { annotationInclude, toAnnotationView } from "@/lib/annotation-view";
 
 const scaledRect = z.object({
   x1: z.number(),
@@ -15,55 +14,24 @@ const scaledRect = z.object({
   pageNumber: z.number().int().positive().optional()
 });
 
-const createAnnotationSchema = z.object({
-  type: z.enum(annotationTypes),
-  pageNumber: z.number().int().positive(),
-  position: z.object({
-    boundingRect: scaledRect,
-    rects: z.array(scaledRect),
+const createAnnotationSchema = z
+  .object({
+    type: z.enum(annotationTypes),
     pageNumber: z.number().int().positive(),
-    usePdfCoordinates: z.boolean().optional()
-  }),
-  quotedText: z.string().max(4000).optional(),
-  labelIds: z.array(z.string()).max(10).default([]),
-  firstComment: z.string().min(1).max(5000).optional()
-});
-
-const annotationInclude = {
-  author: { select: { id: true, email: true, name: true } },
-  labels: { orderBy: { order: "asc" as const }, include: { label: true } },
-  comments: {
-    orderBy: { createdAt: "asc" as const },
-    include: { author: { select: { id: true, email: true, name: true } } }
-  }
-};
-
-type AnnotationWithRelations = Prisma.AnnotationGetPayload<{ include: typeof annotationInclude }>;
-
-function toView(annotation: AnnotationWithRelations): AnnotationView {
-  return {
-    id: annotation.id,
-    type: annotation.type,
-    pageNumber: annotation.pageNumber,
-    position: annotation.position,
-    quotedText: annotation.quotedText,
-    createdAt: annotation.createdAt.toISOString(),
-    author: annotation.author,
-    labels: annotation.labels.map(({ label }) => ({
-      id: label.id,
-      name: label.name,
-      color: label.color,
-      scope: label.scope
-    })),
-    comments: annotation.comments.map((comment) => ({
-      id: comment.id,
-      body: comment.body,
-      parentId: comment.parentId,
-      createdAt: comment.createdAt.toISOString(),
-      author: comment.author
-    }))
-  };
-}
+    position: z.object({
+      boundingRect: scaledRect,
+      rects: z.array(scaledRect).min(1),
+      pageNumber: z.number().int().positive(),
+      usePdfCoordinates: z.boolean().optional()
+    }),
+    quotedText: z.string().max(4000).optional(),
+    labelIds: z.array(z.string()).max(10).default([]),
+    firstComment: z.string().min(1).max(5000).optional()
+  })
+  .refine((input) => input.position.pageNumber === input.pageNumber, {
+    message: "pageNumber mismatch",
+    path: ["position", "pageNumber"]
+  });
 
 async function resolveCurrentUser(): Promise<CurrentUser | null> {
   try {
@@ -97,7 +65,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pap
     include: annotationInclude
   });
 
-  return Response.json({ annotations: annotations.map(toView) });
+  return Response.json({ annotations: annotations.map(toAnnotationView) });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ paperId: string }> }) {
@@ -151,5 +119,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
     include: annotationInclude
   });
 
-  return Response.json({ annotation: toView(annotation) }, { status: 201 });
+  return Response.json({ annotation: toAnnotationView(annotation) }, { status: 201 });
 }

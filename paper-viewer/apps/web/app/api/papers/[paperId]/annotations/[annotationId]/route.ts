@@ -2,6 +2,7 @@ import { prisma } from "@paper-viewer/db";
 import { z } from "zod";
 import { canDeleteAnnotation } from "@paper-viewer/core/permissions";
 import { requireCurrentUser, type CurrentUser } from "@/lib/auth";
+import { annotationInclude, toAnnotationView } from "@/lib/annotation-view";
 
 const updateAnnotationSchema = z.object({
   labelIds: z.array(z.string()).max(10)
@@ -18,6 +19,8 @@ async function resolveCurrentUser(): Promise<CurrentUser | null> {
 async function findAnnotation(annotationId: string, workspaceId: string, paperId: string) {
   const annotation = await prisma.annotation.findUnique({
     where: { id: annotationId },
+    // Counts the whole thread: replies always inherit the parent's annotationId
+    // (enforced in the comments route), so no thread comment is missed here.
     include: { _count: { select: { comments: true } } }
   });
   return annotation && annotation.workspaceId === workspaceId && annotation.paperId === paperId ? annotation : null;
@@ -58,10 +61,17 @@ export async function PATCH(
     prisma.annotationLabel.deleteMany({ where: { annotationId } }),
     prisma.annotationLabel.createMany({
       data: labelIds.map((labelId, order) => ({ annotationId, labelId, order }))
-    })
+    }),
+    // @updatedAt does not fire for an empty-data update, so set it explicitly.
+    prisma.annotation.update({ where: { id: annotationId }, data: { updatedAt: new Date() } })
   ]);
 
-  return Response.json({ ok: true });
+  const updated = await prisma.annotation.findUniqueOrThrow({
+    where: { id: annotationId },
+    include: annotationInclude
+  });
+
+  return Response.json({ annotation: toAnnotationView(updated) });
 }
 
 export async function DELETE(
