@@ -1,3 +1,4 @@
+import { DEFAULT_ANNOTATION_LABELS } from "@paper-viewer/core/labels";
 import { prisma } from "@paper-viewer/db";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
@@ -45,6 +46,23 @@ export async function POST(request: Request) {
       }
     }
   });
+
+  const membership = await prisma.workspaceMembership.findFirst({
+    where: { userId: user.id },
+    select: { workspaceId: true }
+  });
+
+  if (membership) {
+    await prisma.label.createMany({
+      data: DEFAULT_ANNOTATION_LABELS.map((label) => ({
+        workspaceId: membership.workspaceId,
+        name: label.name,
+        color: label.color,
+        scope: "annotation" as const
+      })),
+      skipDuplicates: true
+    });
+  }
 
   await setSession(user.id);
   redirect("/library");

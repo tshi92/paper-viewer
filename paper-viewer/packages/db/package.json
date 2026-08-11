@@ -12,7 +12,8 @@
     "test": "vitest run",
     "prisma:generate": "prisma generate --schema prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema prisma/schema.prisma",
-    "prisma:seed": "tsx prisma/seed.ts"
+    "prisma:seed": "tsx prisma/seed.ts",
+    "backfill:labels": "tsx scripts/backfill-labels.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.1.0"
