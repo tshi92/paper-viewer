@@ -125,9 +125,14 @@ export async function analyzeSinglePaper(
   topics: string[]
 ): Promise<PaperAnalysisResult> {
   // LLM 偶发返回非法 JSON（如中文串里未转义引号）；重试一次基本可消除。
+  // 只对 JSON.parse 抛的 SyntaxError 重试：401 / 429 / 网络错误重试没有意义，
+  // 只会再烧一次全额调用。
   try {
     return await analyzeSinglePaperOnce(config, paper, topics);
-  } catch {
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) {
+      throw error;
+    }
     return analyzeSinglePaperOnce(config, paper, topics);
   }
 }

@@ -1,6 +1,6 @@
 import { prisma } from "@paper-viewer/db";
 import { z } from "zod";
-import { canManageLabels } from "@paper-viewer/core/permissions";
+import { canManageWorkspaceSettings } from "@paper-viewer/core/permissions";
 import { maskApiKey } from "@paper-viewer/core/llm-config";
 import { requireCurrentUser, type CurrentUser } from "@/lib/auth";
 import { getEnv } from "@/lib/env";
@@ -103,7 +103,7 @@ export async function GET() {
   if (!user) {
     return Response.json({ error: "Authentication required" }, { status: 401 });
   }
-  if (!canManageLabels(user.role)) {
+  if (!canManageWorkspaceSettings(user.role)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -116,7 +116,7 @@ export async function PUT(request: Request) {
   if (!user) {
     return Response.json({ error: "Authentication required" }, { status: 401 });
   }
-  if (!canManageLabels(user.role)) {
+  if (!canManageWorkspaceSettings(user.role)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -151,7 +151,7 @@ export async function POST(request: Request) {
   if (!user) {
     return Response.json({ error: "Authentication required" }, { status: 401 });
   }
-  if (!canManageLabels(user.role)) {
+  if (!canManageWorkspaceSettings(user.role)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
@@ -159,7 +159,23 @@ export async function POST(request: Request) {
   const current = await loadEffectiveConfig(user.workspaceId);
   const baseUrl = trimmedOrEmpty(input.baseUrl) || current.baseUrl;
   const model = trimmedOrEmpty(input.model) || current.model;
-  const apiKey = trimmedOrEmpty(input.apiKey) || current.apiKey;
+
+  // 测试请求与保存同规则：仅 https，防止 admin 侧的 SSRF 面（同 notifications 路由）
+  if (!z.string().url().safeParse(baseUrl).success || !baseUrl.startsWith("https://")) {
+    return Response.json({ error: "Base URL 必须是 https 地址" }, { status: 400 });
+  }
+
+  // 存量 key 只在「测的就是它自己那套配置」时才带上。
+  // 否则改个 Base URL 点一下测试，就能把库里的真 key 送到任意主机。
+  const sameTarget = normalizeBaseUrl(baseUrl) === normalizeBaseUrl(current.baseUrl);
+  const apiKey = trimmedOrEmpty(input.apiKey) || (sameTarget ? current.apiKey : "");
+  if (!apiKey) {
+    return Response.json({
+      ok: false,
+      status: 0,
+      message: "更换 Base URL 测试时需提供对应的 API Key"
+    });
+  }
 
   let response: Response;
   try {

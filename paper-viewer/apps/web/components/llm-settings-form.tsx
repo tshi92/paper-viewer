@@ -83,11 +83,13 @@ export function LlmSettingsForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
       });
+      const data = (await res.json().catch(() => null)) as (TestResult & { error?: string }) | null;
       if (!res.ok) {
-        setTestResult({ ok: false, status: res.status, message: t("testFailed") });
+        // 400 走 { error } 形状（如 https 校验），把服务端的原因透出来
+        setTestResult({ ok: false, status: res.status, message: data?.error ?? t("testFailed") });
         return;
       }
-      setTestResult((await res.json()) as TestResult);
+      if (data) setTestResult(data);
     } catch {
       setTestResult({ ok: false, status: 0, message: t("testFailed") });
     } finally {
