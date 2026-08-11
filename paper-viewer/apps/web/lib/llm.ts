@@ -125,10 +125,10 @@ export async function analyzeSinglePaper(
   topics: string[]
 ): Promise<PaperAnalysisResult> {
   const result = await callLlm(config, [
-    { role: "system", content: "你是一个专业的计算机系统研究助手，擅长分析大模型系统方向的学术论文。你的总结要通俗易懂，避免使用论文中的缩写和术语，而是用清晰的日常语言解释技术概念。返回纯 JSON。" },
+    { role: "system", content: "你是一个专业的计算机系统研究助手，擅长分析大模型系统方向的学术论文。所有分析必须用中文撰写，通俗易懂，用清晰的日常语言解释技术概念；但领域通用术语保留英文原词（transformer、attention、RLHF、ablation、KV cache 等一律不要翻译成中文）。返回纯 JSON。" },
     {
       role: "user",
-      content: `请详细分析这篇论文，用通俗易懂的语言总结，避免使用论文中的缩写：
+      content: `请详细分析这篇论文，用通俗易懂的中文总结（领域术语保留英文原词）：
 
 Title: ${paper.title}
 arXiv: ${paper.arxivId}
@@ -154,8 +154,9 @@ Abstract: ${paper.abstract}
 }
 
 注意：
-- 所有中文分析都要通俗易懂，像给同行讲解一样自然
-- 不要使用论文中的缩写（比如不要写 "TTFT"，要写 "首个 token 的生成时间"）
+- 所有分析都用中文撰写，通俗易懂，像给同行讲解一样自然
+- 领域通用术语保留英文原词，不要翻译（transformer、attention、RLHF、ablation、KV cache、fine-tuning 等）
+- 论文特有的生僻缩写首次出现时展开解释（比如写 "首个 token 的生成时间（TTFT）"）
 - keywords 用英文、小写、1-4个词
 - relevanceScore 根据与用户研究方向的相关性打分 0-1`
     }
@@ -175,7 +176,7 @@ export async function generateOverview(
     .join("\n\n");
 
   const result = await callLlm(config, [
-    { role: "system", content: "你是一个大模型系统研究趋势分析专家。你的分析要通俗易懂。返回纯 JSON。" },
+    { role: "system", content: "你是一个大模型系统研究趋势分析专家。分析用中文撰写、通俗易懂；领域通用术语保留英文原词（transformer、attention、RLHF、ablation 等不翻译）。返回纯 JSON。" },
     {
       role: "user",
       content: `基于今天推荐的 ${analyses.length} 篇论文，写一份简报式的整体概述。
@@ -190,7 +191,7 @@ ${paperSummaries}
 2. 归纳出 2-3 条今日的技术趋势和观察
 3. 指出论文之间的关联（哪些论文在解决类似问题）
 4. 给出对研究者的建议（今天最值得精读的 2-3 篇）
-5. 语言通俗易懂，不要用缩写
+5. 用中文撰写、通俗易懂；领域通用术语保留英文原词（transformer、attention、RLHF、ablation 等不翻译），生僻缩写首次出现时展开解释
 
 返回 JSON：
 {
