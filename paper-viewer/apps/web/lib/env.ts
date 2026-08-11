@@ -17,6 +17,12 @@ const envSchema = z.object({
   ),
   MAX_PDF_UPLOAD_MB: z.coerce.number().int().positive().default(50),
   INGEST_API_KEY: z.string().min(16),
+  // Vercel Cron 鉴权。未配置时 /api/cron/* 直接 404，本地默认关闭避免裸奔。
+  // 空字符串按未配置处理，这样 .env.example 里可以留空占位（同 BLOB_READ_WRITE_TOKEN）
+  CRON_SECRET: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().min(16).optional()
+  ),
   RESEND_API_KEY: z.string().min(1).optional(),
   LLM_API_KEY: z.string().min(1).optional(),
   LLM_BASE_URL: z.string().url().default("https://api.deepseek.com"),

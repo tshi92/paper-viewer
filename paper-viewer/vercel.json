@@ -2,5 +2,9 @@
   "buildCommand": "pnpm db:generate && pnpm --filter @paper-viewer/web build",
   "installCommand": "pnpm install",
   "outputDirectory": "apps/web/.next",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "crons": [
+    { "path": "/api/cron/daily-digest", "schedule": "0 1 * * 1-5" },
+    { "path": "/api/cron/daily-digest", "schedule": "30 1 * * 1-5" }
+  ]
 }
