@@ -184,6 +184,7 @@ export async function POST(request: Request) {
   const modelIds = extractModelIds(payload);
   return Response.json({
     ok: true,
+    total: modelIds.length,
     models: modelIds.slice(0, MAX_LISTED_MODELS),
     modelFound: modelIds.includes(model)
   });

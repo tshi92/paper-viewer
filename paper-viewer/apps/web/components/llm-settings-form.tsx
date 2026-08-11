@@ -12,7 +12,7 @@ type ConfigView = {
 };
 
 type TestResult =
-  | { ok: true; models: string[]; modelFound: boolean }
+  | { ok: true; total: number; models: string[]; modelFound: boolean }
   | { ok: false; status: number; message: string };
 
 const SOURCE_LABEL: Record<ConfigSource, string> = {
@@ -209,7 +209,7 @@ export function LlmSettingsForm() {
       {testResult ? (
         testResult.ok ? (
           <p className="text-sm text-green-700" data-testid="llm-test-result">
-            ✓ 连接成功，共 {testResult.models.length} 个模型
+            ✓ 连接成功，共 {testResult.total} 个模型
             {testResult.modelFound ? "，含当前模型" : `，但未找到当前模型「${model.trim()}」`}
           </p>
         ) : (
