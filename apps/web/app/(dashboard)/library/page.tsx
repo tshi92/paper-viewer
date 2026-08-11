@@ -24,11 +24,11 @@ const SOURCE_LABEL_KEYS: Record<string, string> = {
 export default async function LibraryPage({
   searchParams
 }: {
-  searchParams: Promise<{ time?: string; tag?: string; q?: string }>;
+  searchParams: Promise<{ time?: string; tag?: string; q?: string; label?: string }>;
 }) {
   const user = await requireCurrentUser();
   const t = await getTranslations("library");
-  const { time = "all", tag, q } = await searchParams;
+  const { time = "all", tag, q, label } = await searchParams;
   const query = (q ?? "").trim().toLowerCase();
 
   const timeFilter = TIME_FILTERS[time] ?? TIME_FILTERS.all!;
@@ -41,10 +41,12 @@ export default async function LibraryPage({
       workspaceId: user.workspaceId,
       state: "visible",
       ...(dateFilter ? { createdAt: dateFilter } : {}),
-      ...(tag ? { tags: { has: tag } } : {})
+      ...(tag ? { tags: { has: tag } } : {}),
+      ...(label ? { labelLinks: { some: { labelId: label } } } : {})
     },
     include: {
-      paper: { include: { files: true } }
+      paper: { include: { files: true } },
+      labelLinks: { include: { label: true }, orderBy: { label: { createdAt: "asc" } } }
     },
     orderBy: { createdAt: "desc" }
   });
@@ -60,17 +62,32 @@ export default async function LibraryPage({
       })
     : matchedPapers;
 
-  // Collect topics
-  const [allPaperTags, prefs] = await Promise.all([
+  // Collect topics and the paper-label vocabulary. The unfiltered paper scan
+  // feeds both the topic counts and the per-label counts, so the filter row
+  // always shows the full workspace vocabulary, not just what survives filtering.
+  const [allPaperTags, prefs, paperLabels] = await Promise.all([
     prisma.workspacePaper.findMany({
       where: { workspaceId: user.workspaceId, state: "visible" },
-      select: { tags: true }
+      select: { tags: true, labelLinks: { select: { labelId: true } } }
     }),
     prisma.researchPreferences.findUnique({
       where: { workspaceId: user.workspaceId },
       select: { topics: true, keywords: true }
+    }),
+    prisma.label.findMany({
+      where: { workspaceId: user.workspaceId, scope: "paper" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true, color: true }
     })
   ]);
+
+  const labelCounts = new Map<string, number>();
+  for (const paper of allPaperTags) {
+    for (const link of paper.labelLinks) {
+      labelCounts.set(link.labelId, (labelCounts.get(link.labelId) ?? 0) + 1);
+    }
+  }
+  const activeLabel = label ? paperLabels.find((it) => it.id === label) : undefined;
 
   const prefTopicSet = new Set([...(prefs?.topics ?? []), ...(prefs?.keywords ?? [])]);
   const paperTopics = allPaperTags.flatMap((p) => p.tags);
@@ -88,12 +105,14 @@ export default async function LibraryPage({
     .filter((topic) => !prefTopicSet.has(topic))
     .sort((a, b) => (topicCounts.get(b) ?? 0) - (topicCounts.get(a) ?? 0));
 
-  function buildUrl(params: { time?: string | null; tag?: string | null }) {
+  function buildUrl(params: { time?: string | null; tag?: string | null; label?: string | null }) {
     const p = new URLSearchParams();
     const newTime = params.time !== undefined ? params.time : time;
     const newTag = params.tag !== undefined ? params.tag : tag;
+    const newLabel = params.label !== undefined ? params.label : label;
     if (newTime && newTime !== "all") p.set("time", newTime);
     if (newTag) p.set("tag", newTag);
+    if (newLabel) p.set("label", newLabel);
     if (q) p.set("q", q);
     const qs = p.toString();
     return `/library${qs ? `?${qs}` : ""}`;
@@ -132,6 +151,31 @@ export default async function LibraryPage({
           <LibrarySearch />
         </div>
 
+        {paperLabels.length > 0 ? (
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className="text-xs font-medium text-muted mr-1">{t("labelsLabel")}</span>
+            <Link
+              href={buildUrl({ label: null })}
+              className={`rounded px-2 py-0.5 text-xs ${!label ? "bg-accent text-white" : "text-muted hover:bg-surface"}`}
+            >
+              {t("labelAll")}
+            </Link>
+            {paperLabels.map((paperLabel) => {
+              const isActive = label === paperLabel.id;
+              return (
+                <Link
+                  key={paperLabel.id}
+                  href={buildUrl({ label: isActive ? null : paperLabel.id })}
+                  className="rounded px-2 py-0.5 text-xs font-medium text-white"
+                  style={{ background: paperLabel.color, opacity: isActive || !label ? 1 : 0.45 }}
+                >
+                  {paperLabel.name} ({labelCounts.get(paperLabel.id) ?? 0}){isActive ? " ×" : ""}
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
+
         {(mainTopics.length > 0 || discoveredTopics.length > 0) ? (
           <div className="flex items-center gap-1 flex-wrap">
             <span className="text-xs font-medium text-muted mr-1">{t("topicsLabel")}</span>
@@ -163,6 +207,7 @@ export default async function LibraryPage({
                 currentTag={tag}
                 currentTime={time}
                 currentQuery={q}
+                currentLabel={label}
               />
             ) : null}
           </div>
@@ -173,11 +218,12 @@ export default async function LibraryPage({
         {t("paperCount", { count: workspacePapers.length })}
         {time !== "all" ? ` · ${t(timeFilter.labelKey)}` : ""}
         {tag ? ` · ${tag}` : ""}
+        {activeLabel ? ` · ${activeLabel.name}` : ""}
         {query ? ` · "${q?.trim()}"` : ""}
       </div>
 
       <div className="divide-y divide-border">
-        {workspacePapers.map(({ paper, tags, id: wpId }) => (
+        {workspacePapers.map(({ paper, tags, labelLinks, id: wpId }) => (
           <div className="flex items-center justify-between px-4 py-4 hover:bg-surface group" key={paper.id}>
             <Link className="min-w-0 flex-1" href={`/papers/${paper.id}`}>
               <h2 className="font-medium">{paper.title}</h2>
@@ -188,6 +234,19 @@ export default async function LibraryPage({
                   {/* 与论文详情页的 hasPdf 判定保持一致：Blob 快照也算有 PDF */}
                   {paper.files.length > 0 || paper.blobUrl ? ` · ${t("pdfBadge")}` : ""}
                 </span>
+                {labelLinks.length > 0 ? (
+                  <div className="flex gap-1">
+                    {labelLinks.map(({ label: paperLabel }) => (
+                      <span
+                        key={paperLabel.id}
+                        className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
+                        style={{ background: paperLabel.color }}
+                      >
+                        {paperLabel.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
                 {tags.length > 0 ? (
                   <div className="flex gap-1">
                     {tags.slice(0, 3).map((paperTag) => (
@@ -214,7 +273,7 @@ export default async function LibraryPage({
         ))}
         {workspacePapers.length === 0 ? (
           <p className="px-4 py-8 text-sm text-muted">
-            {query ? t("emptySearch") : time !== "all" || tag ? t("emptyFiltered") : t("empty")}
+            {query ? t("emptySearch") : time !== "all" || tag || label ? t("emptyFiltered") : t("empty")}
           </p>
         ) : null}
       </div>

@@ -59,6 +59,8 @@
     "time3d": "3 days",
     "timeWeek": "This week",
     "timeMonth": "This month",
+    "labelsLabel": "Labels:",
+    "labelAll": "All",
     "topicsLabel": "Topics:",
     "moreTopics": "More ({count})",
     "lessTopics": "Less ×",

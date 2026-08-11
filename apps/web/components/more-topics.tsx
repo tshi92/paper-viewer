@@ -9,13 +9,15 @@ export function MoreTopics({
   topicCounts,
   currentTag,
   currentTime,
-  currentQuery
+  currentQuery,
+  currentLabel
 }: {
   topics: string[];
   topicCounts: Record<string, number>;
   currentTag: string | undefined;
   currentTime: string | undefined;
   currentQuery: string | undefined;
+  currentLabel: string | undefined;
 }) {
   const t = useTranslations("library");
   const [open, setOpen] = useState(false);
@@ -24,6 +26,7 @@ export function MoreTopics({
     const p = new URLSearchParams();
     if (currentTime && currentTime !== "all") p.set("time", currentTime);
     if (tag) p.set("tag", tag);
+    if (currentLabel) p.set("label", currentLabel);
     if (currentQuery) p.set("q", currentQuery);
     const qs = p.toString();
     return `/library${qs ? `?${qs}` : ""}`;

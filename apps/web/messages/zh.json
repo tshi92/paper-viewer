@@ -59,6 +59,8 @@
     "time3d": "近 3 天",
     "timeWeek": "本周",
     "timeMonth": "本月",
+    "labelsLabel": "标签：",
+    "labelAll": "全部",
     "topicsLabel": "主题：",
     "moreTopics": "更多（{count}）",
     "lessTopics": "收起 ×",
