@@ -10,7 +10,8 @@ export function MoreTopics({
   currentTag,
   currentTime,
   currentQuery,
-  currentLabel
+  currentLabel,
+  currentState
 }: {
   topics: string[];
   topicCounts: Record<string, number>;
@@ -18,6 +19,7 @@ export function MoreTopics({
   currentTime: string | undefined;
   currentQuery: string | undefined;
   currentLabel: string | undefined;
+  currentState: string | undefined;
 }) {
   const t = useTranslations("library");
   const [open, setOpen] = useState(false);
@@ -27,6 +29,7 @@ export function MoreTopics({
     if (currentTime && currentTime !== "all") p.set("time", currentTime);
     if (tag) p.set("tag", tag);
     if (currentLabel) p.set("label", currentLabel);
+    if (currentState) p.set("state", currentState);
     if (currentQuery) p.set("q", currentQuery);
     const qs = p.toString();
     return `/library${qs ? `?${qs}` : ""}`;

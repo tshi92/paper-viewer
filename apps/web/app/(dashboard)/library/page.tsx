@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
+import { isReadingState, readingStates } from "@paper-viewer/core/paper-status";
 import { PaperUploadForm } from "@/components/paper-upload-form";
 import { RemovePaperButton } from "@/components/remove-paper-button";
 import { MoreTopics } from "@/components/more-topics";
 import { LibrarySearch } from "@/components/library-search";
+import { FilterDropdown } from "@/components/filter-dropdown";
 import { requireCurrentUser } from "@/lib/auth";
 
 /** Filter keys map to a translation key plus the window they select. */
@@ -24,12 +26,15 @@ const SOURCE_LABEL_KEYS: Record<string, string> = {
 export default async function LibraryPage({
   searchParams
 }: {
-  searchParams: Promise<{ time?: string; tag?: string; q?: string; label?: string }>;
+  searchParams: Promise<{ time?: string; tag?: string; q?: string; label?: string; state?: string }>;
 }) {
   const user = await requireCurrentUser();
   const t = await getTranslations("library");
-  const { time = "all", tag, q, label } = await searchParams;
+  const tReadingState = await getTranslations("readingState");
+  const { time = "all", tag, q, label, state } = await searchParams;
   const query = (q ?? "").trim().toLowerCase();
+  // An unknown `?state=` behaves like no reading-state filter at all.
+  const stateFilter = state && isReadingState(state) ? state : undefined;
 
   const timeFilter = TIME_FILTERS[time] ?? TIME_FILTERS.all!;
   const dateFilter = timeFilter.days > 0
@@ -46,7 +51,9 @@ export default async function LibraryPage({
     },
     include: {
       paper: { include: { files: true } },
-      labelLinks: { include: { label: true }, orderBy: { label: { createdAt: "asc" } } }
+      labelLinks: { include: { label: true }, orderBy: { label: { createdAt: "asc" } } },
+      // Reading state is per user, so the filter below only ever sees the viewer's own record.
+      readingStates: { where: { userId: user.id }, select: { state: true } }
     },
     orderBy: { createdAt: "desc" }
   });
@@ -54,13 +61,20 @@ export default async function LibraryPage({
   // 关键词匹配放在 JS 里做：authors 是 Json 数组，Prisma 的 array_contains 只能整元素相等，
   // 做不了作者名的子串匹配；而单个 workspace 的论文量在几十到几百条，全量取回再过滤足够。
   // 若将来单库论文量上万，应改成 `authors::text ILIKE` 的原生 SQL 或建全文索引。
-  const workspacePapers = query
+  const searchedPapers = query
     ? matchedPapers.filter(({ paper }) => {
         if (paper.title.toLowerCase().includes(query)) return true;
         const authors = Array.isArray(paper.authors) ? paper.authors : [];
         return authors.some((author) => typeof author === "string" && author.toLowerCase().includes(query));
       })
     : matchedPapers;
+
+  // 阅读状态同样在 JS 里过滤：`new` 的语义是「没有记录 或 记录写着 new」，
+  // 用 Prisma 表达要写成 `readingStates: { none: {...} } OR { some: { state } }` 的 OR 分支，
+  // 而按上面同样的量级理由，取回后判断更直白。量级变大时应改成一条带 LEFT JOIN 的原生查询。
+  const workspacePapers = stateFilter
+    ? searchedPapers.filter((workspacePaper) => (workspacePaper.readingStates[0]?.state ?? "new") === stateFilter)
+    : searchedPapers;
 
   // Collect topics and the paper-label vocabulary. The unfiltered paper scan
   // feeds both the topic counts and the per-label counts, so the filter row
@@ -105,18 +119,52 @@ export default async function LibraryPage({
     .filter((topic) => !prefTopicSet.has(topic))
     .sort((a, b) => (topicCounts.get(b) ?? 0) - (topicCounts.get(a) ?? 0));
 
-  function buildUrl(params: { time?: string | null; tag?: string | null; label?: string | null }) {
+  /** Every filter link rebuilds the whole query string, so the other three params always survive. */
+  function buildUrl(params: {
+    time?: string | null;
+    tag?: string | null;
+    label?: string | null;
+    state?: string | null;
+  }) {
     const p = new URLSearchParams();
     const newTime = params.time !== undefined ? params.time : time;
     const newTag = params.tag !== undefined ? params.tag : tag;
     const newLabel = params.label !== undefined ? params.label : label;
+    const newState = params.state !== undefined ? params.state : stateFilter;
     if (newTime && newTime !== "all") p.set("time", newTime);
     if (newTag) p.set("tag", newTag);
     if (newLabel) p.set("label", newLabel);
+    if (newState) p.set("state", newState);
     if (q) p.set("q", q);
     const qs = p.toString();
     return `/library${qs ? `?${qs}` : ""}`;
   }
+
+  const timeOptions = Object.entries(TIME_FILTERS).map(([key, { labelKey }]) => ({
+    value: key,
+    label: t(labelKey),
+    href: buildUrl({ time: key })
+  }));
+
+  const labelOptions = [
+    { value: "", label: t("labelAll"), href: buildUrl({ label: null }) },
+    ...paperLabels.map((paperLabel) => ({
+      value: paperLabel.id,
+      label: paperLabel.name,
+      href: buildUrl({ label: paperLabel.id }),
+      count: labelCounts.get(paperLabel.id) ?? 0,
+      color: paperLabel.color
+    }))
+  ];
+
+  const readingStateOptions = [
+    { value: "", label: t("stateAll"), href: buildUrl({ state: null }) },
+    ...readingStates.map((readingState) => ({
+      value: readingState,
+      label: tReadingState(readingState),
+      href: buildUrl({ state: readingState })
+    }))
+  ];
 
   function sourceLabel(source: string) {
     const key = SOURCE_LABEL_KEYS[source];
@@ -134,47 +182,14 @@ export default async function LibraryPage({
       </div>
 
       <div className="border-b border-border px-4 py-2 space-y-1.5">
-        <div className="flex items-center gap-1">
-          <span className="text-xs font-medium text-muted mr-1">{t("timeLabel")}</span>
-          {Object.entries(TIME_FILTERS).map(([key, { labelKey }]) => {
-            const isActive = time === key || (key === "all" && !time);
-            return (
-              <Link
-                key={key}
-                href={buildUrl({ time: key })}
-                className={`rounded px-2 py-0.5 text-xs ${isActive ? "bg-accent text-white" : "text-muted hover:bg-surface"}`}
-              >
-                {t(labelKey)}
-              </Link>
-            );
-          })}
+        <div className="flex flex-wrap items-center gap-2">
+          <FilterDropdown prefix={t("timeLabel")} value={time} options={timeOptions} />
+          {paperLabels.length > 0 ? (
+            <FilterDropdown prefix={t("labelsLabel")} value={label ?? ""} options={labelOptions} />
+          ) : null}
+          <FilterDropdown prefix={t("readingStateLabel")} value={stateFilter ?? ""} options={readingStateOptions} />
           <LibrarySearch />
         </div>
-
-        {paperLabels.length > 0 ? (
-          <div className="flex items-center gap-1 flex-wrap">
-            <span className="text-xs font-medium text-muted mr-1">{t("labelsLabel")}</span>
-            <Link
-              href={buildUrl({ label: null })}
-              className={`rounded px-2 py-0.5 text-xs ${!label ? "bg-accent text-white" : "text-muted hover:bg-surface"}`}
-            >
-              {t("labelAll")}
-            </Link>
-            {paperLabels.map((paperLabel) => {
-              const isActive = label === paperLabel.id;
-              return (
-                <Link
-                  key={paperLabel.id}
-                  href={buildUrl({ label: isActive ? null : paperLabel.id })}
-                  className="rounded px-2 py-0.5 text-xs font-medium text-white"
-                  style={{ background: paperLabel.color, opacity: isActive || !label ? 1 : 0.45 }}
-                >
-                  {paperLabel.name} ({labelCounts.get(paperLabel.id) ?? 0}){isActive ? " ×" : ""}
-                </Link>
-              );
-            })}
-          </div>
-        ) : null}
 
         {(mainTopics.length > 0 || discoveredTopics.length > 0) ? (
           <div className="flex items-center gap-1 flex-wrap">
@@ -208,6 +223,7 @@ export default async function LibraryPage({
                 currentTime={time}
                 currentQuery={q}
                 currentLabel={label}
+                currentState={stateFilter}
               />
             ) : null}
           </div>
@@ -219,6 +235,7 @@ export default async function LibraryPage({
         {time !== "all" ? ` · ${t(timeFilter.labelKey)}` : ""}
         {tag ? ` · ${tag}` : ""}
         {activeLabel ? ` · ${activeLabel.name}` : ""}
+        {stateFilter ? ` · ${tReadingState(stateFilter)}` : ""}
         {query ? ` · "${q?.trim()}"` : ""}
       </div>
 
@@ -273,7 +290,7 @@ export default async function LibraryPage({
         ))}
         {workspacePapers.length === 0 ? (
           <p className="px-4 py-8 text-sm text-muted">
-            {query ? t("emptySearch") : time !== "all" || tag || label ? t("emptyFiltered") : t("empty")}
+            {query ? t("emptySearch") : time !== "all" || tag || label || stateFilter ? t("emptyFiltered") : t("empty")}
           </p>
         ) : null}
       </div>

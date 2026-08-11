@@ -61,6 +61,8 @@
     "timeMonth": "本月",
     "labelsLabel": "标签：",
     "labelAll": "全部",
+    "readingStateLabel": "阅读状态：",
+    "stateAll": "全部",
     "topicsLabel": "主题：",
     "moreTopics": "更多（{count}）",
     "lessTopics": "收起 ×",

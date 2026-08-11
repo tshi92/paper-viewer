@@ -61,6 +61,8 @@
     "timeMonth": "This month",
     "labelsLabel": "Labels:",
     "labelAll": "All",
+    "readingStateLabel": "Reading state:",
+    "stateAll": "All",
     "topicsLabel": "Topics:",
     "moreTopics": "More ({count})",
     "lessTopics": "Less ×",
