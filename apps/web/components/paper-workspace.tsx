@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useTranslations } from "next-intl";
 import { CommentPanel } from "./comment-panel";
 import { PaperChat } from "./paper-chat";
-import { KeynotePanel } from "./keynote-panel";
+import { AnalysisPanel, type AnalysisView } from "./analysis-panel";
 import { ReadingStateSelect } from "./reading-state-select";
 import { DownloadPdfButton } from "./download-pdf-button";
 import { AnnotationSidebar } from "./annotation-sidebar";
@@ -27,15 +27,7 @@ type PaperData = {
   pdfUrl: string | null;
   abstract: string | null;
   hasPdf: boolean;
-  analysis: {
-    summary: string;
-    motivation: string | null;
-    problem: string | null;
-    method: string | null;
-    keyFindings: string | null;
-    whyItMatters: string | null;
-    keywords: string[];
-  } | null;
+  analysis: AnalysisView | null;
   comments: {
     id: string;
     body: string;
@@ -49,7 +41,7 @@ type PaperData = {
   currentUserId: string;
 };
 
-type SidebarTab = "annotations" | "chat" | "keynotes" | "comments";
+type SidebarTab = "annotations" | "analysis" | "chat" | "comments";
 
 /** Errors are stored as message keys, not rendered strings, so the banner follows the locale. */
 type WorkspaceErrorKey = "errorAnnotationCreate" | "errorAnnotationDelete" | "errorReply";
@@ -57,7 +49,6 @@ type WorkspaceErrorKey = "errorAnnotationCreate" | "errorAnnotationDelete" | "er
 export function PaperWorkspace({ paper }: { paper: PaperData }) {
   const t = useTranslations("workspace");
   const [activeTab, setActiveTab] = useState<SidebarTab>("annotations");
-  const [keynoteVersion, setKeynoteVersion] = useState(0);
   const [annotations, setAnnotations] = useState<AnnotationView[]>([]);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<WorkspaceErrorKey | null>(null);
@@ -178,27 +169,6 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           </div>
         </div>
 
-        {paper.analysis ? (
-          <div className="mb-4 rounded border border-border bg-white p-4">
-            <h2 className="text-sm font-semibold uppercase text-muted">{t("analysisHeading")}</h2>
-            <div className="mt-3 space-y-3 text-sm">
-              <p>{paper.analysis.summary}</p>
-              {paper.analysis.motivation ? <div><span className="font-medium">{t("analysisMotivation")}</span> {paper.analysis.motivation}</div> : null}
-              {paper.analysis.problem ? <div><span className="font-medium">{t("analysisProblem")}</span> {paper.analysis.problem}</div> : null}
-              {paper.analysis.method ? <div><span className="font-medium">{t("analysisMethod")}</span> {paper.analysis.method}</div> : null}
-              {paper.analysis.keyFindings ? <div><span className="font-medium">{t("analysisFindings")}</span> {paper.analysis.keyFindings}</div> : null}
-              {paper.analysis.whyItMatters ? <div><span className="font-medium">{t("analysisWhyItMatters")}</span> {paper.analysis.whyItMatters}</div> : null}
-              {paper.analysis.keywords.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {paper.analysis.keywords.map((kw) => (
-                    <span key={kw} className="rounded bg-surface px-2 py-0.5 text-xs text-muted">{kw}</span>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </div>
-        ) : null}
-
         {pdfUrl ? (
           <PdfAnnotator
             pdfUrl={pdfUrl}
@@ -241,11 +211,11 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
 
         {/* Tab switcher */}
         <div className="flex rounded border border-border bg-white overflow-hidden">
-          {(["annotations", "chat", "keynotes", "comments"] as const).map((tab) => {
+          {(["annotations", "analysis", "chat", "comments"] as const).map((tab) => {
             const labels = {
               annotations: t("tabAnnotations"),
+              analysis: t("tabAnalysis"),
               chat: t("tabChat"),
-              keynotes: t("tabKeynotes"),
               comments: t("tabComments", { count: paper.comments.length })
             };
             return (
@@ -273,10 +243,10 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             onReply={handleReply}
             onDelete={handleDeleteAnnotation}
           />
+        ) : activeTab === "analysis" ? (
+          <AnalysisPanel analysis={paper.analysis} />
         ) : activeTab === "chat" ? (
-          <PaperChat paperId={paper.id} onSaveKeynote={() => { setKeynoteVersion((v) => v + 1); setActiveTab("keynotes"); }} />
-        ) : activeTab === "keynotes" ? (
-          <KeynotePanel paperId={paper.id} key={`keynotes-${keynoteVersion}`} />
+          <PaperChat paperId={paper.id} />
         ) : (
           <CommentPanel paperId={paper.id} comments={paper.comments} />
         )}
