@@ -35,6 +35,16 @@ enum PaperFileStatus {
   failed
 }
 
+enum LabelScope {
+  annotation
+  paper
+}
+
+enum AnnotationType {
+  highlight
+  area
+}
+
 model User {
   id            String                @id @default(cuid())
   email         String                @unique
@@ -47,6 +57,7 @@ model User {
   readingStates ReadingStateRecord[]
   importedPapers WorkspacePaper[]
   keynotes      PaperKeynote[]
+  annotations   Annotation[]
 }
 
 model Workspace {
@@ -57,6 +68,7 @@ model Workspace {
   memberships     WorkspaceMembership[]
   invitations     Invitation[]
   workspacePapers WorkspacePaper[]
+  labels          Label[]
 }
 
 model WorkspaceMembership {
@@ -96,6 +108,7 @@ model Paper {
   doi             String?
   arxivId         String?
   pdfUrl          String?
+  blobUrl         String?
   publishedAt     DateTime?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
@@ -202,6 +215,8 @@ model WorkspacePaper {
   comments      Comment[]
   readingStates ReadingStateRecord[]
   keynotes      PaperKeynote[]
+  annotations   Annotation[]
+  labelLinks    WorkspacePaperLabel[]
 
   @@unique([workspaceId, paperId])
   @@index([paperId])
@@ -222,6 +237,60 @@ model PaperFile {
   paper       Paper           @relation(fields: [paperId], references: [id], onDelete: Cascade)
 }
 
+model Label {
+  id              String                @id @default(cuid())
+  workspaceId     String
+  name            String
+  color           String
+  scope           LabelScope
+  createdAt       DateTime              @default(now())
+  workspace       Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  annotationLinks AnnotationLabel[]
+  paperLinks      WorkspacePaperLabel[]
+
+  @@unique([workspaceId, scope, name])
+  @@index([workspaceId])
+}
+
+model Annotation {
+  id             String            @id @default(cuid())
+  workspaceId    String
+  paperId        String
+  authorId       String
+  type           AnnotationType
+  pageNumber     Int
+  position       Json
+  quotedText     String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  workspacePaper WorkspacePaper    @relation(fields: [workspaceId, paperId], references: [workspaceId, paperId], onDelete: Cascade)
+  author         User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  labels         AnnotationLabel[]
+  comments       Comment[]
+
+  @@index([workspaceId, paperId])
+}
+
+model AnnotationLabel {
+  annotationId String
+  labelId      String
+  order        Int        @default(0)
+  annotation   Annotation @relation(fields: [annotationId], references: [id], onDelete: Cascade)
+  label        Label      @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([annotationId, labelId])
+}
+
+model WorkspacePaperLabel {
+  workspaceId    String
+  paperId        String
+  labelId        String
+  workspacePaper WorkspacePaper @relation(fields: [workspaceId, paperId], references: [workspaceId, paperId], onDelete: Cascade)
+  label          Label          @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, paperId, labelId])
+}
+
 // Note: Prisma cannot enforce that a reply's parent belongs to the same
 // WorkspacePaper at the schema level. The API layer MUST check that
 // parent.workspaceId == child.workspaceId AND parent.paperId == child.paperId
@@ -232,6 +301,7 @@ model Comment {
   paperId          String
   authorId         String
   parentId         String?
+  annotationId     String?
   body             String
   pageNumber       Int?
   quotedText       String?
@@ -241,9 +311,11 @@ model Comment {
   author           User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
   parent           Comment?       @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
   replies          Comment[]      @relation("CommentThread")
+  annotation       Annotation?    @relation(fields: [annotationId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, paperId])
   @@index([authorId])
+  @@index([annotationId])
 }
 
 model ReadingStateRecord {
