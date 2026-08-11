@@ -1,9 +1,14 @@
+import { canManageWorkspaceSettings } from "@paper-viewer/core/permissions";
 import { prisma } from "@paper-viewer/db";
 import { redirect } from "next/navigation";
 import { requireCurrentUser } from "@/lib/auth";
 
 export async function POST(request: Request) {
   const user = await requireCurrentUser();
+
+  if (!canManageWorkspaceSettings(user.role)) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const formData = await request.formData();
 

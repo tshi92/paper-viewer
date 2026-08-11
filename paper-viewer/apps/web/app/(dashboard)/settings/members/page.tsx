@@ -1,3 +1,4 @@
+import { canManageWorkspaceSettings } from "@paper-viewer/core/permissions";
 import { prisma } from "@paper-viewer/db";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
@@ -12,8 +13,8 @@ export default async function MembersPage({
   const user = await requireCurrentUser();
   const { invitation } = await searchParams;
 
-  if (user.role !== "owner") {
-    redirect("/library");
+  if (!canManageWorkspaceSettings(user.role)) {
+    redirect("/settings/general");
   }
 
   // Build full URL from request headers

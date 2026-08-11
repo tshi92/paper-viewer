@@ -6,7 +6,7 @@ export default async function LlmSettingsPage() {
   const user = await requireCurrentUser();
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="max-w-2xl">
       <h1 className="text-2xl font-semibold">LLM 配置</h1>
       <p className="mt-1 text-sm text-muted">配置工作区使用的大模型服务地址、模型名与 API Key。</p>
 

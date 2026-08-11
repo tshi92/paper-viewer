@@ -1,3 +1,4 @@
+import { canManageWorkspaceSettings } from "@paper-viewer/core/permissions";
 import { prisma } from "@paper-viewer/db";
 import { Resend } from "resend";
 import { createHash, randomBytes } from "node:crypto";
@@ -19,7 +20,7 @@ export async function POST(request: Request) {
   const user = await requireCurrentUser();
   const env = getEnv();
 
-  if (user.role !== "owner") {
+  if (!canManageWorkspaceSettings(user.role)) {
     return new Response("Forbidden", { status: 403 });
   }
 
