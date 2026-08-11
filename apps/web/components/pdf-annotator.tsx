@@ -49,6 +49,70 @@ const AreaHighlightBox = AreaHighlight as unknown as ComponentType<AreaHighlight
 const noop = () => {};
 
 /**
+ * `scrollRef` is handed to us by `pagesinit`, so a jump requested while the
+ * document is still laying itself out has nothing to call — and a jump to a page
+ * the virtualised viewer has not built yet can miss for a moment too. One delayed
+ * retry covers both without leaving a timer behind on every click.
+ */
+const SCROLL_RETRY_DELAY_MS = 300;
+
+/**
+ * `PdfHighlighter` cannot survive being mounted twice, which is exactly what
+ * React StrictMode — Next's dev default — does. `componentDidMount` runs `init()`
+ * again, and `init()` builds a fresh pdf.js `EventBus` while keeping the viewer
+ * the first run created (`this.viewer = this.viewer || new PDFViewer(...)`). The
+ * viewer therefore goes on dispatching to bus #1 while `attachRef` has just moved
+ * every listener to bus #2, so `pagesinit` and `textlayerrendered` are never
+ * delivered again. `pagesinit` is the only caller of `scrollRef`, which left
+ * `scrollToRef` below permanently null: every sidebar jump silently did nothing,
+ * and no highlight layer rendered until some unrelated prop change forced one.
+ *
+ * This subclass keeps one viewer bound to one bus. The first mount initialises as
+ * usual; StrictMode's remount only re-subscribes to the bus the viewer actually
+ * dispatches on, instead of building a second one.
+ */
+class StablePdfHighlighter extends PdfHighlighter<IHighlight> {
+  private initialised = false;
+
+  componentDidMount() {
+    if (!this.initialised) {
+      this.initialised = true;
+      super.componentDidMount();
+      return;
+    }
+
+    // A remount. `componentWillUnmount` has just dropped every listener, so put
+    // them back — on the viewer's own bus. When the first `init()` is still in
+    // flight there is no viewer yet and nothing to re-attach; that `init()`
+    // subscribes on its own once it resolves.
+    const { viewer } = this;
+    if (!viewer) return;
+    this.attachRef(viewer.eventBus);
+    // `pagesinit` fires once per document and may already be past, so hand the
+    // scroll callback out again by hand.
+    if (viewer.pagesCount > 0) this.onDocumentReady();
+    this.onTextLayerRendered();
+  }
+}
+
+/**
+ * `PdfLoader` can hand a second document to the same `PdfHighlighter` instance —
+ * StrictMode makes it load twice — and the library's own document-change path
+ * re-inits in place, hitting the same viewer-versus-bus split described above.
+ * Keying the highlighter on the document turns that into a clean remount.
+ */
+const documentKeys = new WeakMap<object, string>();
+let documentKeySeq = 0;
+function documentKey(pdfDocument: object): string {
+  const existing = documentKeys.get(pdfDocument);
+  if (existing) return existing;
+  documentKeySeq += 1;
+  const key = `pdf-${documentKeySeq}`;
+  documentKeys.set(pdfDocument, key);
+  return key;
+}
+
+/**
  * Leaving a highlight keeps the preview alive this long, so crossing the seam
  * between two rects of the same highlight — or the gap on the way to the card —
  * does not flicker it away.
@@ -368,10 +432,40 @@ export function PdfAnnotator({
     highlightsRef.current = highlights;
   }, [highlights]);
 
-  const scrollToAnnotation = useCallback((annotation: AnnotationView) => {
-    const target = highlightsRef.current.find((it) => it.id === annotation.id);
-    if (target) scrollToRef.current?.(target);
+  const scrollRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scrollToId = useCallback((annotationId: string) => {
+    if (scrollRetryRef.current !== null) {
+      clearTimeout(scrollRetryRef.current);
+      scrollRetryRef.current = null;
+    }
+
+    const attempt = () => {
+      const scrollTo = scrollToRef.current;
+      const target = highlightsRef.current.find((it) => it.id === annotationId);
+      if (!scrollTo || !target) return false;
+      scrollTo(target);
+      return true;
+    };
+
+    if (attempt()) return;
+    scrollRetryRef.current = setTimeout(() => {
+      scrollRetryRef.current = null;
+      attempt();
+    }, SCROLL_RETRY_DELAY_MS);
   }, []);
+
+  useEffect(
+    () => () => {
+      if (scrollRetryRef.current !== null) clearTimeout(scrollRetryRef.current);
+    },
+    []
+  );
+
+  const scrollToAnnotation = useCallback(
+    (annotation: AnnotationView) => scrollToId(annotation.id),
+    [scrollToId]
+  );
 
   useEffect(() => {
     registerScrollTo?.(scrollToAnnotation);
@@ -387,11 +481,10 @@ export function PdfAnnotator({
       return;
     }
     if (lastScrolledIdRef.current === selectedId) return;
-    const target = highlights.find((it) => it.id === selectedId);
-    if (!target) return;
+    if (!highlights.some((it) => it.id === selectedId)) return;
     lastScrolledIdRef.current = selectedId;
-    scrollToRef.current?.(target);
-  }, [selectedId, highlights]);
+    scrollToId(selectedId);
+  }, [selectedId, highlights, scrollToId]);
 
   const handleSelectionFinished = useCallback(
     (
@@ -498,7 +591,8 @@ export function PdfAnnotator({
         errorMessage={<p className="p-4 text-sm text-muted">{t("pdfError")}</p>}
       >
         {(pdfDocument) => (
-          <PdfHighlighter<IHighlight>
+          <StablePdfHighlighter
+            key={documentKey(pdfDocument)}
             pdfDocument={pdfDocument}
             highlights={highlights}
             pdfScaleValue="page-width"
