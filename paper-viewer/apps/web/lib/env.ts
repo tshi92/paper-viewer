@@ -24,7 +24,11 @@ const envSchema = z.object({
     z.string().min(16).optional()
   ),
   RESEND_API_KEY: z.string().min(1).optional(),
-  LLM_API_KEY: z.string().min(1).optional(),
+  // 空字符串按未配置处理，这样 .env.example 里可以留空占位（同 BLOB_READ_WRITE_TOKEN）
+  LLM_API_KEY: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().min(1).optional()
+  ),
   LLM_BASE_URL: z.string().url().default("https://api.deepseek.com"),
   LLM_MODEL: z.string().default("deepseek-v4-pro")
 });
