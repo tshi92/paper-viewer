@@ -1,9 +1,11 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 
 export function PaperUploadForm() {
+  const t = useTranslations("upload");
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
@@ -58,7 +60,7 @@ export function PaperUploadForm() {
         }
       } else {
         const text = await res.text();
-        setError(text || "Failed to add paper from URL");
+        setError(text || t("urlFailed"));
       }
       router.refresh();
     } finally {
@@ -75,13 +77,13 @@ export function PaperUploadForm() {
         onClick={() => fileRef.current?.click()}
         disabled={loading}
       >
-        {loading ? "Processing..." : "Upload PDF"}
+        {loading ? t("processing") : t("uploadPdf")}
       </button>
       <div className="flex items-center gap-1">
         <input
           type="text"
           className="w-56 rounded border border-border px-2 py-1.5 text-sm placeholder:text-muted/60"
-          placeholder="or paste arXiv / PDF link"
+          placeholder={t("urlPlaceholder")}
           value={url}
           onChange={(e) => { setUrl(e.target.value); setError(""); }}
           onKeyDown={(e) => { if (e.key === "Enter") handleUrl(); }}
@@ -92,7 +94,7 @@ export function PaperUploadForm() {
           onClick={handleUrl}
           disabled={loading || !url.trim()}
         >
-          Add
+          {t("add")}
         </button>
       </div>
       {error ? <span className="text-xs text-red-500">{error}</span> : null}

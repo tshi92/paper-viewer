@@ -1,20 +1,22 @@
+import { getTranslations } from "next-intl/server";
 import { canManageLabels } from "@paper-viewer/core/permissions";
 import { requireCurrentUser } from "@/lib/auth";
 import { LlmSettingsForm } from "@/components/llm-settings-form";
 
 export default async function LlmSettingsPage() {
   const user = await requireCurrentUser();
+  const t = await getTranslations("settingsLlm");
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold">LLM 配置</h1>
-      <p className="mt-1 text-sm text-muted">配置工作区使用的大模型服务地址、模型名与 API Key。</p>
+      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <p className="mt-1 text-sm text-muted">{t("description")}</p>
 
       {canManageLabels(user.role) ? (
         <LlmSettingsForm />
       ) : (
         <p className="mt-6 rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
-          LLM 配置仅管理员可见。如需修改，请联系工作区管理员。
+          {t("adminOnly")}
         </p>
       )}
     </div>

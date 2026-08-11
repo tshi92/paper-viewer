@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -14,6 +15,7 @@ export function MoreTopics({
   currentTag: string | undefined;
   currentTime: string | undefined;
 }) {
+  const t = useTranslations("library");
   const [open, setOpen] = useState(false);
 
   function buildUrl(tag: string | null) {
@@ -30,7 +32,7 @@ export function MoreTopics({
         className="rounded bg-surface px-2 py-0.5 text-xs text-muted hover:bg-border"
         onClick={() => setOpen(true)}
       >
-        More ({topics.length})
+        {t("moreTopics", { count: topics.length })}
       </button>
     );
   }
@@ -41,18 +43,18 @@ export function MoreTopics({
         className="rounded bg-border px-2 py-0.5 text-xs text-muted"
         onClick={() => setOpen(false)}
       >
-        Less ×
+        {t("lessTopics")}
       </button>
-      {topics.map((t) => {
-        const isActive = currentTag === t;
-        const count = topicCounts[t] ?? 0;
+      {topics.map((topic) => {
+        const isActive = currentTag === topic;
+        const count = topicCounts[topic] ?? 0;
         return (
           <Link
-            key={t}
-            href={buildUrl(isActive ? null : t)}
+            key={topic}
+            href={buildUrl(isActive ? null : topic)}
             className={`rounded px-2 py-0.5 text-xs ${isActive ? "bg-accent text-white" : "bg-surface/50 text-muted hover:bg-border"}`}
           >
-            {t} ({count}){isActive ? " ×" : ""}
+            {topic} ({count}){isActive ? " ×" : ""}
           </Link>
         );
       })}

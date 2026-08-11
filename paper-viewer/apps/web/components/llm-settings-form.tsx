@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
 type ConfigSource = "db" | "env" | "none";
@@ -15,17 +16,14 @@ type TestResult =
   | { ok: true; total: number; models: string[]; modelFound: boolean }
   | { ok: false; status: number; message: string };
 
-const SOURCE_LABEL: Record<ConfigSource, string> = {
-  db: "数据库配置",
-  env: "环境变量兜底",
-  none: "未配置"
+const SOURCE_LABEL_KEYS: Record<ConfigSource, string> = {
+  db: "sourceDb",
+  env: "sourceEnv",
+  none: "sourceNone"
 };
 
-function keyPlaceholder(masked: string): string {
-  return masked ? `${masked}（留空保持不变）` : "留空保持不变";
-}
-
 export function LlmSettingsForm() {
+  const t = useTranslations("settingsLlm");
   const [config, setConfig] = useState<ConfigView | null>(null);
   const [baseUrl, setBaseUrl] = useState("");
   const [model, setModel] = useState("");
@@ -50,13 +48,13 @@ export function LlmSettingsForm() {
       try {
         const res = await fetch("/api/settings/llm");
         if (!res.ok) {
-          if (!cancelled) setLoadError("加载配置失败");
+          if (!cancelled) setLoadError(t("loadFailed"));
           return;
         }
         const data = (await res.json()) as ConfigView;
         if (!cancelled) applyConfig(data);
       } catch {
-        if (!cancelled) setLoadError("加载配置失败");
+        if (!cancelled) setLoadError(t("loadFailed"));
       }
     }
 
@@ -64,7 +62,7 @@ export function LlmSettingsForm() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   async function handleTest() {
     if (testing) return;
@@ -86,12 +84,12 @@ export function LlmSettingsForm() {
         body: JSON.stringify(payload)
       });
       if (!res.ok) {
-        setTestResult({ ok: false, status: res.status, message: "测试请求失败" });
+        setTestResult({ ok: false, status: res.status, message: t("testFailed") });
         return;
       }
       setTestResult((await res.json()) as TestResult);
     } catch {
-      setTestResult({ ok: false, status: 0, message: "测试请求失败" });
+      setTestResult({ ok: false, status: 0, message: t("testFailed") });
     } finally {
       setTesting(false);
     }
@@ -118,14 +116,14 @@ export function LlmSettingsForm() {
       });
       const data = (await res.json().catch(() => null)) as (ConfigView & { error?: string }) | null;
       if (!res.ok) {
-        setSaveError(data?.error ?? "保存失败");
+        setSaveError(data?.error ?? t("saveFailed"));
         return;
       }
       if (data) applyConfig(data);
       setApiKey("");
-      setSaveMessage("已保存");
+      setSaveMessage(t("saved"));
     } catch {
-      setSaveError("保存失败");
+      setSaveError(t("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -136,23 +134,26 @@ export function LlmSettingsForm() {
   }
 
   if (!config) {
-    return <p className="mt-6 text-sm text-muted">加载中…</p>;
+    return <p className="mt-6 text-sm text-muted">{t("loading")}</p>;
   }
 
   const busy = testing || saving;
+  const apiKeyPlaceholder = config.apiKeyMasked
+    ? t("apiKeyPlaceholderMasked", { masked: config.apiKeyMasked })
+    : t("apiKeyPlaceholder");
 
   return (
     <div className="mt-6 grid gap-5">
       <div className="text-sm">
-        <span className="text-muted">当前生效：</span>
+        <span className="mr-1 text-muted">{t("sourceLabel")}</span>
         <span className="rounded bg-surface px-2 py-1 font-medium" data-testid="llm-source">
-          {SOURCE_LABEL[config.source]}
+          {t(SOURCE_LABEL_KEYS[config.source])}
         </span>
       </div>
 
       <div>
-        <label className="text-sm font-medium" htmlFor="baseUrl">Base URL</label>
-        <p className="text-xs text-muted">OpenAI 兼容接口地址，例如 https://api.deepseek.com</p>
+        <label className="text-sm font-medium" htmlFor="baseUrl">{t("baseUrlLabel")}</label>
+        <p className="text-xs text-muted">{t("baseUrlHint")}</p>
         <input
           className="mt-1 w-full rounded border border-border px-3 py-2"
           id="baseUrl"
@@ -163,8 +164,8 @@ export function LlmSettingsForm() {
       </div>
 
       <div>
-        <label className="text-sm font-medium" htmlFor="model">模型名</label>
-        <p className="text-xs text-muted">用于摘要与对话的模型标识。</p>
+        <label className="text-sm font-medium" htmlFor="model">{t("modelLabel")}</label>
+        <p className="text-xs text-muted">{t("modelHint")}</p>
         <input
           className="mt-1 w-full rounded border border-border px-3 py-2"
           id="model"
@@ -175,15 +176,15 @@ export function LlmSettingsForm() {
       </div>
 
       <div>
-        <label className="text-sm font-medium" htmlFor="apiKey">API Key</label>
-        <p className="text-xs text-muted">出于安全考虑，已保存的 Key 只显示掩码。</p>
+        <label className="text-sm font-medium" htmlFor="apiKey">{t("apiKeyLabel")}</label>
+        <p className="text-xs text-muted">{t("apiKeyHint")}</p>
         <input
           className="mt-1 w-full rounded border border-border px-3 py-2"
           id="apiKey"
           type="password"
           value={apiKey}
           onChange={(event) => setApiKey(event.target.value)}
-          placeholder={keyPlaceholder(config.apiKeyMasked)}
+          placeholder={apiKeyPlaceholder}
         />
       </div>
 
@@ -194,7 +195,7 @@ export function LlmSettingsForm() {
           onClick={handleTest}
           disabled={busy}
         >
-          {testing ? "测试中…" : "测试连接"}
+          {testing ? t("testing") : t("test")}
         </button>
         <button
           className="rounded bg-accent px-4 py-2 font-medium text-white disabled:opacity-50"
@@ -202,19 +203,20 @@ export function LlmSettingsForm() {
           onClick={handleSave}
           disabled={busy}
         >
-          {saving ? "保存中…" : "保存"}
+          {saving ? t("saving") : t("save")}
         </button>
       </div>
 
       {testResult ? (
         testResult.ok ? (
           <p className="text-sm text-green-700" data-testid="llm-test-result">
-            ✓ 连接成功，共 {testResult.total} 个模型
-            {testResult.modelFound ? "，含当前模型" : `，但未找到当前模型「${model.trim()}」`}
+            {testResult.modelFound
+              ? t("testSuccessWithModel", { count: testResult.total })
+              : t("testSuccessWithoutModel", { count: testResult.total, model: model.trim() })}
           </p>
         ) : (
           <p className="text-sm text-red-600" data-testid="llm-test-result">
-            ✗ {testResult.status || "连接错误"} {testResult.message}
+            ✗ {testResult.status || t("connectionError")} {testResult.message}
           </p>
         )
       ) : null}

@@ -1,16 +1,23 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
 import { PaperUploadForm } from "@/components/paper-upload-form";
 import { RemovePaperButton } from "@/components/remove-paper-button";
 import { MoreTopics } from "@/components/more-topics";
 import { requireCurrentUser } from "@/lib/auth";
 
-const TIME_FILTERS: Record<string, { label: string; days: number }> = {
-  all: { label: "All", days: 0 },
-  today: { label: "Today", days: 1 },
-  "3d": { label: "3 days", days: 3 },
-  week: { label: "This week", days: 7 },
-  month: { label: "This month", days: 30 }
+/** Filter keys map to a translation key plus the window they select. */
+const TIME_FILTERS: Record<string, { labelKey: string; days: number }> = {
+  all: { labelKey: "timeAll", days: 0 },
+  today: { labelKey: "timeToday", days: 1 },
+  "3d": { labelKey: "time3d", days: 3 },
+  week: { labelKey: "timeWeek", days: 7 },
+  month: { labelKey: "timeMonth", days: 30 }
+};
+
+/** Only the free-form sources we know about get a translated label. */
+const SOURCE_LABEL_KEYS: Record<string, string> = {
+  manual: "sourceManual"
 };
 
 export default async function LibraryPage({
@@ -19,6 +26,7 @@ export default async function LibraryPage({
   searchParams: Promise<{ time?: string; tag?: string }>;
 }) {
   const user = await requireCurrentUser();
+  const t = await getTranslations("library");
   const { time = "all", tag } = await searchParams;
 
   const timeFilter = TIME_FILTERS[time] ?? TIME_FILTERS.all!;
@@ -56,15 +64,15 @@ export default async function LibraryPage({
 
   // Count papers per topic
   const topicCounts = new Map<string, number>();
-  for (const t of paperTopics) {
-    topicCounts.set(t, (topicCounts.get(t) ?? 0) + 1);
+  for (const topic of paperTopics) {
+    topicCounts.set(topic, (topicCounts.get(topic) ?? 0) + 1);
   }
 
   // Split: preference topics (main) vs discovered topics (more)
-  const mainTopics = [...prefTopicSet].filter((t) => topicCounts.has(t))
+  const mainTopics = [...prefTopicSet].filter((topic) => topicCounts.has(topic))
     .sort((a, b) => (topicCounts.get(b) ?? 0) - (topicCounts.get(a) ?? 0));
   const discoveredTopics = [...new Set(paperTopics)]
-    .filter((t) => !prefTopicSet.has(t))
+    .filter((topic) => !prefTopicSet.has(topic))
     .sort((a, b) => (topicCounts.get(b) ?? 0) - (topicCounts.get(a) ?? 0));
 
   function buildUrl(params: { time?: string | null; tag?: string | null }) {
@@ -77,20 +85,25 @@ export default async function LibraryPage({
     return `/library${qs ? `?${qs}` : ""}`;
   }
 
+  function sourceLabel(source: string) {
+    const key = SOURCE_LABEL_KEYS[source];
+    return key ? t(key) : source;
+  }
+
   // Check if current tag is a discovered (non-pref) topic
   const isDiscoveredTag = tag && !prefTopicSet.has(tag);
 
   return (
     <section className="rounded border border-border bg-white">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h1 className="text-lg font-semibold">Library</h1>
+        <h1 className="text-lg font-semibold">{t("title")}</h1>
         <PaperUploadForm />
       </div>
 
       <div className="border-b border-border px-4 py-2 space-y-1.5">
         <div className="flex items-center gap-1">
-          <span className="text-xs font-medium text-muted mr-1">Time:</span>
-          {Object.entries(TIME_FILTERS).map(([key, { label }]) => {
+          <span className="text-xs font-medium text-muted mr-1">{t("timeLabel")}</span>
+          {Object.entries(TIME_FILTERS).map(([key, { labelKey }]) => {
             const isActive = time === key || (key === "all" && !time);
             return (
               <Link
@@ -98,7 +111,7 @@ export default async function LibraryPage({
                 href={buildUrl({ time: key })}
                 className={`rounded px-2 py-0.5 text-xs ${isActive ? "bg-accent text-white" : "text-muted hover:bg-surface"}`}
               >
-                {label}
+                {t(labelKey)}
               </Link>
             );
           })}
@@ -106,17 +119,17 @@ export default async function LibraryPage({
 
         {(mainTopics.length > 0 || discoveredTopics.length > 0) ? (
           <div className="flex items-center gap-1 flex-wrap">
-            <span className="text-xs font-medium text-muted mr-1">Topics:</span>
-            {mainTopics.map((t) => {
-              const isActive = tag === t;
-              const count = topicCounts.get(t) ?? 0;
+            <span className="text-xs font-medium text-muted mr-1">{t("topicsLabel")}</span>
+            {mainTopics.map((topic) => {
+              const isActive = tag === topic;
+              const count = topicCounts.get(topic) ?? 0;
               return (
                 <Link
-                  key={t}
-                  href={buildUrl({ tag: isActive ? null : t })}
+                  key={topic}
+                  href={buildUrl({ tag: isActive ? null : topic })}
                   className={`rounded px-2 py-0.5 text-xs ${isActive ? "bg-accent text-white" : "bg-surface text-muted hover:bg-border"}`}
                 >
-                  {t} ({count}){isActive ? " ×" : ""}
+                  {topic} ({count}){isActive ? " ×" : ""}
                 </Link>
               );
             })}
@@ -141,8 +154,8 @@ export default async function LibraryPage({
       </div>
 
       <div className="px-4 py-2 text-xs text-muted">
-        {workspacePapers.length} paper{workspacePapers.length !== 1 ? "s" : ""}
-        {time !== "all" ? ` · ${timeFilter.label}` : ""}
+        {t("paperCount", { count: workspacePapers.length })}
+        {time !== "all" ? ` · ${t(timeFilter.labelKey)}` : ""}
         {tag ? ` · ${tag}` : ""}
       </div>
 
@@ -154,14 +167,14 @@ export default async function LibraryPage({
               <p className="mt-1 text-sm text-muted">{Array.isArray(paper.authors) ? paper.authors.join(", ") : ""}</p>
               <div className="mt-1 flex items-center gap-2">
                 <span className="text-xs text-muted">
-                  {paper.source === "arxiv" || paper.source === "hermes" ? `arXiv:${paper.arxivId ?? ""}` : paper.source}
+                  {paper.source === "arxiv" || paper.source === "hermes" ? `arXiv:${paper.arxivId ?? ""}` : sourceLabel(paper.source)}
                   {/* 与论文详情页的 hasPdf 判定保持一致：Blob 快照也算有 PDF */}
-                  {paper.files.length > 0 || paper.blobUrl ? " · PDF" : ""}
+                  {paper.files.length > 0 || paper.blobUrl ? ` · ${t("pdfBadge")}` : ""}
                 </span>
                 {tags.length > 0 ? (
                   <div className="flex gap-1">
-                    {tags.slice(0, 3).map((t) => (
-                      <span key={t} className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted">{t}</span>
+                    {tags.slice(0, 3).map((paperTag) => (
+                      <span key={paperTag} className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted">{paperTag}</span>
                     ))}
                   </div>
                 ) : null}
@@ -184,7 +197,7 @@ export default async function LibraryPage({
         ))}
         {workspacePapers.length === 0 ? (
           <p className="px-4 py-8 text-sm text-muted">
-            No papers found{time !== "all" || tag ? " with current filters." : "."}
+            {time !== "all" || tag ? t("emptyFiltered") : t("empty")}
           </p>
         ) : null}
       </div>

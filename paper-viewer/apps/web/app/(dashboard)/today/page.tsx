@@ -1,10 +1,13 @@
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
 import { requireCurrentUser } from "@/lib/auth";
 import { DiscoverButton } from "@/components/discover-button";
 
 export default async function TodayPage() {
   const user = await requireCurrentUser();
+  const t = await getTranslations("home");
+  const locale = await getLocale();
 
   // Find the most recent digest
   const digest = await prisma.dailyDigest.findFirst({
@@ -42,7 +45,12 @@ export default async function TodayPage() {
     : papers;
 
   const digestDate = digest
-    ? new Date(digest.date).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" })
+    ? new Intl.DateTimeFormat(locale, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        weekday: "long"
+      }).format(new Date(digest.date))
     : null;
 
   const prefs = await prisma.researchPreferences.findUnique({
@@ -54,20 +62,18 @@ export default async function TodayPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Today</h1>
+          <h1 className="text-2xl font-semibold">{t("title")}</h1>
           {digestDate ? (
-            <p className="mt-1 text-sm text-muted">{digestDate} · {sortedPapers.length} papers</p>
+            <p className="mt-1 text-sm text-muted">{t("digestMeta", { date: digestDate, count: sortedPapers.length })}</p>
           ) : (
             <p className="mt-1 text-sm text-muted">
-              {hasPrefs
-                ? "No papers yet. Click Discover to fetch today's recommendations."
-                : "Set up your research preferences first, then discover papers."}
+              {hasPrefs ? t("emptyWithPreferences") : t("emptyWithoutPreferences")}
             </p>
           )}
         </div>
         <div className="flex gap-2">
           <Link href="/settings/preferences" className="rounded border border-border px-3 py-2 text-sm">
-            Preferences
+            {t("preferencesLink")}
           </Link>
           <DiscoverButton />
         </div>
@@ -75,7 +81,7 @@ export default async function TodayPage() {
 
       {digest ? (
         <div className="rounded border border-border bg-white p-5">
-          <h2 className="text-sm font-semibold uppercase text-muted">Daily Overview</h2>
+          <h2 className="text-sm font-semibold uppercase text-muted">{t("dailyOverview")}</h2>
           <div className="mt-3 whitespace-pre-line text-sm leading-relaxed">{digest.overviewSummary}</div>
         </div>
       ) : null}
@@ -106,13 +112,13 @@ export default async function TodayPage() {
                     <div className="mt-3 space-y-2 text-sm">
                       <p>{analysis.summary}</p>
                       {analysis.problem ? (
-                        <p className="text-muted"><span className="font-medium text-ink">Problem:</span> {analysis.problem}</p>
+                        <p className="text-muted"><span className="font-medium text-ink">{t("analysisProblem")}</span> {analysis.problem}</p>
                       ) : null}
                       {analysis.method ? (
-                        <p className="text-muted"><span className="font-medium text-ink">Method:</span> {analysis.method}</p>
+                        <p className="text-muted"><span className="font-medium text-ink">{t("analysisMethod")}</span> {analysis.method}</p>
                       ) : null}
                       {analysis.keyFindings ? (
-                        <p className="text-muted"><span className="font-medium text-ink">Results:</span> {analysis.keyFindings}</p>
+                        <p className="text-muted"><span className="font-medium text-ink">{t("analysisResults")}</span> {analysis.keyFindings}</p>
                       ) : null}
                       {analysis.keywords.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5 pt-1">

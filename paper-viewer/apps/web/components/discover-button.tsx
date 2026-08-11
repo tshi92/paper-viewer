@@ -1,9 +1,11 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 export function DiscoverButton() {
+  const t = useTranslations("home");
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,18 +22,18 @@ export function DiscoverButton() {
       try {
         data = JSON.parse(text);
       } catch {
-        setError(text || `Server error ${res.status}`);
+        setError(text || t("discoverServerError", { status: res.status }));
         return;
       }
 
       if (!res.ok) {
-        setError(data.error ?? "Discovery failed");
+        setError(data.error ?? t("discoverFailed"));
         return;
       }
 
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error");
+      setError(err instanceof Error ? err.message : t("discoverNetworkError"));
     } finally {
       setLoading(false);
     }
@@ -44,7 +46,7 @@ export function DiscoverButton() {
         onClick={handleDiscover}
         disabled={loading}
       >
-        {loading ? "Discovering..." : "Discover papers"}
+        {loading ? t("discovering") : t("discover")}
       </button>
       {error ? <p className="text-xs text-red-600">{error}</p> : null}
     </div>

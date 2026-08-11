@@ -1,13 +1,22 @@
+import { getTranslations } from "next-intl/server";
 import { canManageWorkspaceSettings } from "@paper-viewer/core/permissions";
 import { prisma } from "@paper-viewer/db";
 import { requireCurrentUser } from "@/lib/auth";
 
-function ReadOnlyList({ label, values }: { label: string; values: string[] }) {
+function ReadOnlyList({
+  label,
+  values,
+  emptyLabel
+}: {
+  label: string;
+  values: string[];
+  emptyLabel: string;
+}) {
   return (
     <div>
       <div className="text-sm font-medium">{label}</div>
       {values.length === 0 ? (
-        <p className="mt-1 text-sm text-muted">未设置</p>
+        <p className="mt-1 text-sm text-muted">{emptyLabel}</p>
       ) : (
         <div className="mt-1 flex flex-wrap gap-2">
           {values.map((value) => (
@@ -23,6 +32,7 @@ function ReadOnlyList({ label, values }: { label: string; values: string[] }) {
 
 export default async function PreferencesPage() {
   const user = await requireCurrentUser();
+  const t = await getTranslations("settingsPreferences");
   const canEdit = canManageWorkspaceSettings(user.role);
 
   const prefs = await prisma.researchPreferences.findUnique({
@@ -31,63 +41,63 @@ export default async function PreferencesPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-semibold">Research Preferences</h1>
-      <p className="mt-1 text-sm text-muted">Configure your daily paper discovery.</p>
+      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <p className="mt-1 text-sm text-muted">{t("description")}</p>
 
       {canEdit ? (
         <form className="mt-6 grid gap-5" action="/api/settings/preferences" method="post">
           <div>
-            <label className="text-sm font-medium" htmlFor="topics">Research Topics</label>
-            <p className="text-xs text-muted">Your main research directions, one per line.</p>
+            <label className="text-sm font-medium" htmlFor="topics">{t("topicsLabel")}</label>
+            <p className="text-xs text-muted">{t("topicsHint")}</p>
             <textarea
               className="mt-1 w-full rounded border border-border px-3 py-2"
               id="topics"
               name="topics"
               rows={4}
-              placeholder={"LLM serving and inference optimization\nMixture of Experts\nDistributed training systems"}
+              placeholder={t("topicsPlaceholder")}
               defaultValue={prefs?.topics.join("\n") ?? ""}
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium" htmlFor="keywords">Keywords</label>
-            <p className="text-xs text-muted">Specific keywords for arXiv search, comma separated.</p>
+            <label className="text-sm font-medium" htmlFor="keywords">{t("keywordsLabel")}</label>
+            <p className="text-xs text-muted">{t("keywordsHint")}</p>
             <input
               className="mt-1 w-full rounded border border-border px-3 py-2"
               id="keywords"
               name="keywords"
-              placeholder="MoE, KV cache, RLHF, speculative decoding"
+              placeholder={t("keywordsPlaceholder")}
               defaultValue={prefs?.keywords.join(", ") ?? ""}
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium" htmlFor="arxivCategories">arXiv Categories</label>
-            <p className="text-xs text-muted">Comma separated. e.g. cs.AI, cs.CL, cs.LG, cs.DC, cs.PF</p>
+            <label className="text-sm font-medium" htmlFor="arxivCategories">{t("categoriesLabel")}</label>
+            <p className="text-xs text-muted">{t("categoriesHint")}</p>
             <input
               className="mt-1 w-full rounded border border-border px-3 py-2"
               id="arxivCategories"
               name="arxivCategories"
-              placeholder="cs.AI, cs.CL, cs.LG"
+              placeholder={t("categoriesPlaceholder")}
               defaultValue={prefs?.arxivCategories.join(", ") ?? ""}
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium" htmlFor="excludedTopics">Excluded Topics</label>
-            <p className="text-xs text-muted">Topics you want to exclude, one per line.</p>
+            <label className="text-sm font-medium" htmlFor="excludedTopics">{t("excludedLabel")}</label>
+            <p className="text-xs text-muted">{t("excludedHint")}</p>
             <textarea
               className="mt-1 w-full rounded border border-border px-3 py-2"
               id="excludedTopics"
               name="excludedTopics"
               rows={2}
-              placeholder={"Computer vision\nBioinformatics"}
+              placeholder={t("excludedPlaceholder")}
               defaultValue={prefs?.excludedTopics.join("\n") ?? ""}
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium" htmlFor="papersPerDay">Papers per day</label>
+            <label className="text-sm font-medium" htmlFor="papersPerDay">{t("papersPerDayLabel")}</label>
             <input
               className="mt-1 w-32 rounded border border-border px-3 py-2"
               id="papersPerDay"
@@ -100,20 +110,20 @@ export default async function PreferencesPage() {
           </div>
 
           <button className="rounded bg-accent px-4 py-2 font-medium text-white" type="submit">
-            Save preferences
+            {t("save")}
           </button>
         </form>
       ) : (
         <div className="mt-6 grid gap-5">
           <p className="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
-            仅管理员可修改。
+            {t("adminOnly")}
           </p>
-          <ReadOnlyList label="Research Topics" values={prefs?.topics ?? []} />
-          <ReadOnlyList label="Keywords" values={prefs?.keywords ?? []} />
-          <ReadOnlyList label="arXiv Categories" values={prefs?.arxivCategories ?? []} />
-          <ReadOnlyList label="Excluded Topics" values={prefs?.excludedTopics ?? []} />
+          <ReadOnlyList label={t("topicsLabel")} values={prefs?.topics ?? []} emptyLabel={t("notSet")} />
+          <ReadOnlyList label={t("keywordsLabel")} values={prefs?.keywords ?? []} emptyLabel={t("notSet")} />
+          <ReadOnlyList label={t("categoriesLabel")} values={prefs?.arxivCategories ?? []} emptyLabel={t("notSet")} />
+          <ReadOnlyList label={t("excludedLabel")} values={prefs?.excludedTopics ?? []} emptyLabel={t("notSet")} />
           <div>
-            <div className="text-sm font-medium">Papers per day</div>
+            <div className="text-sm font-medium">{t("papersPerDayLabel")}</div>
             <p className="mt-1 text-sm text-muted">{prefs?.papersPerDay ?? 10}</p>
           </div>
         </div>
