@@ -5,6 +5,11 @@ export type LabelView = {
   scope: "annotation" | "paper";
 };
 
+/** A label plus how many annotations and papers currently carry it. */
+export type LabelListItem = LabelView & {
+  usageCount: number;
+};
+
 export type AnnotationCommentView = {
   id: string;
   body: string;

@@ -11,7 +11,9 @@ export default async function SettingsLayout({ children }: { children: ReactNode
   const items: SettingsNavItem[] = [
     { href: "/settings/general", label: t("general") },
     { href: "/settings/preferences", label: t("preferences") },
-    { href: "/settings/llm", label: t("llm") }
+    { href: "/settings/llm", label: t("llm") },
+    // Labels are curated by every member, so this entry is not gated on the role.
+    { href: "/settings/labels", label: t("labels") }
   ];
 
   if (canManageWorkspaceSettings(user.role)) {

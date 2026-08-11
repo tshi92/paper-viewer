@@ -1,9 +1,8 @@
 import { prisma } from "@paper-viewer/db";
 import { z } from "zod";
-import { canManageLabels } from "@paper-viewer/core/permissions";
 import { labelScopes } from "@paper-viewer/core/labels";
 import { requireCurrentUser, type CurrentUser } from "@/lib/auth";
-import type { LabelView } from "@/lib/annotation-types";
+import type { LabelListItem, LabelView } from "@/lib/annotation-types";
 
 const createLabelSchema = z.object({
   name: z.string().trim().min(1).max(50),
@@ -38,10 +37,18 @@ export async function GET() {
 
   const labels = await prisma.label.findMany({
     where: { workspaceId: user.workspaceId },
-    orderBy: [{ scope: "asc" }, { createdAt: "asc" }]
+    orderBy: [{ scope: "asc" }, { createdAt: "asc" }],
+    include: { _count: { select: { annotationLinks: true, paperLinks: true } } }
   });
 
-  return Response.json({ labels: labels.map(toLabelView) });
+  return Response.json({
+    labels: labels.map(
+      (label): LabelListItem => ({
+        ...toLabelView(label),
+        usageCount: label._count.annotationLinks + label._count.paperLinks
+      })
+    )
+  });
 }
 
 export async function POST(request: Request) {
@@ -50,10 +57,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Authentication required" }, { status: 401 });
   }
 
-  if (!canManageLabels(user.role)) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
-
+  // Any workspace member may curate labels; they are shared vocabulary, not settings.
   const input = createLabelSchema.parse(await request.json());
 
   try {

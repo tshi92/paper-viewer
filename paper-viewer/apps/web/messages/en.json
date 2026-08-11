@@ -10,6 +10,7 @@
     "general": "General",
     "preferences": "Preferences",
     "llm": "LLM",
+    "labels": "Labels",
     "notifications": "Notifications",
     "members": "Members"
   },
@@ -246,5 +247,30 @@
     "clear": "Clear",
     "clearConfirm": "Clear the Feishu webhook? The daily digest will no longer be pushed.",
     "cleared": "Cleared"
+  },
+  "settingsLabels": {
+    "title": "Labels",
+    "description": "Labels are shared by the whole workspace. Every member can add, rename, recolor and delete them.",
+    "loading": "Loading…",
+    "loadFailed": "Failed to load labels",
+    "annotationHeading": "Annotation labels",
+    "annotationHint": "Used to tag highlights and area annotations inside a paper.",
+    "paperHeading": "Paper labels",
+    "paperHint": "Used to tag papers in the library.",
+    "empty": "No labels yet.",
+    "usage": "{count, plural, =0 {not used} =1 {# use} other {# uses}}",
+    "namePlaceholder": "Label name",
+    "colorLabel": "Color",
+    "add": "Add",
+    "adding": "Adding…",
+    "edit": "Edit",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleting": "Deleting…",
+    "deleteConfirm": "Delete the label \"{name}\"? It is used in {count} places and will be removed from those annotations and papers.",
+    "deleteConfirmUnused": "Delete the label \"{name}\"?",
+    "actionFailed": "Something went wrong, please try again"
   }
 }

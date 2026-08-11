@@ -10,6 +10,7 @@
     "general": "通用",
     "preferences": "研究偏好",
     "llm": "LLM",
+    "labels": "标签",
     "notifications": "通知",
     "members": "成员"
   },
@@ -246,5 +247,30 @@
     "clear": "清除",
     "clearConfirm": "确定要清除飞书 webhook 吗？清除后将不再推送每日论文。",
     "cleared": "已清除"
+  },
+  "settingsLabels": {
+    "title": "标签",
+    "description": "标签由整个工作区共享，所有成员都可以新增、重命名、改色和删除。",
+    "loading": "加载中…",
+    "loadFailed": "加载标签失败",
+    "annotationHeading": "标注 label",
+    "annotationHint": "用于给论文里的高亮和区域标注打标签。",
+    "paperHeading": "论文 label",
+    "paperHint": "用于给论文库里的论文打标签。",
+    "empty": "还没有标签。",
+    "usage": "{count, plural, =0 {未使用} other {# 处使用}}",
+    "namePlaceholder": "标签名称",
+    "colorLabel": "颜色",
+    "add": "添加",
+    "adding": "添加中…",
+    "edit": "编辑",
+    "save": "保存",
+    "saving": "保存中…",
+    "cancel": "取消",
+    "delete": "删除",
+    "deleting": "删除中…",
+    "deleteConfirm": "删除 label「{name}」？它正被 {count} 处使用，删除后将从这些标注/论文上移除。",
+    "deleteConfirmUnused": "删除 label「{name}」？",
+    "actionFailed": "操作失败，请重试"
   }
 }

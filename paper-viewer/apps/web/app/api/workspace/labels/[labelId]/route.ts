@@ -1,6 +1,5 @@
 import { prisma } from "@paper-viewer/db";
 import { z } from "zod";
-import { canManageLabels } from "@paper-viewer/core/permissions";
 import { requireCurrentUser, type CurrentUser } from "@/lib/auth";
 import type { LabelView } from "@/lib/annotation-types";
 
@@ -40,10 +39,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ la
     return Response.json({ error: "Authentication required" }, { status: 401 });
   }
 
-  if (!canManageLabels(user.role)) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
-
+  // Any workspace member may curate labels; they are shared vocabulary, not settings.
   const { labelId } = await params;
   const existing = await findOwnedLabel(labelId, user.workspaceId);
   if (!existing) {
@@ -76,10 +72,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     return Response.json({ error: "Authentication required" }, { status: 401 });
   }
 
-  if (!canManageLabels(user.role)) {
-    return Response.json({ error: "Forbidden" }, { status: 403 });
-  }
-
+  // Any workspace member may curate labels; they are shared vocabulary, not settings.
   const { labelId } = await params;
   if (!(await findOwnedLabel(labelId, user.workspaceId))) {
     return Response.json({ error: "Label not found" }, { status: 404 });
