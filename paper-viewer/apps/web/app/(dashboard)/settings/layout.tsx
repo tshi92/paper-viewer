@@ -15,6 +15,7 @@ export default async function SettingsLayout({ children }: { children: ReactNode
   ];
 
   if (canManageWorkspaceSettings(user.role)) {
+    items.push({ href: "/settings/notifications", label: t("notifications") });
     items.push({ href: "/settings/members", label: t("members") });
   }
 

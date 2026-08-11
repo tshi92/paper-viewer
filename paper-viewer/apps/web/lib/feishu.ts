@@ -72,6 +72,23 @@ export function buildDigestCard(input: DigestCardInput): object {
   };
 }
 
+/** 设置页「发送测试」用的最小卡片，不含论文数据。 */
+export function buildTestCard(): object {
+  return {
+    config: { wide_screen_mode: true },
+    header: {
+      template: "blue",
+      title: { tag: "plain_text", content: "Paper Viewer" }
+    },
+    elements: [
+      {
+        tag: "div",
+        text: { tag: "lark_md", content: "测试消息发送成功 ✓ / Test message from Paper Viewer" }
+      }
+    ]
+  };
+}
+
 /** 非 JSON 响应体不算失败——只要 HTTP 200，就当作网关接受了卡片。 */
 async function readPayload(response: Response): Promise<Record<string, unknown> | null> {
   try {

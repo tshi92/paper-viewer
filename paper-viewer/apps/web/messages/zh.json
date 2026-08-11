@@ -10,6 +10,7 @@
     "general": "通用",
     "preferences": "研究偏好",
     "llm": "LLM",
+    "notifications": "通知",
     "members": "成员"
   },
   "settingsGeneral": {
@@ -220,5 +221,31 @@
     "saving": "保存中…",
     "saved": "已保存",
     "saveFailed": "保存失败"
+  },
+  "settingsNotifications": {
+    "title": "通知",
+    "description": "配置飞书群机器人 webhook，每日论文推送会发到这个群。",
+    "loading": "加载中…",
+    "loadFailed": "加载配置失败",
+    "statusLabel": "当前状态：",
+    "statusConfigured": "已配置 {masked}",
+    "statusNotConfigured": "未配置",
+    "webhookLabel": "飞书 Webhook",
+    "webhookHint": "飞书群自定义机器人的 webhook 地址，必须是 https。出于安全考虑，已保存的地址只显示掩码。",
+    "webhookPlaceholder": "https://open.feishu.cn/open-apis/bot/v2/hook/…",
+    "webhookPlaceholderMasked": "{masked}（留空保持不变）",
+    "webhookRequired": "请先填写 webhook 地址",
+    "test": "发送测试",
+    "testing": "发送中…",
+    "testSuccess": "✓ 测试消息已发送",
+    "testFailed": "发送失败，请检查 webhook 地址",
+    "testNotConfigured": "尚未配置 webhook，请先填写或保存地址",
+    "save": "保存",
+    "saving": "保存中…",
+    "saved": "已保存",
+    "saveFailed": "保存失败",
+    "clear": "清除",
+    "clearConfirm": "确定要清除飞书 webhook 吗？清除后将不再推送每日论文。",
+    "cleared": "已清除"
   }
 }

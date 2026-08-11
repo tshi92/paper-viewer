@@ -10,6 +10,7 @@
     "general": "General",
     "preferences": "Preferences",
     "llm": "LLM",
+    "notifications": "Notifications",
     "members": "Members"
   },
   "settingsGeneral": {
@@ -220,5 +221,31 @@
     "saving": "Saving…",
     "saved": "Saved",
     "saveFailed": "Save failed"
+  },
+  "settingsNotifications": {
+    "title": "Notifications",
+    "description": "Configure the Feishu group bot webhook that receives the daily paper digest.",
+    "loading": "Loading…",
+    "loadFailed": "Failed to load configuration",
+    "statusLabel": "Status:",
+    "statusConfigured": "Configured — {masked}",
+    "statusNotConfigured": "Not configured",
+    "webhookLabel": "Feishu webhook",
+    "webhookHint": "The custom bot webhook URL of a Feishu group; it must be https. For security, a saved URL is only ever shown masked.",
+    "webhookPlaceholder": "https://open.feishu.cn/open-apis/bot/v2/hook/…",
+    "webhookPlaceholderMasked": "{masked} (leave blank to keep unchanged)",
+    "webhookRequired": "Enter a webhook URL first",
+    "test": "Send test",
+    "testing": "Sending…",
+    "testSuccess": "✓ Test message sent",
+    "testFailed": "Send failed — check the webhook URL",
+    "testNotConfigured": "No webhook configured — enter or save a URL first",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "saveFailed": "Save failed",
+    "clear": "Clear",
+    "clearConfirm": "Clear the Feishu webhook? The daily digest will no longer be pushed.",
+    "cleared": "Cleared"
   }
 }
