@@ -154,10 +154,8 @@
     "save": "保存",
     "new": "未读",
     "reading": "在读",
-    "saved": "已收藏",
     "discussed": "已讨论",
-    "skipped": "已跳过",
-    "archived": "已归档"
+    "skipped": "已跳过"
   },
   "settingsPreferences": {
     "title": "研究偏好",

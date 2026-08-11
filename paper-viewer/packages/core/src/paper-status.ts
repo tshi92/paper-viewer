@@ -1,4 +1,4 @@
-export const readingStates = ["new", "reading", "saved", "discussed", "skipped", "archived"] as const;
+export const readingStates = ["new", "reading", "discussed", "skipped"] as const;
 
 export type ReadingState = (typeof readingStates)[number];
 

@@ -154,10 +154,8 @@
     "save": "Save",
     "new": "New",
     "reading": "Reading",
-    "saved": "Saved",
     "discussed": "Discussed",
-    "skipped": "Skipped",
-    "archived": "Archived"
+    "skipped": "Skipped"
   },
   "settingsPreferences": {
     "title": "Research Preferences",

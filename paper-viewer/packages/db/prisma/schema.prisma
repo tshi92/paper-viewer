@@ -17,10 +17,8 @@ enum WorkspaceRole {
 enum ReadingState {
   new
   reading
-  saved
   discussed
   skipped
-  archived
 }
 
 enum WorkspacePaperState {
