@@ -124,6 +124,19 @@ export async function analyzeSinglePaper(
   paper: ArxivPaper,
   topics: string[]
 ): Promise<PaperAnalysisResult> {
+  // LLM 偶发返回非法 JSON（如中文串里未转义引号）；重试一次基本可消除。
+  try {
+    return await analyzeSinglePaperOnce(config, paper, topics);
+  } catch {
+    return analyzeSinglePaperOnce(config, paper, topics);
+  }
+}
+
+async function analyzeSinglePaperOnce(
+  config: LlmRuntimeConfig,
+  paper: ArxivPaper,
+  topics: string[]
+): Promise<PaperAnalysisResult> {
   const result = await callLlm(config, [
     { role: "system", content: "你是一个专业的计算机系统研究助手，擅长分析大模型系统方向的学术论文。所有分析必须用中文撰写，通俗易懂，用清晰的日常语言解释技术概念；但领域通用术语保留英文原词（transformer、attention、RLHF、ablation、KV cache 等一律不要翻译成中文）。返回纯 JSON。" },
     {
