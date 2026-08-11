@@ -71,7 +71,7 @@ export function AnnotationSidebar({
         </select>
         <span className="ml-auto text-xs text-muted">{t("count", { count: filtered.length })}</span>
       </div>
-      <div className="max-h-[calc(100vh-320px)] divide-y divide-border overflow-auto">
+      <div className="max-h-[calc(100vh-240px)] divide-y divide-border overflow-auto">
         {filtered.map((annotation) => (
           <article
             key={annotation.id}

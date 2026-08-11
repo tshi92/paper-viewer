@@ -33,7 +33,7 @@ export function AnalysisPanel({ analysis }: { analysis: AnalysisView | null }) {
   }
 
   return (
-    <section className="max-h-[calc(100vh-320px)] overflow-auto rounded border border-border bg-white p-4">
+    <section className="max-h-[calc(100vh-240px)] overflow-auto rounded border border-border bg-white p-4">
       <h2 className="text-sm font-semibold uppercase text-muted">{t("analysisHeading")}</h2>
       <div className="mt-3 space-y-3 text-sm leading-relaxed">
         <p>{analysis.summary}</p>

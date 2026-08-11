@@ -46,7 +46,7 @@ export function CommentPanel({
       <div className="border-b border-border px-4 py-3">
         <h2 className="font-semibold">{t("heading")}</h2>
       </div>
-      <div className="max-h-96 divide-y divide-border overflow-auto">
+      <div className="max-h-[calc(100vh-320px)] divide-y divide-border overflow-auto">
         {comments.map((comment) => (
           <article className="px-4 py-3" key={comment.id}>
             <div className="flex items-center gap-2 text-xs text-muted">
