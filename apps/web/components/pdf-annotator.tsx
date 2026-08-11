@@ -2,14 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import type { ComponentType, CSSProperties, MouseEvent as ReactMouseEvent, ReactElement } from "react";
-import {
-  AreaHighlight,
-  Highlight,
-  PdfHighlighter,
-  PdfLoader,
-  Popup
-} from "react-pdf-highlighter";
+import type { ComponentType, CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import { AreaHighlight, Highlight, PdfHighlighter, PdfLoader } from "react-pdf-highlighter";
 import type { Content, IHighlight, LTWHP, Position, ScaledPosition } from "react-pdf-highlighter";
 import "react-pdf-highlighter/dist/style.css";
 import { annotationColor, DEFAULT_HIGHLIGHT_COLOR } from "@paper-viewer/core/labels";
@@ -53,6 +47,65 @@ type AreaHighlightProps = {
 const AreaHighlightBox = AreaHighlight as unknown as ComponentType<AreaHighlightProps>;
 
 const noop = () => {};
+
+/**
+ * Leaving a highlight keeps the preview alive this long, so crossing the seam
+ * between two rects of the same highlight — or the gap on the way to the card —
+ * does not flicker it away.
+ */
+const PREVIEW_LEAVE_DELAY_MS = 120;
+/** Matches `AnnotationPreview`'s `max-w-[260px]`; used to keep the card on screen. */
+const PREVIEW_WIDTH = 260;
+/** Distance between the highlight and the card, filled with padding so the pointer never crosses dead space. */
+const PREVIEW_GAP = 8;
+/** Below this much room above the highlight, the card flips underneath it. */
+const PREVIEW_FLIP_THRESHOLD = 160;
+
+type PreviewPlacement = { left: number; top: number; below: boolean };
+
+type HoverPreview = PreviewPlacement & { annotationId: string };
+
+type Bounds = { left: number; top: number; right: number; bottom: number };
+
+/**
+ * A `.pv-highlight` wrapper is a static block whose children are all absolutely
+ * positioned, so its own box is empty. The painted geometry is the union of the
+ * absolutely positioned parts — the text rects, or the area's react-rnd box —
+ * measured in viewport coordinates so the card can be placed with
+ * `position: fixed`, immune to the PDF's inner scrolling.
+ *
+ * The `position` test is what keeps the static wrappers out: they stretch to the
+ * full layer width, and the area wrapper's 1px border even gives it a height, so
+ * including them would anchor the card to the whole page instead of the mark.
+ */
+function measureHighlightBounds(wrapper: HTMLElement): Bounds | null {
+  let bounds: Bounds | null = null;
+  for (const element of wrapper.querySelectorAll<HTMLElement>("*")) {
+    if (getComputedStyle(element).position !== "absolute") continue;
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    bounds = bounds
+      ? {
+          left: Math.min(bounds.left, rect.left),
+          top: Math.min(bounds.top, rect.top),
+          right: Math.max(bounds.right, rect.right),
+          bottom: Math.max(bounds.bottom, rect.bottom)
+        }
+      : { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+  }
+  return bounds;
+}
+
+function placePreview(bounds: Bounds): PreviewPlacement {
+  const half = PREVIEW_WIDTH / 2;
+  const center = (bounds.left + bounds.right) / 2;
+  const below = bounds.top < PREVIEW_FLIP_THRESHOLD;
+  return {
+    left: Math.min(Math.max(center, half + PREVIEW_GAP), window.innerWidth - half - PREVIEW_GAP),
+    top: below ? bounds.bottom : bounds.top,
+    below
+  };
+}
 
 /**
  * The library keeps stable, unhashed BEM class names alongside its hashed CSS
@@ -115,6 +168,14 @@ function AnnotationPreview({ annotation }: { annotation: AnnotationView }) {
           alt={t("areaImageAlt")}
           className="mt-1 max-h-16 w-auto rounded border border-border"
         />
+      ) : null}
+      {annotation.quotedText ? (
+        <blockquote
+          className="mt-1 border-l-2 pl-2 text-xs italic text-muted line-clamp-2"
+          style={{ borderColor: annotationColor(annotation.labels) }}
+        >
+          &ldquo;{annotation.quotedText}&rdquo;
+        </blockquote>
       ) : null}
       {annotation.labels.length > 0 ? (
         <div className="mt-1 flex flex-wrap gap-1">
@@ -243,6 +304,66 @@ export function PdfAnnotator({
   const highlightsRef = useRef<IHighlight[]>(highlights);
   const scrollToRef = useRef<((highlight: IHighlight) => void) | null>(null);
 
+  // The library's own `Popup`/`setTip` path is unreliable: it suppresses the tip
+  // whenever a text selection is open, and its `MouseMonitor` closes on a stale
+  // `mouseIn` closure. The preview below is owned end to end instead.
+  const [hoverPreview, setHoverPreview] = useState<HoverPreview | null>(null);
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** The hovered `.pv-highlight`, kept for repositioning; null while no card is up. */
+  const hoverWrapperRef = useRef<HTMLElement | null>(null);
+
+  const cancelPreviewClose = useCallback(() => {
+    if (leaveTimerRef.current === null) return;
+    clearTimeout(leaveTimerRef.current);
+    leaveTimerRef.current = null;
+  }, []);
+
+  const closePreview = useCallback(() => {
+    hoverWrapperRef.current = null;
+    setHoverPreview(null);
+  }, []);
+
+  const openPreview = useCallback(
+    (annotationId: string, wrapper: HTMLElement) => {
+      cancelPreviewClose();
+      const bounds = measureHighlightBounds(wrapper);
+      if (!bounds) return;
+      hoverWrapperRef.current = wrapper;
+      setHoverPreview({ annotationId, ...placePreview(bounds) });
+    },
+    [cancelPreviewClose]
+  );
+
+  /**
+   * The card is viewport-positioned while the PDF scrolls inside its own
+   * container, so it has to follow its highlight — and drop itself when pdf.js
+   * tears the page's layer down, which happens without a mouse-leave.
+   */
+  const repositionPreview = useCallback(() => {
+    const wrapper = hoverWrapperRef.current;
+    if (!wrapper) return;
+    const bounds = wrapper.isConnected ? measureHighlightBounds(wrapper) : null;
+    if (!bounds) {
+      closePreview();
+      return;
+    }
+    setHoverPreview((current) => (current ? { ...current, ...placePreview(bounds) } : current));
+  }, [closePreview]);
+
+  const schedulePreviewClose = useCallback(() => {
+    cancelPreviewClose();
+    leaveTimerRef.current = setTimeout(() => {
+      leaveTimerRef.current = null;
+      closePreview();
+    }, PREVIEW_LEAVE_DELAY_MS);
+  }, [cancelPreviewClose, closePreview]);
+
+  useEffect(() => cancelPreviewClose, [cancelPreviewClose]);
+
+  // A deleted annotation must not leave its card hanging.
+  const previewAnnotation = hoverPreview ? annotationById.get(hoverPreview.annotationId) : undefined;
+
   useEffect(() => {
     highlightsRef.current = highlights;
   }, [highlights]);
@@ -303,20 +424,10 @@ export function PdfAnnotator({
   );
 
   const renderHighlight = useCallback(
-    (
-      highlight: ViewportHighlight,
-      index: number,
-      setTip: (
-        highlight: ViewportHighlight,
-        callback: (highlight: ViewportHighlight) => ReactElement
-      ) => void,
-      hideTip: () => void
-    ) => {
+    (highlight: ViewportHighlight, index: number) => {
       const annotation = annotationById.get(highlight.id);
       const color = annotation ? annotationColor(annotation.labels) : DEFAULT_HIGHLIGHT_COLOR;
       const isScrolledTo = selectedId === highlight.id;
-      const showPopup = (popupContent: ReactElement) => setTip(highlight, () => popupContent);
-      const popupContent = annotation ? <AnnotationPreview annotation={annotation} /> : <span />;
 
       // Persisted highlights resolve their kind from the annotation record; the
       // library's transient ghost highlight has no record, and for those an
@@ -350,6 +461,9 @@ export function PdfAnnotator({
         />
       );
 
+      // Hover lands on the painted parts (a text rect, or the area's react-rnd
+      // box) and bubbles up here; React derives enter/leave from the DOM tree,
+      // so the wrapper sees them even though its own box is empty.
       return (
         <div
           key={`${highlight.id}-${index}`}
@@ -357,18 +471,25 @@ export function PdfAnnotator({
           data-annotation-type={isArea ? "area" : "highlight"}
           data-scrolled-to={isScrolledTo ? "true" : "false"}
           style={{ "--pv-highlight-color": color } as CSSProperties}
+          onMouseEnter={
+            annotation ? (event) => openPreview(annotation.id, event.currentTarget) : undefined
+          }
+          onMouseLeave={annotation ? schedulePreviewClose : undefined}
         >
-          <Popup popupContent={popupContent} onMouseOver={showPopup} onMouseOut={hideTip}>
-            {inner}
-          </Popup>
+          {inner}
         </div>
       );
     },
-    [annotationById, onSelect, selectedId]
+    [annotationById, onSelect, openPreview, schedulePreviewClose, selectedId]
   );
 
   return (
-    <div className="relative h-[calc(100vh-200px)] overflow-hidden rounded border border-border bg-surface">
+    <div
+      className="relative h-[calc(100vh-200px)] overflow-hidden rounded border border-border bg-surface"
+      // Scroll does not bubble, but the PDF's inner container's does reach here
+      // in the capture phase.
+      onScrollCapture={repositionPreview}
+    >
       <style>{HIGHLIGHT_STYLES}</style>
       <PdfLoader
         workerSrc="/pdf.worker.min.mjs"
@@ -391,6 +512,25 @@ export function PdfAnnotator({
           />
         )}
       </PdfLoader>
+      {hoverPreview && previewAnnotation ? (
+        <div
+          data-testid="annotation-hover-preview"
+          className="fixed z-30"
+          style={{
+            left: hoverPreview.left,
+            top: hoverPreview.top,
+            transform: hoverPreview.below ? "translate(-50%, 0)" : "translate(-50%, -100%)",
+            // Padding, not a margin, so the pointer can reach the card without
+            // ever leaving a hovered element.
+            paddingTop: hoverPreview.below ? PREVIEW_GAP : 0,
+            paddingBottom: hoverPreview.below ? 0 : PREVIEW_GAP
+          }}
+          onMouseEnter={cancelPreviewClose}
+          onMouseLeave={schedulePreviewClose}
+        >
+          <AnnotationPreview annotation={previewAnnotation} />
+        </div>
+      ) : null}
     </div>
   );
 }

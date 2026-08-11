@@ -23,6 +23,8 @@ let pdfServer: Server;
 let workspaceId: string;
 let userId: string;
 let paperId: string;
+/** The hover suite draws its own highlights, so it needs a page nobody else marked up. */
+let hoverPaperId: string;
 let email: string;
 
 function startPdfServer(): Promise<string> {
@@ -82,9 +84,22 @@ test.beforeAll(async () => {
   });
 
   paperId = paper.id;
+
+  const hoverPaper = await prisma.paper.create({
+    data: {
+      title: `Annotation Hover Paper ${run}`,
+      authors: ["E2E Author"],
+      source: "manual",
+      pdfUrl,
+      workspacePapers: { create: { workspaceId, importedById: userId } }
+    }
+  });
+
+  hoverPaperId = hoverPaper.id;
 });
 
 test.afterAll(async () => {
+  if (hoverPaperId) await prisma.paper.delete({ where: { id: hoverPaperId } }).catch(() => undefined);
   if (paperId) await prisma.paper.delete({ where: { id: paperId } }).catch(() => undefined);
   if (workspaceId) await prisma.workspace.delete({ where: { id: workspaceId } }).catch(() => undefined);
   if (userId) await prisma.user.delete({ where: { id: userId } }).catch(() => undefined);
@@ -172,4 +187,114 @@ test("⌥ drag area → label → paints a coloured box and persists", async ({ 
   // over-strict schema rejects outright.
   await page.reload();
   await expect(page.getByText("划区")).toBeVisible();
+});
+
+/**
+ * Hovering a highlight has to show its preview *every* time. The library's own
+ * `Popup`/`setTip` path did not: it suppresses tips while a text selection is
+ * open and closes on a stale mouse-in flag, so the preview appeared only some of
+ * the time. The loops below are the regression bar — ten clean cycles per kind.
+ */
+/** The card hugs the mark it describes, above it or — near the top — below it. */
+async function assertAnchoredTo(
+  preview: ReturnType<Page["locator"]>,
+  target: ReturnType<Page["locator"]>
+): Promise<void> {
+  const mark = (await target.boundingBox())!;
+  const card = (await preview.boundingBox())!;
+  const gap = Math.min(
+    Math.abs(card.y + card.height - mark.y),
+    Math.abs(card.y - (mark.y + mark.height))
+  );
+  expect(gap).toBeLessThan(12);
+  expect(card.x + card.width).toBeGreaterThan(mark.x - 40);
+  expect(card.x).toBeLessThan(mark.x + mark.width + 40);
+}
+
+async function assertHoverCycles(
+  page: Page,
+  target: ReturnType<Page["locator"]>,
+  commentText: string
+): Promise<void> {
+  const preview = page.getByTestId("annotation-hover-preview");
+  for (let cycle = 0; cycle < 10; cycle++) {
+    await target.hover();
+    await expect(preview, `cycle ${cycle}`).toBeVisible();
+    await expect(preview.getByText(commentText), `cycle ${cycle}`).toBeVisible();
+    await assertAnchoredTo(preview, target);
+    // Away from the viewer entirely, so the leave timer runs to completion.
+    await page.mouse.move(2, 2);
+    await expect(preview, `cycle ${cycle}`).toBeHidden();
+  }
+}
+
+test("hover previews appear on every pass and survive a trip into the card", async ({ page }) => {
+  await signIn(page);
+  await page.goto(`/papers/${hoverPaperId}`);
+
+  const words = page.locator(".textLayer span");
+  await expect(words.first()).toBeVisible({ timeout: 30_000 });
+
+  // Text highlight carrying a first comment.
+  await words.first().dblclick();
+  await page.getByRole("button", { name: "method" }).click();
+  await page.getByPlaceholder("首条评论（可选）").fill("hover text note");
+  await page.getByRole("button", { name: "保存标注" }).click();
+  await expect(page.getByText("hover text note")).toBeVisible();
+
+  // Area annotation carrying a first comment.
+  const canvas = page.locator(".page canvas").first();
+  const canvasBox = (await canvas.boundingBox())!;
+  await page.keyboard.down("Alt");
+  await page.mouse.move(canvasBox.x + 60, canvasBox.y + 260);
+  await page.mouse.down();
+  await page.mouse.move(canvasBox.x + 260, canvasBox.y + 380, { steps: 12 });
+  await page.mouse.up();
+  await page.keyboard.up("Alt");
+  await page.getByPlaceholder("首条评论（可选）").fill("hover area note");
+  await page.getByRole("button", { name: "保存标注" }).click();
+  await expect(page.getByText("划区")).toBeVisible();
+
+  const textPart = page.locator('.pv-highlight[data-annotation-type="highlight"] .Highlight__part').first();
+  const areaBox = page.locator('.pv-highlight[data-annotation-type="area"] [style*="background"]').first();
+  await expect(areaBox).toBeVisible();
+
+  await assertHoverCycles(page, textPart, "hover text note");
+  await assertHoverCycles(page, areaBox, "hover area note");
+
+  const preview = page.getByTestId("annotation-hover-preview");
+
+  // The card carries the whole annotation: author, labels, the quoted text and
+  // the first comment — and the screenshot for an area.
+  await textPart.hover();
+  await expect(preview.getByText(/Annotations E2E/)).toBeVisible();
+  await expect(preview.getByText("method")).toBeVisible();
+  await expect(preview.locator("blockquote")).toBeVisible();
+  await page.mouse.move(2, 2);
+  await areaBox.hover();
+  await expect(preview.locator("img")).toBeVisible();
+  await page.mouse.move(2, 2);
+  await expect(preview).toBeHidden();
+
+  // The reported failure: the library only showed its tip while no text
+  // selection was open, so once the reader had selected anything — a
+  // double-clicked word here — hovering a highlight silently did nothing.
+  await words.nth(3).dblclick();
+  await expect(page.getByRole("button", { name: "保存标注" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.mouse.move(2, 2);
+  await textPart.hover();
+  await expect(preview).toBeVisible();
+  await expect(preview.getByText("hover text note")).toBeVisible();
+  await page.mouse.move(2, 2);
+  await expect(preview).toBeHidden();
+
+  // Moving from the highlight into the card keeps it open; leaving the card closes it.
+  await textPart.hover();
+  await expect(preview).toBeVisible();
+  await preview.hover();
+  await expect(preview).toBeVisible();
+  await expect(preview.getByText("hover text note")).toBeVisible();
+  await page.mouse.move(2, 2);
+  await expect(preview).toBeHidden();
 });
