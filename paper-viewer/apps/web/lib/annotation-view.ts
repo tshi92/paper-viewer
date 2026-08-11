@@ -19,6 +19,7 @@ export function toAnnotationView(annotation: AnnotationWithRelations): Annotatio
     pageNumber: annotation.pageNumber,
     position: annotation.position,
     quotedText: annotation.quotedText,
+    areaImage: annotation.areaImage,
     createdAt: annotation.createdAt.toISOString(),
     author: annotation.author,
     labels: annotation.labels.map(({ label }) => ({

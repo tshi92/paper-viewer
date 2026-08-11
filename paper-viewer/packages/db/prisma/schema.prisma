@@ -269,6 +269,8 @@ model Annotation {
   pageNumber     Int
   position       Json
   quotedText     String?
+  /// PNG data URL screenshot of the selected region; only set for `area` annotations.
+  areaImage      String?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   workspacePaper WorkspacePaper    @relation(fields: [workspaceId, paperId], references: [workspaceId, paperId], onDelete: Cascade)

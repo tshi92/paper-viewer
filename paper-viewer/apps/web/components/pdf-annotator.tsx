@@ -19,9 +19,18 @@ export type CreateAnnotationInput = {
   pageNumber: number;
   position: unknown;
   quotedText?: string;
+  /** PNG data URL of the selected region; area annotations only. */
+  areaImage?: string;
   labelIds: string[];
   firstComment?: string;
 };
+
+/**
+ * The API rejects screenshots above 500KB. A very large area selection can
+ * exceed that, and losing the thumbnail is better than losing the annotation,
+ * so oversized images are dropped rather than sent.
+ */
+const MAX_AREA_IMAGE_LENGTH = 500_000;
 
 type ViewportHighlight = IHighlight & { position: Position };
 
@@ -97,6 +106,14 @@ function AnnotationPreview({ annotation }: { annotation: AnnotationView }) {
   return (
     <div className="max-w-[260px] rounded border border-border bg-white p-2 text-xs shadow-lg">
       <p className="text-muted">{annotation.author.name ?? annotation.author.email}</p>
+      {annotation.areaImage ? (
+        // eslint-disable-next-line @next/next/no-img-element -- data URL, not a routable asset
+        <img
+          src={annotation.areaImage}
+          alt="划区截图"
+          className="mt-1 max-h-16 w-auto rounded border border-border"
+        />
+      ) : null}
       {annotation.labels.length > 0 ? (
         <div className="mt-1 flex flex-wrap gap-1">
           {annotation.labels.map((label) => (
@@ -269,6 +286,9 @@ export function PdfAnnotator({
             position,
             labelIds,
             ...(content.text ? { quotedText: content.text } : {}),
+            ...(content.image && content.image.length <= MAX_AREA_IMAGE_LENGTH
+              ? { areaImage: content.image }
+              : {}),
             ...(firstComment ? { firstComment } : {})
           });
           hideTipAndSelection();

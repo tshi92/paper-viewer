@@ -28,6 +28,13 @@ const createAnnotationSchema = z
       usePdfCoordinates: z.boolean().optional()
     }),
     quotedText: z.string().max(4000).optional(),
+    // Screenshot of the selected region, produced client-side by
+    // react-pdf-highlighter. Only area selections have one.
+    areaImage: z
+      .string()
+      .regex(/^data:image\/(png|jpeg);base64,/)
+      .max(500_000)
+      .optional(),
     labelIds: z.array(z.string()).max(10).default([]),
     firstComment: z.string().min(1).max(5000).optional()
   })
@@ -38,6 +45,10 @@ const createAnnotationSchema = z
   .refine((input) => input.type !== "highlight" || input.position.rects.length > 0, {
     message: "highlight requires at least one rect",
     path: ["position", "rects"]
+  })
+  .refine((input) => input.type === "area" || input.areaImage === undefined, {
+    message: "areaImage is only allowed on area annotations",
+    path: ["areaImage"]
   });
 
 async function resolveCurrentUser(): Promise<CurrentUser | null> {
@@ -107,6 +118,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
       pageNumber: input.pageNumber,
       position: input.position,
       quotedText: input.quotedText ?? null,
+      areaImage: input.areaImage ?? null,
       labels: {
         create: labelIds.map((labelId, index) => ({ labelId, order: index }))
       },

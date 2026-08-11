@@ -20,6 +20,8 @@ export type AnnotationView = {
   /** react-pdf-highlighter ScaledPosition, stored and returned as-is. */
   position: unknown;
   quotedText: string | null;
+  /** PNG data URL screenshot of the region; only present on area annotations. */
+  areaImage: string | null;
   createdAt: string;
   author: { id: string; email: string; name: string | null };
   labels: LabelView[];

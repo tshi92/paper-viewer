@@ -87,6 +87,14 @@ export function AnnotationSidebar({
                 <span className="rounded bg-surface px-1.5 py-0.5">p.{annotation.pageNumber}</span>
                 <span>{annotation.type === "area" ? "划区" : "高亮"}</span>
               </div>
+              {annotation.areaImage ? (
+                // eslint-disable-next-line @next/next/no-img-element -- data URL, not a routable asset
+                <img
+                  src={annotation.areaImage}
+                  alt="划区截图"
+                  className="mt-1 max-h-24 w-auto rounded border border-border"
+                />
+              ) : null}
               {annotation.quotedText ? (
                 <blockquote
                   className="mt-1 border-l-2 pl-2 text-xs italic text-muted line-clamp-2"
