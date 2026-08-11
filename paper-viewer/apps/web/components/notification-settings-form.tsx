@@ -6,14 +6,25 @@ import { useEffect, useState } from "react";
 type NotificationView = {
   configured: boolean;
   feishuWebhookMasked: string;
+  pushHour: number;
 };
 
 type TestResult = { ok: boolean; message?: string };
+
+type UpdatePayload = { feishuWebhookUrl?: string; pushHour?: number };
+
+/** 0-23 的整点，展示成 "00:00" … "23:00"。 */
+const PUSH_HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+
+function formatHour(hour: number): string {
+  return `${String(hour).padStart(2, "0")}:00`;
+}
 
 export function NotificationSettingsForm() {
   const t = useTranslations("settingsNotifications");
   const [config, setConfig] = useState<NotificationView | null>(null);
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [pushHour, setPushHour] = useState(9);
   const [loadError, setLoadError] = useState("");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
@@ -32,7 +43,10 @@ export function NotificationSettingsForm() {
           return;
         }
         const data = (await res.json()) as NotificationView;
-        if (!cancelled) setConfig(data);
+        if (!cancelled) {
+          setConfig(data);
+          setPushHour(data.pushHour);
+        }
       } catch {
         if (!cancelled) setLoadError(t("loadFailed"));
       }
@@ -76,8 +90,8 @@ export function NotificationSettingsForm() {
     }
   }
 
-  /** `feishuWebhookUrl` 缺省=保持不变，空串=清除，见 API 路由注释。 */
-  async function submit(body: { feishuWebhookUrl?: string }, successMessage: string) {
+  /** 两个字段都是缺省=保持不变；`feishuWebhookUrl` 额外有空串=清除，见 API 路由注释。 */
+  async function submit(body: UpdatePayload, successMessage: string) {
     if (testing || saving) return;
     setSaving(true);
     resetMessages();
@@ -95,7 +109,14 @@ export function NotificationSettingsForm() {
         setSaveError(data?.error ?? t("saveFailed"));
         return;
       }
-      if (data) setConfig({ configured: data.configured, feishuWebhookMasked: data.feishuWebhookMasked });
+      if (data) {
+        setConfig({
+          configured: data.configured,
+          feishuWebhookMasked: data.feishuWebhookMasked,
+          pushHour: data.pushHour
+        });
+        setPushHour(data.pushHour);
+      }
       setWebhookUrl("");
       setSaveMessage(successMessage);
     } catch {
@@ -105,13 +126,10 @@ export function NotificationSettingsForm() {
     }
   }
 
+  /** 一次保存两件事：推送钟点总是提交，webhook 留空则保持不变。 */
   async function handleSave() {
     const trimmed = webhookUrl.trim();
-    if (!trimmed) {
-      setSaveError(t("webhookRequired"));
-      return;
-    }
-    await submit({ feishuWebhookUrl: trimmed }, t("saved"));
+    await submit({ pushHour, ...(trimmed ? { feishuWebhookUrl: trimmed } : {}) }, t("saved"));
   }
 
   async function handleClear() {
@@ -153,6 +171,24 @@ export function NotificationSettingsForm() {
           onChange={(event) => setWebhookUrl(event.target.value)}
           placeholder={placeholder}
         />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium" htmlFor="pushHour">{t("pushHourLabel")}</label>
+        <p className="text-xs text-muted">{t("pushHourHint")}</p>
+        <select
+          className="mt-1 rounded border border-border px-3 py-2"
+          id="pushHour"
+          data-testid="push-hour-select"
+          value={pushHour}
+          onChange={(event) => setPushHour(Number(event.target.value))}
+        >
+          {PUSH_HOURS.map((hour) => (
+            <option key={hour} value={hour}>
+              {formatHour(hour)}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex items-center gap-3">

@@ -148,6 +148,8 @@ model ResearchPreferences {
   papersPerDay     Int      @default(10)
   arxivCategories  String[] @default([])
   feishuWebhookUrl String?
+  /** 每日推送的触发钟点，北京时间 0-23；cron 只在到点之后才跑这个 workspace。 */
+  pushHour         Int      @default(9)
   updatedAt        DateTime @updatedAt
 }
 
