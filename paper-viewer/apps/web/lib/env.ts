@@ -10,6 +10,11 @@ const envSchema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   S3_BUCKET: z.string().min(1).default("paper-pdfs"),
   S3_FORCE_PATH_STYLE: z.enum(["true", "false"]).default("true"),
+  // 空字符串视作未配置，方便 .env.example 里留空占位
+  BLOB_READ_WRITE_TOKEN: z.preprocess(
+    (value) => (value === "" ? undefined : value),
+    z.string().min(1).optional()
+  ),
   MAX_PDF_UPLOAD_MB: z.coerce.number().int().positive().default(50),
   INGEST_API_KEY: z.string().min(16),
   RESEND_API_KEY: z.string().min(1).optional(),

@@ -2,10 +2,18 @@ import { prisma } from "@paper-viewer/db";
 import { notFound } from "next/navigation";
 import { PaperWorkspace } from "@/components/paper-workspace";
 import { requireCurrentUser } from "@/lib/auth";
+import { ensurePdfSnapshot } from "@/lib/pdf-snapshot";
 
 export default async function PaperPage({ params }: { params: Promise<{ paperId: string }> }) {
   const user = await requireCurrentUser();
   const { paperId } = await params;
+
+  try {
+    // 首次打开时固化 PDF 快照，之后标注坐标不会因上游改版而漂移
+    await ensurePdfSnapshot(paperId, user.workspaceId);
+  } catch {
+    /* 快照失败不阻塞阅读 */
+  }
 
   const workspacePaper = await prisma.workspacePaper.findUnique({
     where: {
@@ -64,7 +72,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
         arxivId: paper.arxivId,
         pdfUrl: paper.pdfUrl,
         abstract: paper.abstract,
-        hasPdf: paper.files.length > 0,
+        hasPdf: paper.files.length > 0 || Boolean(paper.blobUrl),
         analysis: analysis
           ? {
               summary: analysis.summary,
