@@ -105,11 +105,11 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
   );
 
   const handleReply = useCallback(
-    async (annotationId: string, body: string, parentId?: string) => {
+    async (annotationId: string, body: string) => {
       const response = await fetch(`/api/papers/${paper.id}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body, annotationId, ...(parentId ? { parentId } : {}) })
+        body: JSON.stringify({ body, annotationId })
       });
       if (!response.ok) {
         setActionError("errorReply");
@@ -277,6 +277,9 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             labels={paper.annotationLabels}
             currentUserId={paper.currentUserId}
             selectedId={selectedAnnotationId}
+            // Selecting alone would not move the viewer when the row is already
+            // selected, so the jump is asked for directly; the annotator makes
+            // sure a fresh selection is not then scrolled to twice.
             onJump={(annotation) => {
               setSelectedAnnotationId(annotation.id);
               scrollToAnnotation.current?.(annotation);

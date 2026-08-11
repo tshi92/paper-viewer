@@ -22,7 +22,7 @@ export function AnnotationSidebar({
   currentUserId: string;
   selectedId: string | null;
   onJump: (annotation: AnnotationView) => void;
-  onReply: (annotationId: string, body: string, parentId?: string) => Promise<void>;
+  onReply: (annotationId: string, body: string) => Promise<void>;
   onEditComment: (commentId: string, body: string) => Promise<void>;
   onDeleteComment: (commentId: string) => Promise<void>;
   onDelete: (annotation: AnnotationView) => Promise<void>;
@@ -40,11 +40,20 @@ export function AnnotationSidebar({
     return [...map.entries()];
   }, [annotations]);
 
-  // The API delivers annotations ordered by page asc, createdAt asc; keep that order.
-  const filtered = annotations.filter(
-    (annotation) =>
-      (labelFilter === "all" || annotation.labels.some((label) => label.id === labelFilter)) &&
-      (authorFilter === "all" || annotation.author.id === authorFilter)
+  // The API delivers annotations ordered by page asc, createdAt asc; keep that
+  // order, and carry each row's colour alongside so the dot and the quote rule
+  // resolve it once.
+  const filtered = useMemo(
+    () =>
+      annotations
+        .filter(
+          (annotation) =>
+            (labelFilter === "all" ||
+              annotation.labels.some((label) => label.id === labelFilter)) &&
+            (authorFilter === "all" || annotation.author.id === authorFilter)
+        )
+        .map((annotation) => ({ annotation, color: annotationColor(annotation.labels) })),
+    [annotations, authorFilter, labelFilter]
   );
 
   return (
@@ -77,17 +86,14 @@ export function AnnotationSidebar({
         <span className="ml-auto text-xs text-muted">{t("count", { count: filtered.length })}</span>
       </div>
       <div className="max-h-[calc(100vh-240px)] divide-y divide-border overflow-auto">
-        {filtered.map((annotation) => (
+        {filtered.map(({ annotation, color }) => (
           <article
             key={annotation.id}
             className={`px-3 py-2.5 ${selectedId === annotation.id ? "bg-surface" : ""}`}
           >
             <button type="button" className="block w-full text-left" onClick={() => onJump(annotation)}>
               <div className="flex items-center gap-2 text-xs text-muted">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ background: annotationColor(annotation.labels) }}
-                />
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
                 <span>{annotation.author.name ?? annotation.author.email}</span>
                 <span className="rounded bg-surface px-1.5 py-0.5">
                   {t("pageBadge", { page: annotation.pageNumber })}
@@ -105,7 +111,7 @@ export function AnnotationSidebar({
               {annotation.quotedText ? (
                 <blockquote
                   className="mt-1 border-l-2 pl-2 text-xs italic text-muted line-clamp-2"
-                  style={{ borderColor: annotationColor(annotation.labels) }}
+                  style={{ borderColor: color }}
                 >
                   &ldquo;{annotation.quotedText}&rdquo;
                 </blockquote>

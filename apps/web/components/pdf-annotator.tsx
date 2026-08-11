@@ -125,6 +125,9 @@ const PREVIEW_GAP = 8;
 /** Below this much room above the highlight, the card flips underneath it. */
 const PREVIEW_FLIP_THRESHOLD = 160;
 
+/** An annotation together with the colour every view of it paints with. */
+type AnnotationEntry = { annotation: AnnotationView; color: string };
+
 type PreviewPlacement = { left: number; top: number; below: boolean };
 
 type HoverPreview = PreviewPlacement & { annotationId: string };
@@ -208,7 +211,7 @@ function toHighlight(annotation: AnnotationView): IHighlight {
   };
 }
 
-function LabelChip({ label, dimmed }: { label: LabelView; dimmed: boolean }) {
+function LabelChip({ label, dimmed = false }: { label: LabelView; dimmed?: boolean }) {
   return (
     <span
       className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
@@ -219,7 +222,7 @@ function LabelChip({ label, dimmed }: { label: LabelView; dimmed: boolean }) {
   );
 }
 
-function AnnotationPreview({ annotation }: { annotation: AnnotationView }) {
+function AnnotationPreview({ annotation, color }: AnnotationEntry) {
   const t = useTranslations("annotations");
   const firstComment = annotation.comments[0];
   return (
@@ -236,7 +239,7 @@ function AnnotationPreview({ annotation }: { annotation: AnnotationView }) {
       {annotation.quotedText ? (
         <blockquote
           className="mt-1 border-l-2 pl-2 text-xs italic text-muted line-clamp-2"
-          style={{ borderColor: annotationColor(annotation.labels) }}
+          style={{ borderColor: color }}
         >
           &ldquo;{annotation.quotedText}&rdquo;
         </blockquote>
@@ -244,7 +247,7 @@ function AnnotationPreview({ annotation }: { annotation: AnnotationView }) {
       {annotation.labels.length > 0 ? (
         <div className="mt-1 flex flex-wrap gap-1">
           {annotation.labels.map((label) => (
-            <LabelChip key={label.id} label={label} dimmed={false} />
+            <LabelChip key={label.id} label={label} />
           ))}
         </div>
       ) : null}
@@ -359,13 +362,26 @@ export function PdfAnnotator({
   registerScrollTo?: (fn: (annotation: AnnotationView) => void) => void;
 }) {
   const t = useTranslations("annotations");
-  const highlights = useMemo(() => annotations.map(toHighlight), [annotations]);
-  const annotationById = useMemo(
-    () => new Map(annotations.map((annotation) => [annotation.id, annotation])),
-    [annotations]
-  );
 
+  // Everything derived from the server's annotations is built in one pass: the
+  // shapes the library renders, and the record plus resolved colour that every
+  // mark and hover card reads back.
+  const { highlights, entries } = useMemo(() => {
+    const built = new Map<string, AnnotationEntry>();
+    return {
+      highlights: annotations.map((annotation) => {
+        built.set(annotation.id, { annotation, color: annotationColor(annotation.labels) });
+        return toHighlight(annotation);
+      }),
+      entries: built
+    };
+  }, [annotations]);
+
+  // The scroll callbacks below outlive the render that created them, so they read
+  // the highlights through a ref rather than a closure.
   const highlightsRef = useRef<IHighlight[]>(highlights);
+  highlightsRef.current = highlights;
+
   const scrollToRef = useRef<((highlight: IHighlight) => void) | null>(null);
 
   // The library's own `Popup`/`setTip` path is unreliable: it suppresses the tip
@@ -426,13 +442,11 @@ export function PdfAnnotator({
   useEffect(() => cancelPreviewClose, [cancelPreviewClose]);
 
   // A deleted annotation must not leave its card hanging.
-  const previewAnnotation = hoverPreview ? annotationById.get(hoverPreview.annotationId) : undefined;
-
-  useEffect(() => {
-    highlightsRef.current = highlights;
-  }, [highlights]);
+  const previewEntry = hoverPreview ? entries.get(hoverPreview.annotationId) : undefined;
 
   const scrollRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** The last id actually scrolled to, so one selection never scrolls twice. */
+  const lastScrolledIdRef = useRef<string | null>(null);
 
   const scrollToId = useCallback((annotationId: string) => {
     if (scrollRetryRef.current !== null) {
@@ -444,6 +458,7 @@ export function PdfAnnotator({
       const scrollTo = scrollToRef.current;
       const target = highlightsRef.current.find((it) => it.id === annotationId);
       if (!scrollTo || !target) return false;
+      lastScrolledIdRef.current = annotationId;
       scrollTo(target);
       return true;
     };
@@ -471,10 +486,12 @@ export function PdfAnnotator({
     registerScrollTo?.(scrollToAnnotation);
   }, [registerScrollTo, scrollToAnnotation]);
 
-  // Scroll only when the selection itself changes. The 30s poll rebuilds
-  // `highlights` with a fresh identity, and reacting to that would yank the
-  // reader back to the selected annotation every poll tick.
-  const lastScrolledIdRef = useRef<string | null>(null);
+  // Selecting from anywhere but the sidebar — creating an annotation, clicking a
+  // mark — has to bring the target into view too. The sidebar's own jump has
+  // already run by the time this fires and recorded the id, so it is not
+  // repeated. Scroll only when the selection itself changes: the 30s poll
+  // rebuilds `highlights` with a fresh identity, and reacting to that would yank
+  // the reader back to the selected annotation every poll tick.
   useEffect(() => {
     if (!selectedId) {
       lastScrolledIdRef.current = null;
@@ -482,7 +499,6 @@ export function PdfAnnotator({
     }
     if (lastScrolledIdRef.current === selectedId) return;
     if (!highlights.some((it) => it.id === selectedId)) return;
-    lastScrolledIdRef.current = selectedId;
     scrollToId(selectedId);
   }, [selectedId, highlights, scrollToId]);
 
@@ -518,14 +534,14 @@ export function PdfAnnotator({
 
   const renderHighlight = useCallback(
     (highlight: ViewportHighlight, index: number) => {
-      const annotation = annotationById.get(highlight.id);
-      const color = annotation ? annotationColor(annotation.labels) : DEFAULT_HIGHLIGHT_COLOR;
+      const entry = entries.get(highlight.id);
+      const color = entry?.color ?? DEFAULT_HIGHLIGHT_COLOR;
       const isScrolledTo = selectedId === highlight.id;
 
       // Persisted highlights resolve their kind from the annotation record; the
       // library's transient ghost highlight has no record, and for those an
       // `image` is the only area marker available.
-      const isArea = annotation ? annotation.type === "area" : Boolean(highlight.content?.image);
+      const isArea = entry ? entry.annotation.type === "area" : Boolean(highlight.content?.image);
 
       const inner = isArea ? (
         <AreaHighlightBox
@@ -565,15 +581,15 @@ export function PdfAnnotator({
           data-scrolled-to={isScrolledTo ? "true" : "false"}
           style={{ "--pv-highlight-color": color } as CSSProperties}
           onMouseEnter={
-            annotation ? (event) => openPreview(annotation.id, event.currentTarget) : undefined
+            entry ? (event) => openPreview(highlight.id, event.currentTarget) : undefined
           }
-          onMouseLeave={annotation ? schedulePreviewClose : undefined}
+          onMouseLeave={entry ? schedulePreviewClose : undefined}
         >
           {inner}
         </div>
       );
     },
-    [annotationById, onSelect, openPreview, schedulePreviewClose, selectedId]
+    [entries, onSelect, openPreview, schedulePreviewClose, selectedId]
   );
 
   return (
@@ -606,7 +622,7 @@ export function PdfAnnotator({
           />
         )}
       </PdfLoader>
-      {hoverPreview && previewAnnotation ? (
+      {hoverPreview && previewEntry ? (
         <div
           data-testid="annotation-hover-preview"
           className="fixed z-30"
@@ -622,7 +638,7 @@ export function PdfAnnotator({
           onMouseEnter={cancelPreviewClose}
           onMouseLeave={schedulePreviewClose}
         >
-          <AnnotationPreview annotation={previewAnnotation} />
+          <AnnotationPreview annotation={previewEntry.annotation} color={previewEntry.color} />
         </div>
       ) : null}
     </div>
