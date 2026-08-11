@@ -18,7 +18,7 @@ const envSchema = z.object({
   MAX_PDF_UPLOAD_MB: z.coerce.number().int().positive().default(50),
   INGEST_API_KEY: z.string().min(16),
   RESEND_API_KEY: z.string().min(1).optional(),
-  LLM_API_KEY: z.string().min(1),
+  LLM_API_KEY: z.string().min(1).optional(),
   LLM_BASE_URL: z.string().url().default("https://api.deepseek.com"),
   LLM_MODEL: z.string().default("deepseek-v4-pro")
 });

@@ -2,6 +2,7 @@ import { prisma } from "@paper-viewer/db";
 import { requireCurrentUser } from "@/lib/auth";
 import { fetchArxivPapers } from "@/lib/arxiv";
 import { selectPapers, analyzeSinglePaper, generateOverview, type PaperAnalysisResult } from "@/lib/llm";
+import { resolveLlmConfig, type LlmRuntimeConfig } from "@/lib/llm-config";
 
 export const maxDuration = 300;
 
@@ -23,6 +24,13 @@ export async function POST() {
   const arxivCategories = prefs?.arxivCategories.length ? prefs.arxivCategories : ["cs.AI", "cs.CL", "cs.LG"];
   const papersPerDay = prefs?.papersPerDay ?? 10;
 
+  let llm: LlmRuntimeConfig;
+  try {
+    llm = await resolveLlmConfig(user.workspaceId);
+  } catch {
+    return Response.json({ error: "LLM 未配置，请在设置页配置" }, { status: 502 });
+  }
+
   // Step 1: Fetch candidates from arXiv
   let candidates;
   try {
@@ -43,6 +51,7 @@ export async function POST() {
   let selectedIds: string[];
   try {
     selectedIds = await selectPapers({
+      config: llm,
       papers: candidates,
       topics,
       keywords,
@@ -65,7 +74,7 @@ export async function POST() {
   const analyses: PaperAnalysisResult[] = [];
   for (const p of selectedPapers) {
     try {
-      const result = await analyzeSinglePaper(p!, topics);
+      const result = await analyzeSinglePaper(llm, p!, topics);
       analyses.push(result);
     } catch {
       // skip failed analysis, continue with remaining papers
@@ -79,7 +88,7 @@ export async function POST() {
   // Step 4: Generate overview
   let overviewSummary: string;
   try {
-    overviewSummary = await generateOverview(analyses, topics);
+    overviewSummary = await generateOverview(llm, analyses, topics);
   } catch {
     overviewSummary = `今日推荐 ${analyses.length} 篇论文。`;
   }

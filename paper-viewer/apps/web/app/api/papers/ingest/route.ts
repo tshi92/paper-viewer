@@ -2,6 +2,7 @@ import { prisma } from "@paper-viewer/db";
 import { timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { getEnv } from "@/lib/env";
+import { resolveLlmConfig } from "@/lib/llm-config";
 import { getExistingTopics, assignTopics } from "@/lib/topics";
 
 const paperEntrySchema = z.object({
@@ -70,6 +71,8 @@ export async function POST(request: Request) {
 
   const results: { paperId: string; title: string; created: boolean }[] = [];
   const existingTopics = await getExistingTopics(workspace.id);
+  // 未配置 LLM 时降级为直接用 keywords 当 tags，不阻断 ingest。
+  const llm = await resolveLlmConfig(workspace.id).catch(() => null);
 
   for (const entry of papers) {
     const arxivId = extractArxivId(entry.arxivId ?? entry.url) ?? null;
@@ -104,7 +107,9 @@ export async function POST(request: Request) {
     // Assign normalized topics
     let paperTopics: string[];
     try {
+      if (!llm) throw new Error("LLM not configured");
       paperTopics = await assignTopics({
+        config: llm,
         title: entry.title,
         abstract: entry.abstract ?? "",
         keywords: entry.keywords,

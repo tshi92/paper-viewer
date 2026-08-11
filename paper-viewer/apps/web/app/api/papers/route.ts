@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { fetchArxivMetadata } from "@/lib/arxiv";
 import { requireCurrentUser } from "@/lib/auth";
 import { getEnv, getS3Config } from "@/lib/env";
+import { resolveLlmConfig, type LlmRuntimeConfig } from "@/lib/llm-config";
 import { getExistingTopics, assignTopics } from "@/lib/topics";
 import { extractPdfText } from "@/lib/pdf-extract";
 
@@ -43,7 +44,7 @@ async function fetchPdfFromUrl(url: string): Promise<{ bytes: Uint8Array; fileNa
 async function extractMetadataViaLlm(
   bytes: Uint8Array,
   _fileName: string,
-  env: { LLM_API_KEY: string; LLM_BASE_URL: string; LLM_MODEL: string }
+  config: LlmRuntimeConfig
 ): Promise<PaperMetadata> {
   const fileContent = await extractPdfText(bytes);
 
@@ -51,14 +52,14 @@ async function extractMetadataViaLlm(
     throw new Error("Failed to extract text from PDF");
   }
 
-  const response = await fetch(`${env.LLM_BASE_URL}/chat/completions`, {
+  const response = await fetch(`${config.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${env.LLM_API_KEY}`
+      "Authorization": `Bearer ${config.apiKey}`
     },
     body: JSON.stringify({
-      model: env.LLM_MODEL,
+      model: config.model,
       messages: [
         {
           role: "system",
@@ -174,6 +175,9 @@ export async function POST(request: Request) {
     }
   }
 
+  // LLM 配置（DB 优先、env 兜底）解析一次；未配置时为 null，元数据与主题各自软降级。
+  const llm = await resolveLlmConfig(user.workspaceId).catch(() => null);
+
   // arXiv 论文优先用官方 API 元数据（免费、权威、无需 LLM）；LLM 抽取只服务非 arXiv PDF。
   let metadata: PaperMetadata;
   let publishedAt: Date | null = null;
@@ -189,7 +193,8 @@ export async function POST(request: Request) {
     publishedAt = arxivMeta.publishedAt ? new Date(arxivMeta.publishedAt) : null;
   } else {
     try {
-      metadata = await extractMetadataViaLlm(bytes, fileName, env);
+      if (!llm) throw new Error("LLM not configured");
+      metadata = await extractMetadataViaLlm(bytes, fileName, llm);
     } catch {
       metadata = {
         title: fileName.replace(/\.pdf$/i, ""),
@@ -206,7 +211,9 @@ export async function POST(request: Request) {
   const existingTopics = await getExistingTopics(user.workspaceId);
   let topics: string[];
   try {
+    if (!llm) throw new Error("LLM not configured");
     topics = await assignTopics({
+      config: llm,
       title: metadata.title,
       abstract: metadata.abstract,
       keywords: metadata.keywords,

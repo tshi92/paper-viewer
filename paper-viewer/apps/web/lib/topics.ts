@@ -1,5 +1,5 @@
 import { prisma } from "@paper-viewer/db";
-import { getEnv } from "./env";
+import type { LlmRuntimeConfig } from "./llm-config";
 
 export async function getExistingTopics(workspaceId: string): Promise<string[]> {
   // Gather topics from preferences + all existing paper tags
@@ -20,22 +20,22 @@ export async function getExistingTopics(workspaceId: string): Promise<string[]> 
 }
 
 export async function assignTopics(params: {
+  config: LlmRuntimeConfig;
   title: string;
   abstract: string;
   keywords: string[];
   existingTopics: string[];
 }): Promise<string[]> {
-  const env = getEnv();
-  const { title, abstract, keywords, existingTopics } = params;
+  const { config, title, abstract, keywords, existingTopics } = params;
 
-  const response = await fetch(`${env.LLM_BASE_URL}/chat/completions`, {
+  const response = await fetch(`${config.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${env.LLM_API_KEY}`
+      "Authorization": `Bearer ${config.apiKey}`
     },
     body: JSON.stringify({
-      model: env.LLM_MODEL,
+      model: config.model,
       messages: [
         {
           role: "system",

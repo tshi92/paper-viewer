@@ -1,6 +1,6 @@
 import { prisma } from "@paper-viewer/db";
 import { requireCurrentUser } from "@/lib/auth";
-import { getEnv } from "@/lib/env";
+import { resolveLlmConfig, type LlmRuntimeConfig } from "@/lib/llm-config";
 import { extractPdfText } from "@/lib/pdf-extract";
 import { z } from "zod";
 
@@ -59,8 +59,14 @@ async function ensurePaperExtract(paperId: string): Promise<string> {
 
 export async function POST(request: Request, { params }: { params: Promise<{ paperId: string }> }) {
   const user = await requireCurrentUser();
-  const env = getEnv();
   const { paperId } = await params;
+
+  let llm: LlmRuntimeConfig;
+  try {
+    llm = await resolveLlmConfig(user.workspaceId);
+  } catch {
+    return Response.json({ error: "LLM 未配置，请在设置页配置" }, { status: 502 });
+  }
 
   // Verify access
   const wp = await prisma.workspacePaper.findUnique({
@@ -118,14 +124,14 @@ ${paperContent.slice(0, 60000)}`
   ];
 
   // Stream response from LLM
-  const response = await fetch(`${env.LLM_BASE_URL}/chat/completions`, {
+  const response = await fetch(`${llm.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${env.LLM_API_KEY}`
+      "Authorization": `Bearer ${llm.apiKey}`
     },
     body: JSON.stringify({
-      model: env.LLM_MODEL,
+      model: llm.model,
       messages,
       max_tokens: 16000,
       stream: true

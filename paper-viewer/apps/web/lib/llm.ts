@@ -1,4 +1,4 @@
-import { getEnv } from "./env";
+import type { LlmRuntimeConfig } from "./llm-config";
 import type { ArxivPaper } from "./arxiv";
 
 export type PaperAnalysisResult = {
@@ -20,17 +20,19 @@ export type DiscoveryResult = {
   papers: PaperAnalysisResult[];
 };
 
-async function callLlm(messages: { role: string; content: string }[], maxTokens = 16000): Promise<string> {
-  const env = getEnv();
-
-  const response = await fetch(`${env.LLM_BASE_URL}/chat/completions`, {
+async function callLlm(
+  config: LlmRuntimeConfig,
+  messages: { role: string; content: string }[],
+  maxTokens = 16000
+): Promise<string> {
+  const response = await fetch(`${config.baseUrl}/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${env.LLM_API_KEY}`
+      "Authorization": `Bearer ${config.apiKey}`
     },
     body: JSON.stringify({
-      model: env.LLM_MODEL,
+      model: config.model,
       messages,
       max_tokens: maxTokens,
       response_format: { type: "json_object" }
@@ -62,13 +64,14 @@ function parseJson<T>(text: string): T {
 
 // Phase 1: Select the most relevant papers
 export async function selectPapers(params: {
+  config: LlmRuntimeConfig;
   papers: ArxivPaper[];
   topics: string[];
   keywords: string[];
   excludedTopics: string[];
   papersPerDay: number;
 }): Promise<string[]> {
-  const { papers, topics, keywords, excludedTopics, papersPerDay } = params;
+  const { config, papers, topics, keywords, excludedTopics, papersPerDay } = params;
 
   // Pre-filter: score papers by keyword relevance, take top candidates
   const allTerms = [...topics, ...keywords].map((t) => t.toLowerCase());
@@ -87,7 +90,7 @@ export async function selectPapers(params: {
   const topicStr = topics.join(", ") || "AI/ML research";
   const keywordStr = keywords.join(", ") || "machine learning";
 
-  const result = await callLlm([
+  const result = await callLlm(config, [
     { role: "system", content: "You are a research paper recommender. Return pure JSON." },
     {
       role: "user",
@@ -116,8 +119,12 @@ Return JSON: {"selectedArxivIds": ["arxivId1", "arxivId2", ...]}`
 }
 
 // Phase 2: Deep analysis of a single paper
-export async function analyzeSinglePaper(paper: ArxivPaper, topics: string[]): Promise<PaperAnalysisResult> {
-  const result = await callLlm([
+export async function analyzeSinglePaper(
+  config: LlmRuntimeConfig,
+  paper: ArxivPaper,
+  topics: string[]
+): Promise<PaperAnalysisResult> {
+  const result = await callLlm(config, [
     { role: "system", content: "你是一个专业的计算机系统研究助手，擅长分析大模型系统方向的学术论文。你的总结要通俗易懂，避免使用论文中的缩写和术语，而是用清晰的日常语言解释技术概念。返回纯 JSON。" },
     {
       role: "user",
@@ -158,12 +165,16 @@ Abstract: ${paper.abstract}
 }
 
 // Phase 3: Generate daily briefing overview
-export async function generateOverview(analyses: PaperAnalysisResult[], topics: string[]): Promise<string> {
+export async function generateOverview(
+  config: LlmRuntimeConfig,
+  analyses: PaperAnalysisResult[],
+  topics: string[]
+): Promise<string> {
   const paperSummaries = analyses
     .map((a, i) => `${i + 1}. ${a.title}\n   - 动机：${a.motivation}\n   - 方法：${a.method}\n   - 结果：${a.keyFindings}`)
     .join("\n\n");
 
-  const result = await callLlm([
+  const result = await callLlm(config, [
     { role: "system", content: "你是一个大模型系统研究趋势分析专家。你的分析要通俗易懂。返回纯 JSON。" },
     {
       role: "user",
