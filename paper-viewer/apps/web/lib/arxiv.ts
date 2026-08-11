@@ -110,7 +110,8 @@ async function fetchViaRss(categories: string[], maxResults: number): Promise<Ar
 }
 
 async function fetchViaApi(searchQuery: string, maxResults: number): Promise<ArxivPaper[]> {
-  const url = `http://export.arxiv.org/api/query?search_query=${searchQuery}&sortBy=submittedDate&sortOrder=descending&max_results=${maxResults}`;
+  // 一律走 https：部分网络环境会静默吞掉明文 http 请求导致挂起
+  const url = `https://export.arxiv.org/api/query?search_query=${searchQuery}&sortBy=submittedDate&sortOrder=descending&max_results=${maxResults}`;
 
   const response = await fetch(url, {
     headers: { "User-Agent": "PaperViewer/1.0 (research-workspace)" }
@@ -121,6 +122,19 @@ async function fetchViaApi(searchQuery: string, maxResults: number): Promise<Arx
   }
 
   return parseAtomXml(await response.text());
+}
+
+// arXiv 官方元数据（标题/作者/摘要）免费且权威，导入单篇时优先于 LLM 抽取。
+export async function fetchArxivMetadata(arxivId: string): Promise<ArxivPaper | null> {
+  const response = await fetch(`https://export.arxiv.org/api/query?id_list=${arxivId}`, {
+    headers: { "User-Agent": "PaperViewer/1.0 (research-workspace)" },
+    signal: AbortSignal.timeout(15_000)
+  });
+  if (!response.ok) {
+    return null;
+  }
+  const papers = parseAtomXml(await response.text());
+  return papers.find((p) => p.arxivId === arxivId) ?? papers[0] ?? null;
 }
 
 export async function fetchArxivPapers(params: {

@@ -2,6 +2,7 @@ import { validatePdfUpload } from "@paper-viewer/core/upload-validation";
 import { prisma } from "@paper-viewer/db";
 import { createPdfObjectKey, createS3Client, putPdfObject } from "@paper-viewer/storage/pdf-storage";
 import { createHash } from "node:crypto";
+import { fetchArxivMetadata } from "@/lib/arxiv";
 import { requireCurrentUser } from "@/lib/auth";
 import { getEnv, getS3Config } from "@/lib/env";
 import { getExistingTopics, assignTopics } from "@/lib/topics";
@@ -174,17 +175,31 @@ export async function POST(request: Request) {
     }
   }
 
+  // arXiv 论文优先用官方 API 元数据（免费、权威、无需 LLM）；LLM 抽取只服务非 arXiv PDF。
   let metadata: PaperMetadata;
-  try {
-    metadata = await extractMetadataViaLlm(bytes, fileName, env);
-  } catch {
+  let publishedAt: Date | null = null;
+  const arxivMeta = arxivId ? await fetchArxivMetadata(arxivId).catch(() => null) : null;
+  if (arxivMeta) {
     metadata = {
-      title: fileName.replace(/\.pdf$/i, ""),
-      authors: [],
-      abstract: "",
+      title: arxivMeta.title,
+      authors: arxivMeta.authors,
+      abstract: arxivMeta.abstract,
       summary: "",
       keywords: []
     };
+    publishedAt = arxivMeta.publishedAt ? new Date(arxivMeta.publishedAt) : null;
+  } else {
+    try {
+      metadata = await extractMetadataViaLlm(bytes, fileName, env);
+    } catch {
+      metadata = {
+        title: fileName.replace(/\.pdf$/i, ""),
+        authors: [],
+        abstract: "",
+        summary: "",
+        keywords: []
+      };
+    }
   }
 
   const sha256 = createHash("sha256").update(bytes).digest("hex");
@@ -208,6 +223,7 @@ export async function POST(request: Request) {
       abstract: metadata.abstract || null,
       authors: metadata.authors,
       source: arxivId ? "arxiv" : "manual",
+      ...(publishedAt ? { publishedAt } : {}),
       ...(arxivId ? { arxivId } : {}),
       ...(pdfUrl ? { pdfUrl } : {}),
       workspacePapers: {
