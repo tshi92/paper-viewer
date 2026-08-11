@@ -182,7 +182,6 @@ model PaperChatMessage {
 model PaperFileExtract {
   id            String   @id @default(cuid())
   paperId       String   @unique
-  llmFileId     String
   textContent   String
   createdAt     DateTime @default(now())
 
@@ -198,6 +197,15 @@ model DailyDigest {
   createdAt       DateTime  @default(now())
 
   @@unique([workspaceId, date])
+}
+
+model LlmConfig {
+  id          String   @id @default(cuid())
+  workspaceId String   @unique
+  baseUrl     String
+  model       String
+  apiKey      String   // 服务端可读；API 层只返回打码值
+  updatedAt   DateTime @updatedAt
 }
 
 model WorkspacePaper {

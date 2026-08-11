@@ -50,7 +50,6 @@ async function ensurePaperExtract(paperId: string): Promise<string> {
   await prisma.paperFileExtract.create({
     data: {
       paperId,
-      llmFileId: "local-extract",
       textContent: textContent.slice(0, 100000)
     }
   });
