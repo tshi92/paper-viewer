@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { canManageLabels } from "@paper-viewer/core/permissions";
 import type { CurrentUser } from "@/lib/auth";
 
 export function AppShell({ user, children }: { user: CurrentUser; children: ReactNode }) {
@@ -12,6 +13,7 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
             <Link href="/today">Today</Link>
             <Link href="/library">Library</Link>
             <Link href="/settings/preferences">Preferences</Link>
+            {canManageLabels(user.role) ? <Link href="/settings/llm">LLM</Link> : null}
             {user.role === "owner" ? <Link href="/settings/members">Members</Link> : null}
           </nav>
           <div className="flex items-center gap-3 text-sm text-muted">
