@@ -12,6 +12,10 @@ export function canManageWorkspace(role: WorkspaceRole | null): boolean {
   return role === "owner";
 }
 
+export function canManageWorkspaceSettings(role: WorkspaceRole | null): boolean {
+  return role === "owner" || role === "admin";
+}
+
 export function canManageLabels(role: WorkspaceRole | null): boolean {
   return role === "owner" || role === "admin";
 }

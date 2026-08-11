@@ -4,6 +4,7 @@ import {
   canDeleteComment,
   canManageLabels,
   canManageWorkspace,
+  canManageWorkspaceSettings,
   canReadWorkspace,
   canWritePaper
 } from "../src/permissions";
@@ -13,6 +14,13 @@ describe("permissions", () => {
     expect(canManageWorkspace("owner")).toBe(true);
     expect(canManageWorkspace("admin")).toBe(false);
     expect(canManageWorkspace("member")).toBe(false);
+  });
+
+  it("allows owner and admin to manage workspace settings, not members", () => {
+    expect(canManageWorkspaceSettings("owner")).toBe(true);
+    expect(canManageWorkspaceSettings("admin")).toBe(true);
+    expect(canManageWorkspaceSettings("member")).toBe(false);
+    expect(canManageWorkspaceSettings(null)).toBe(false);
   });
 
   it("allows all workspace roles to read and write paper collaboration data", () => {
