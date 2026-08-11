@@ -1,61 +1,12 @@
 import { prisma } from "@paper-viewer/db";
 import { requireCurrentUser } from "@/lib/auth";
 import { resolveLlmConfig, type LlmRuntimeConfig } from "@/lib/llm-config";
-import { extractPdfText } from "@/lib/pdf-extract";
+import { getPaperText } from "@/lib/paper-text";
 import { z } from "zod";
 
 const chatSchema = z.object({
   message: z.string().min(1).max(5000)
 });
-
-async function ensurePaperExtract(paperId: string): Promise<string> {
-  const existing = await prisma.paperFileExtract.findUnique({
-    where: { paperId }
-  });
-  if (existing) return existing.textContent;
-
-  const paper = await prisma.paper.findUnique({
-    where: { id: paperId },
-    include: { files: { take: 1 } }
-  });
-
-  if (!paper) throw new Error("Paper not found");
-
-  let pdfBytes: Uint8Array | null = null;
-
-  if (paper.arxivId) {
-    const res = await fetch(`https://arxiv.org/pdf/${paper.arxivId}`, {
-      headers: { "User-Agent": "PaperViewer/1.0" }
-    });
-    if (res.ok) {
-      pdfBytes = new Uint8Array(await res.arrayBuffer());
-    }
-  }
-
-  if (!pdfBytes) {
-    return paper.abstract ?? paper.title;
-  }
-
-  let textContent: string;
-  try {
-    textContent = await extractPdfText(pdfBytes);
-  } catch {
-    return paper.abstract ?? paper.title;
-  }
-
-  if (!textContent.trim()) {
-    return paper.abstract ?? paper.title;
-  }
-
-  await prisma.paperFileExtract.create({
-    data: {
-      paperId,
-      textContent: textContent.slice(0, 100000)
-    }
-  });
-
-  return textContent;
-}
 
 export async function POST(request: Request, { params }: { params: Promise<{ paperId: string }> }) {
   const user = await requireCurrentUser();
@@ -86,13 +37,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
   const body = await request.json();
   const { message } = chatSchema.parse(body);
 
-  // Get paper text content
-  let paperContent: string;
-  try {
-    paperContent = await ensurePaperExtract(paperId);
-  } catch {
-    paperContent = wp.paper.abstract ?? wp.paper.title;
-  }
+  // Get paper text content (全文优先，取不到时退回摘要/标题)
+  const paperContent = (await getPaperText(paperId)) ?? wp.paper.abstract ?? wp.paper.title;
 
   // Save user message
   await prisma.paperChatMessage.create({
