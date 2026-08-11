@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { CopyTextButton } from "./copy-text-button";
+import { MarkdownBody } from "./markdown-body";
 
 /**
  * A comment's text plus the author-only edit/delete affordances, shared by the
@@ -96,28 +98,33 @@ export function CommentBody({
 
   return (
     <div>
-      <p className={textClassName}>{body}</p>
-      {isAuthor ? (
-        <div className="mt-1 flex items-center gap-2">
-          <button
-            type="button"
-            className="text-xs text-muted hover:underline"
-            onClick={() => setDraft(body)}
-            disabled={busy}
-          >
-            {t("edit")}
-          </button>
-          <button
-            type="button"
-            className="text-xs text-muted hover:underline"
-            onClick={() => void handleDelete()}
-            disabled={busy}
-          >
-            {t("delete")}
-          </button>
-          {failed ? <span className="text-xs text-red-600">{t("actionFailed")}</span> : null}
-        </div>
-      ) : null}
+      {/* Comments carry markdown — chat replies saved here arrive full of headings
+          and lists — and editing hands back the raw source. */}
+      <MarkdownBody className={textClassName}>{body}</MarkdownBody>
+      <div className="mt-1 flex items-center gap-2">
+        <CopyTextButton text={body} />
+        {isAuthor ? (
+          <>
+            <button
+              type="button"
+              className="text-xs text-muted hover:underline"
+              onClick={() => setDraft(body)}
+              disabled={busy}
+            >
+              {t("edit")}
+            </button>
+            <button
+              type="button"
+              className="text-xs text-muted hover:underline"
+              onClick={() => void handleDelete()}
+              disabled={busy}
+            >
+              {t("delete")}
+            </button>
+          </>
+        ) : null}
+        {failed ? <span className="text-xs text-red-600">{t("actionFailed")}</span> : null}
+      </div>
     </div>
   );
 }

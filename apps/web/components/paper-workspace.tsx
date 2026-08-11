@@ -236,7 +236,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           </div>
         )}
       </section>
-      <aside className="grid content-start gap-3">
+      <aside className="grid min-w-0 content-start gap-3">
         <div className="rounded border border-border bg-white p-4">
           <ReadingStateSelect paperId={paper.id} state={paper.readingState as ReadingState} />
         </div>

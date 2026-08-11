@@ -281,5 +281,9 @@
     "deleteConfirm": "删除 label「{name}」？它正被 {count} 处使用，删除后将从这些标注/论文上移除。",
     "deleteConfirmUnused": "删除 label「{name}」？",
     "actionFailed": "操作失败，请重试"
+  },
+  "common": {
+    "copy": "复制",
+    "copied": "已复制"
   }
 }

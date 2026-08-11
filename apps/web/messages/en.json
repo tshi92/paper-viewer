@@ -281,5 +281,9 @@
     "deleteConfirm": "Delete the label \"{name}\"? It is used in {count} places and will be removed from those annotations and papers.",
     "deleteConfirmUnused": "Delete the label \"{name}\"?",
     "actionFailed": "Something went wrong, please try again"
+  },
+  "common": {
+    "copy": "Copy",
+    "copied": "Copied"
   }
 }

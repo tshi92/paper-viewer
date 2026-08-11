@@ -54,7 +54,7 @@ export function CommentPanel({
   }
 
   return (
-    <section className="rounded border border-border bg-white">
+    <section className="min-w-0 rounded border border-border bg-white">
       <div className="border-b border-border px-4 py-3">
         <h2 className="font-semibold">{t("heading")}</h2>
       </div>

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { CopyTextButton } from "./copy-text-button";
+import { MarkdownBody } from "./markdown-body";
 
 type ChatMessage = {
   id: string;
@@ -144,7 +146,7 @@ export function PaperChat({ paperId }: { paperId: string }) {
   }
 
   return (
-    <section className="flex flex-col rounded border border-border bg-white" style={{ height: "calc(100vh - 240px)" }}>
+    <section className="flex min-w-0 flex-col rounded border border-border bg-white" style={{ height: "calc(100vh - 240px)" }}>
       <div className="border-b border-border px-4 py-3">
         <h2 className="font-semibold">{t("heading")}</h2>
       </div>
@@ -173,9 +175,14 @@ export function PaperChat({ paperId }: { paperId: string }) {
                     : "bg-surface text-ink"
                 }`}
               >
-                <div className="whitespace-pre-wrap">{msg.content}</div>
+                {/* Replies come back as markdown; what the user typed is left alone. */}
                 {msg.role === "assistant" ? (
-                  <div className="mt-1.5 flex items-center gap-2">
+                  <MarkdownBody>{msg.content}</MarkdownBody>
+                ) : (
+                  <div className="whitespace-pre-wrap">{msg.content}</div>
+                )}
+                <div className="mt-1.5 flex items-center gap-2">
+                  {msg.role === "assistant" ? (
                     <button
                       type="button"
                       className={`text-xs ${saveState === "saved" ? "text-green-600" : "text-accent"} ${
@@ -186,11 +193,19 @@ export function PaperChat({ paperId }: { paperId: string }) {
                     >
                       {saveState === "saved" ? t("savedToComments") : t("saveToComments")}
                     </button>
-                    {saveState === "failed" ? (
-                      <span className="text-xs text-red-600">{t("saveToCommentsFailed")}</span>
-                    ) : null}
-                  </div>
-                ) : null}
+                  ) : null}
+                  <CopyTextButton
+                    text={msg.content}
+                    className={
+                      msg.role === "user"
+                        ? "text-xs text-white/80 hover:underline"
+                        : "text-xs text-muted hover:underline"
+                    }
+                  />
+                  {saveState === "failed" ? (
+                    <span className="text-xs text-red-600">{t("saveToCommentsFailed")}</span>
+                  ) : null}
+                </div>
               </div>
             </div>
           );
@@ -199,6 +214,8 @@ export function PaperChat({ paperId }: { paperId: string }) {
         {streaming ? (
           <div>
             <div className="max-w-[85%] rounded-lg bg-surface px-3 py-2 text-sm">
+              {/* Plain text while the tokens land: markdown of a half-written fence
+                  reflows on every chunk. The finished message renders as markdown. */}
               <div className="whitespace-pre-wrap">{streaming}<span className="animate-pulse">▊</span></div>
             </div>
           </div>
