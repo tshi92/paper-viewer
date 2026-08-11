@@ -8,12 +8,12 @@ export default async function SettingsLayout({ children }: { children: ReactNode
   const user = await requireCurrentUser();
   const t = await getTranslations("settingsNav");
 
+  // 排序按可编辑范围分组：先是人人可编辑的（通用、标签），再是管理员管理的。
   const items: SettingsNavItem[] = [
     { href: "/settings/general", label: t("general") },
+    { href: "/settings/labels", label: t("labels") },
     { href: "/settings/preferences", label: t("preferences") },
-    { href: "/settings/llm", label: t("llm") },
-    // Labels are curated by every member, so this entry is not gated on the role.
-    { href: "/settings/labels", label: t("labels") }
+    { href: "/settings/llm", label: t("llm") }
   ];
 
   if (canManageWorkspaceSettings(user.role)) {
