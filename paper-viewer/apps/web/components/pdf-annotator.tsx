@@ -143,6 +143,9 @@ function SelectionTip({
     try {
       const trimmed = comment.trim();
       await onConfirm(selectedLabelIds, trimmed ? trimmed : undefined);
+    } catch {
+      // Save failed: the workspace banner reports it; keep the tip open so
+      // the selection, chosen labels and typed comment are not lost.
     } finally {
       setSaving(false);
     }

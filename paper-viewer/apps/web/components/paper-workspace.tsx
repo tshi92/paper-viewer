@@ -88,7 +88,8 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
       });
       if (!response.ok) {
         setActionError("标注保存失败，请重试");
-        return;
+        // Throw so the selection tip stays open and the typed comment survives.
+        throw new Error("annotation create failed");
       }
       mutationSeq.current += 1;
       const { annotation } = (await response.json()) as { annotation: AnnotationView };
