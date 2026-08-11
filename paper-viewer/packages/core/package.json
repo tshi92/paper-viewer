@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/validation.ts",
     "./permissions": "./src/permissions.ts",
+    "./labels": "./src/labels.ts",
     "./paper-status": "./src/paper-status.ts",
     "./upload-validation": "./src/upload-validation.ts"
   },
