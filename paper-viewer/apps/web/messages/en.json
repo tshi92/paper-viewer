@@ -14,6 +14,12 @@
   },
   "settingsGeneral": {
     "title": "General",
-    "languageComingSoon": "Language settings are coming soon."
+    "languageHeading": "Language",
+    "languageDescription": "This preference is stored in this browser only, so it does not affect your teammates.",
+    "languageSystemLabel": "Follow system",
+    "languageSystemDescription": "Use the language your browser asks for.",
+    "languageZhDescription": "Always show the interface in Chinese.",
+    "languageEnDescription": "Always show the interface in English.",
+    "languageCurrent": "Current language: {language}"
   }
 }

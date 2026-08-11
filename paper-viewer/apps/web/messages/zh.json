@@ -14,6 +14,12 @@
   },
   "settingsGeneral": {
     "title": "通用",
-    "languageComingSoon": "语言设置即将上线。"
+    "languageHeading": "语言",
+    "languageDescription": "该设置只保存在当前浏览器，不会影响其他成员。",
+    "languageSystemLabel": "跟随系统",
+    "languageSystemDescription": "使用浏览器请求的语言。",
+    "languageZhDescription": "界面始终显示中文。",
+    "languageEnDescription": "界面始终显示英文。",
+    "languageCurrent": "当前生效语言：{language}"
   }
 }
