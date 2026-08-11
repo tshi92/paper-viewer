@@ -1,6 +1,8 @@
+import { canManageLabels } from "@paper-viewer/core/permissions";
 import { prisma } from "@paper-viewer/db";
 import { notFound } from "next/navigation";
 import { PaperWorkspace } from "@/components/paper-workspace";
+import type { LabelView } from "@/lib/annotation-types";
 import { requireCurrentUser } from "@/lib/auth";
 import { ensurePdfSnapshot } from "@/lib/pdf-snapshot";
 
@@ -43,7 +45,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
   const { paper } = workspacePaper;
   const analysis = paper.analyses[0];
 
-  const [comments, readingState] = await Promise.all([
+  const [comments, readingState, annotationLabels] = await Promise.all([
     prisma.comment.findMany({
       // annotationId: null keeps annotation-thread comments out of the paper-level
       // Discussion list; parentId stays unfiltered so replies to paper-level
@@ -60,6 +62,11 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
           userId: user.id
         }
       }
+    }),
+    prisma.label.findMany({
+      where: { workspaceId: user.workspaceId, scope: "annotation" },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, name: true, color: true, scope: true }
     })
   ]);
 
@@ -93,10 +100,16 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
           author: { email: c.author.email, name: c.author.name }
         })),
         readingState: readingState?.state ?? "new",
-        // TODO(Task 12): wire real values
-        annotationLabels: [],
-        currentUserId: "",
-        isAdmin: false
+        annotationLabels: annotationLabels.map(
+          (label): LabelView => ({
+            id: label.id,
+            name: label.name,
+            color: label.color,
+            scope: label.scope as LabelView["scope"]
+          })
+        ),
+        currentUserId: user.id,
+        isAdmin: canManageLabels(user.role)
       }}
     />
   );
