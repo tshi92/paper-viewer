@@ -20,6 +20,10 @@ const paperEntrySchema = z.object({
   keywords: z.array(z.string()).default([])
 });
 
+/**
+ * `overviewSummary` 保留在 schema 里只为兼容老调用方的请求体，服务端已不再消费：
+ * DailyDigest 现在完全归每日管道（cron / discover）所有，见下方 POST 里的说明。
+ */
 const ingestSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   overviewSummary: z.string().optional(),
@@ -61,7 +65,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Validation failed", details: parsed.error.issues }, { status: 400 });
   }
 
-  const { date, overviewSummary, papers } = parsed.data;
+  const { date, papers } = parsed.data;
 
   // Find the first workspace (single-workspace MVP)
   const workspace = await prisma.workspace.findFirst();
@@ -155,28 +159,11 @@ export async function POST(request: Request) {
     results.push({ paperId: paper.id, title: entry.title, created });
   }
 
-  // Create or update daily digest
-  if (overviewSummary) {
-    const digestDate = new Date(date + "T00:00:00Z");
-    await prisma.dailyDigest.upsert({
-      where: {
-        workspaceId_date: {
-          workspaceId: workspace.id,
-          date: digestDate
-        }
-      },
-      update: {
-        overviewSummary,
-        paperIds: results.map((r) => r.paperId)
-      },
-      create: {
-        workspaceId: workspace.id,
-        date: digestDate,
-        overviewSummary,
-        paperIds: results.map((r) => r.paperId)
-      }
-    });
-  }
+  // 这里刻意不写 DailyDigest：那一行归每日管道（cron / discover）所有。
+  // 外部 ingest 一旦抢先建行，当天的管道会把它当成「已经建过」，pending 为空、
+  // 总览非空 → 直接判 done，真正的每日推荐就被顶掉了；反过来 ingest 也可能
+  // 覆盖掉管道刚写好的总览。ingest 的论文照常落 Paper + WorkspacePaper，
+  // 在 Library 里可见可读，只是不参与当天的 digest 卡片。
 
   return Response.json({
     ok: true,
