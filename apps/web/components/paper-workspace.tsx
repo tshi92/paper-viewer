@@ -32,10 +32,11 @@ type PaperData = {
   comments: {
     id: string;
     body: string;
+    parentId: string | null;
     pageNumber: number | null;
     quotedText: string | null;
     createdAt: Date;
-    author: { email: string; name: string | null };
+    author: { id: string; email: string; name: string | null };
   }[];
   readingState: string;
   annotationLabels: LabelView[];
@@ -119,6 +120,36 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
       await refreshAnnotations();
     },
     [paper.id, refreshAnnotations]
+  );
+
+  /**
+   * Edits and deletes of thread comments are author-only server-side; the sidebar
+   * only offers them on the caller's own comments, and `CommentBody` reports a
+   * rejection inline, so failures do not need the workspace-wide banner.
+   */
+  const mutateComment = useCallback(
+    async (commentId: string, init: RequestInit) => {
+      const response = await fetch(`/api/papers/${paper.id}/comments/${commentId}`, init);
+      if (!response.ok) throw new Error("comment mutation failed");
+      mutationSeq.current += 1;
+      await refreshAnnotations();
+    },
+    [paper.id, refreshAnnotations]
+  );
+
+  const handleEditComment = useCallback(
+    (commentId: string, body: string) =>
+      mutateComment(commentId, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body })
+      }),
+    [mutateComment]
+  );
+
+  const handleDeleteComment = useCallback(
+    (commentId: string) => mutateComment(commentId, { method: "DELETE" }),
+    [mutateComment]
   );
 
   const handleDeleteAnnotation = useCallback(
@@ -251,6 +282,8 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
               scrollToAnnotation.current?.(annotation);
             }}
             onReply={handleReply}
+            onEditComment={handleEditComment}
+            onDeleteComment={handleDeleteComment}
             onDelete={handleDeleteAnnotation}
           />
         ) : activeTab === "analysis" ? (
@@ -258,7 +291,11 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         ) : activeTab === "chat" ? (
           <PaperChat paperId={paper.id} />
         ) : (
-          <CommentPanel paperId={paper.id} comments={paper.comments} />
+          <CommentPanel
+            paperId={paper.id}
+            comments={paper.comments}
+            currentUserId={paper.currentUserId}
+          />
         )}
       </aside>
     </div>

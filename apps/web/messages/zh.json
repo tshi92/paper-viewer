@@ -151,7 +151,13 @@
     "empty": "暂无评论。",
     "pageBadge": "第 {page} 页",
     "placeholder": "添加评论",
-    "submit": "评论"
+    "submit": "评论",
+    "edit": "编辑",
+    "delete": "删除",
+    "save": "保存",
+    "cancel": "取消",
+    "deleteConfirm": "{count, plural, =0 {删除这条评论？} other {删除这条评论及其 # 条回复？}}",
+    "actionFailed": "操作失败，请重试"
   },
   "readingState": {
     "label": "阅读状态",

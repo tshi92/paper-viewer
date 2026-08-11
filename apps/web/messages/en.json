@@ -151,7 +151,13 @@
     "empty": "No comments yet.",
     "pageBadge": "p.{page}",
     "placeholder": "Add a comment",
-    "submit": "Comment"
+    "submit": "Comment",
+    "edit": "Edit",
+    "delete": "Delete",
+    "save": "Save",
+    "cancel": "Cancel",
+    "deleteConfirm": "{count, plural, =0 {Delete this comment?} one {Delete this comment and its # reply?} other {Delete this comment and its # replies?}}",
+    "actionFailed": "That did not work. Try again."
   },
   "readingState": {
     "label": "Reading state",

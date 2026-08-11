@@ -107,10 +107,11 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
         comments: comments.map((c) => ({
           id: c.id,
           body: c.body,
+          parentId: c.parentId,
           pageNumber: c.pageNumber,
           quotedText: c.quotedText,
           createdAt: c.createdAt,
-          author: { email: c.author.email, name: c.author.name }
+          author: { id: c.author.id, email: c.author.email, name: c.author.name }
         })),
         readingState: readingState?.state ?? "new",
         annotationLabels,

@@ -3,14 +3,17 @@
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useRef } from "react";
+import { CommentBody } from "./comment-body";
 
 type CommentView = {
   id: string;
   body: string;
+  parentId: string | null;
   pageNumber: number | null;
   quotedText: string | null;
   createdAt: Date;
   author: {
+    id: string;
     email: string;
     name: string | null;
   };
@@ -18,10 +21,12 @@ type CommentView = {
 
 export function CommentPanel({
   paperId,
-  comments
+  comments,
+  currentUserId
 }: {
   paperId: string;
   comments: CommentView[];
+  currentUserId: string;
 }) {
   const t = useTranslations("comments");
   const router = useRouter();
@@ -38,6 +43,13 @@ export function CommentPanel({
     });
 
     form.reset();
+    router.refresh();
+  }
+
+  async function mutate(commentId: string, init: RequestInit) {
+    const response = await fetch(`/api/papers/${paperId}/comments/${commentId}`, init);
+    if (!response.ok) throw new Error("comment mutation failed");
+    // The list arrives as a server prop, so only a re-render reflects the change.
     router.refresh();
   }
 
@@ -62,7 +74,21 @@ export function CommentPanel({
                 &ldquo;{comment.quotedText}&rdquo;
               </blockquote>
             ) : null}
-            <p className="mt-1.5 text-sm">{comment.body}</p>
+            <div className="mt-1.5">
+              <CommentBody
+                body={comment.body}
+                isAuthor={comment.author.id === currentUserId}
+                replyCount={comments.filter((it) => it.parentId === comment.id).length}
+                onEdit={(body) =>
+                  mutate(comment.id, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ body })
+                  })
+                }
+                onDelete={() => mutate(comment.id, { method: "DELETE" })}
+              />
+            </div>
           </article>
         ))}
         {comments.length === 0 ? <p className="px-4 py-6 text-sm text-muted">{t("empty")}</p> : null}

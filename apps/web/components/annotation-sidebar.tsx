@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { annotationColor } from "@paper-viewer/core/labels";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
+import { CommentBody } from "./comment-body";
 
 export function AnnotationSidebar({
   annotations,
@@ -12,6 +13,8 @@ export function AnnotationSidebar({
   selectedId,
   onJump,
   onReply,
+  onEditComment,
+  onDeleteComment,
   onDelete
 }: {
   annotations: AnnotationView[];
@@ -20,6 +23,8 @@ export function AnnotationSidebar({
   selectedId: string | null;
   onJump: (annotation: AnnotationView) => void;
   onReply: (annotationId: string, body: string, parentId?: string) => Promise<void>;
+  onEditComment: (commentId: string, body: string) => Promise<void>;
+  onDeleteComment: (commentId: string) => Promise<void>;
   onDelete: (annotation: AnnotationView) => Promise<void>;
 }) {
   const t = useTranslations("annotations");
@@ -126,7 +131,16 @@ export function AnnotationSidebar({
                   <span className="text-xs font-medium">
                     {comment.author.name ?? comment.author.email}
                   </span>
-                  <p className="text-xs">{comment.body}</p>
+                  <CommentBody
+                    body={comment.body}
+                    isAuthor={comment.author.id === currentUserId}
+                    replyCount={
+                      annotation.comments.filter((it) => it.parentId === comment.id).length
+                    }
+                    textClassName="text-xs"
+                    onEdit={(body) => onEditComment(comment.id, body)}
+                    onDelete={() => onDeleteComment(comment.id)}
+                  />
                 </div>
               ))}
             </div>
