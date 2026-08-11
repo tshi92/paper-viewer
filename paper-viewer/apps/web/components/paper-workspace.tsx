@@ -1,12 +1,21 @@
 "use client";
 
-import { useState } from "react";
-import { PdfViewer } from "./pdf-viewer";
+import { useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { CommentPanel } from "./comment-panel";
 import { PaperChat } from "./paper-chat";
 import { KeynotePanel } from "./keynote-panel";
 import { ReadingStateSelect } from "./reading-state-select";
 import { DownloadPdfButton } from "./download-pdf-button";
+import { AnnotationSidebar } from "./annotation-sidebar";
+import type { CreateAnnotationInput } from "./pdf-annotator";
+import type { AnnotationView, LabelView } from "@/lib/annotation-types";
+
+// react-pdf-highlighter touches the DOM at import time, so the annotator is
+// client-only.
+const PdfAnnotator = dynamic(() => import("./pdf-annotator").then((m) => m.PdfAnnotator), {
+  ssr: false
+});
 
 type PaperData = {
   id: string;
@@ -34,14 +43,77 @@ type PaperData = {
     author: { email: string; name: string | null };
   }[];
   readingState: string;
+  annotationLabels: LabelView[];
+  currentUserId: string;
+  isAdmin: boolean;
 };
 
-type SidebarTab = "chat" | "keynotes" | "comments";
+type SidebarTab = "annotations" | "chat" | "keynotes" | "comments";
 
 export function PaperWorkspace({ paper }: { paper: PaperData }) {
-  const [pendingQuote, setPendingQuote] = useState<{ text: string; pageNumber: number } | null>(null);
-  const [activeTab, setActiveTab] = useState<SidebarTab>("chat");
+  const [activeTab, setActiveTab] = useState<SidebarTab>("annotations");
   const [keynoteVersion, setKeynoteVersion] = useState(0);
+  const [annotations, setAnnotations] = useState<AnnotationView[]>([]);
+  const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+  const scrollToAnnotation = useRef<((annotation: AnnotationView) => void) | null>(null);
+
+  const refreshAnnotations = useCallback(async () => {
+    const response = await fetch(`/api/papers/${paper.id}/annotations`);
+    if (!response.ok) return;
+    const data = (await response.json()) as { annotations: AnnotationView[] };
+    setAnnotations(data.annotations);
+  }, [paper.id]);
+
+  useEffect(() => {
+    void refreshAnnotations();
+    // 30s polling keeps collaborators' annotations flowing in without sockets.
+    const timer = setInterval(() => void refreshAnnotations(), 30_000);
+    return () => clearInterval(timer);
+  }, [refreshAnnotations]);
+
+  const handleCreateAnnotation = useCallback(
+    async (input: CreateAnnotationInput) => {
+      const response = await fetch(`/api/papers/${paper.id}/annotations`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input)
+      });
+      if (!response.ok) return;
+      const { annotation } = (await response.json()) as { annotation: AnnotationView };
+      setAnnotations((prev) => [...prev, annotation]);
+      setSelectedAnnotationId(annotation.id);
+      setActiveTab("annotations");
+    },
+    [paper.id]
+  );
+
+  const handleReply = useCallback(
+    async (annotationId: string, body: string, parentId?: string) => {
+      await fetch(`/api/papers/${paper.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body, annotationId, ...(parentId ? { parentId } : {}) })
+      });
+      await refreshAnnotations();
+    },
+    [paper.id, refreshAnnotations]
+  );
+
+  const handleDeleteAnnotation = useCallback(
+    async (annotation: AnnotationView) => {
+      const response = await fetch(`/api/papers/${paper.id}/annotations/${annotation.id}`, {
+        method: "DELETE"
+      });
+      if (!response.ok) return;
+      setAnnotations((prev) => prev.filter((it) => it.id !== annotation.id));
+      setSelectedAnnotationId((current) => (current === annotation.id ? null : current));
+    },
+    [paper.id]
+  );
+
+  const registerScrollTo = useCallback((fn: (annotation: AnnotationView) => void) => {
+    scrollToAnnotation.current = fn;
+  }, []);
 
   const pdfUrl = paper.hasPdf
     ? `/api/papers/${paper.id}/file`
@@ -96,13 +168,17 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         ) : null}
 
         {pdfUrl ? (
-          <PdfViewer
-            paperId={paper.id}
+          <PdfAnnotator
             pdfUrl={pdfUrl}
-            onSelectText={(info) => {
-              setPendingQuote(info);
-              setActiveTab("comments");
+            annotations={annotations}
+            annotationLabels={paper.annotationLabels}
+            selectedId={selectedAnnotationId}
+            onSelect={(id) => {
+              setSelectedAnnotationId(id);
+              setActiveTab("annotations");
             }}
+            onCreate={handleCreateAnnotation}
+            registerScrollTo={registerScrollTo}
           />
         ) : (
           <div className="flex items-center justify-center rounded border border-border bg-white p-12 text-sm text-muted">
@@ -124,8 +200,13 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
 
         {/* Tab switcher */}
         <div className="flex rounded border border-border bg-white overflow-hidden">
-          {(["chat", "keynotes", "comments"] as const).map((tab) => {
-            const labels = { chat: "AI Chat", keynotes: "Keynotes", comments: `Comments (${paper.comments.length})` };
+          {(["annotations", "chat", "keynotes", "comments"] as const).map((tab) => {
+            const labels = {
+              annotations: "标注",
+              chat: "AI Chat",
+              keynotes: "Keynotes",
+              comments: `Comments (${paper.comments.length})`
+            };
             return (
               <button
                 key={tab}
@@ -138,7 +219,21 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           })}
         </div>
 
-        {activeTab === "chat" ? (
+        {activeTab === "annotations" ? (
+          <AnnotationSidebar
+            annotations={annotations}
+            labels={paper.annotationLabels}
+            currentUserId={paper.currentUserId}
+            isAdmin={paper.isAdmin}
+            selectedId={selectedAnnotationId}
+            onJump={(annotation) => {
+              setSelectedAnnotationId(annotation.id);
+              scrollToAnnotation.current?.(annotation);
+            }}
+            onReply={handleReply}
+            onDelete={handleDeleteAnnotation}
+          />
+        ) : activeTab === "chat" ? (
           <PaperChat paperId={paper.id} onSaveKeynote={() => { setKeynoteVersion((v) => v + 1); setActiveTab("keynotes"); }} />
         ) : activeTab === "keynotes" ? (
           <KeynotePanel paperId={paper.id} key={`keynotes-${keynoteVersion}`} />
@@ -146,7 +241,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           <CommentPanel
             paperId={paper.id}
             comments={paper.comments}
-            pendingQuote={pendingQuote}
+            pendingQuote={null}
           />
         )}
       </aside>

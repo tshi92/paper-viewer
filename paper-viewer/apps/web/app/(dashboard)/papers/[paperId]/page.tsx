@@ -84,7 +84,11 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
           createdAt: c.createdAt,
           author: { email: c.author.email, name: c.author.name }
         })),
-        readingState: readingState?.state ?? "new"
+        readingState: readingState?.state ?? "new",
+        // TODO(Task 12): wire real values
+        annotationLabels: [],
+        currentUserId: "",
+        isAdmin: false
       }}
     />
   );
