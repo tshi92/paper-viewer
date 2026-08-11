@@ -102,6 +102,15 @@
     "errorAnnotationDelete": "Delete failed. Please try again.",
     "errorReply": "Could not send the reply."
   },
+  "paperLabels": {
+    "label": "Labels:",
+    "none": "None",
+    "add": "Add label",
+    "close": "Done",
+    "manage": "Manage labels",
+    "empty": "No paper labels yet — create one in settings.",
+    "saveFailed": "Could not save labels. Please try again."
+  },
   "annotations": {
     "filterAllLabels": "All labels",
     "filterAllMembers": "All members",

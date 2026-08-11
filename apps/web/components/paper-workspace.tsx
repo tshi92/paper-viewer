@@ -9,6 +9,7 @@ import { AnalysisPanel, type AnalysisView } from "./analysis-panel";
 import { ReadingStateSelect } from "./reading-state-select";
 import { DownloadPdfButton } from "./download-pdf-button";
 import { AnnotationSidebar } from "./annotation-sidebar";
+import { PaperLabelPicker } from "./paper-label-picker";
 import type { CreateAnnotationInput } from "./pdf-annotator";
 import type { ReadingState } from "@paper-viewer/core/paper-status";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
@@ -38,6 +39,10 @@ type PaperData = {
   }[];
   readingState: string;
   annotationLabels: LabelView[];
+  /** Paper-scope labels currently assigned to this paper. */
+  paperLabels: LabelView[];
+  /** Every paper-scope label in the workspace, i.e. what the picker can offer. */
+  paperLabelOptions: LabelView[];
   currentUserId: string;
 };
 
@@ -152,6 +157,11 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         <div className="mb-4 rounded border border-border bg-white p-4">
           <h1 className="text-xl font-semibold">{paper.title}</h1>
           <p className="mt-2 text-sm text-muted">{paper.authors.join(", ")}</p>
+          <PaperLabelPicker
+            paperId={paper.id}
+            assigned={paper.paperLabels}
+            available={paper.paperLabelOptions}
+          />
           <div className="mt-3 flex items-center gap-3">
             {paper.arxivId ? (
               <a

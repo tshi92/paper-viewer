@@ -26,7 +26,8 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
             take: 1
           }
         }
-      }
+      },
+      labelLinks: { include: { label: true }, orderBy: { label: { createdAt: "asc" } } }
     }
   });
 
@@ -49,7 +50,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
     }
   }
 
-  const [comments, readingState, annotationLabels] = await Promise.all([
+  const [comments, readingState, workspaceLabels] = await Promise.all([
     prisma.comment.findMany({
       // annotationId: null keeps annotation-thread comments out of the paper-level
       // Discussion list; parentId stays unfiltered so replies to paper-level
@@ -68,11 +69,19 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
       }
     }),
     prisma.label.findMany({
-      where: { workspaceId: user.workspaceId, scope: "annotation" },
+      where: { workspaceId: user.workspaceId },
       orderBy: { createdAt: "asc" },
       select: { id: true, name: true, color: true, scope: true }
     })
   ]);
+
+  function toLabelView(label: { id: string; name: string; color: string; scope: string }): LabelView {
+    return { id: label.id, name: label.name, color: label.color, scope: label.scope as LabelView["scope"] };
+  }
+
+  const annotationLabels = workspaceLabels.filter((label) => label.scope === "annotation").map(toLabelView);
+  const paperLabelOptions = workspaceLabels.filter((label) => label.scope === "paper").map(toLabelView);
+  const paperLabels = workspacePaper.labelLinks.map((link) => toLabelView(link.label));
 
   return (
     <PaperWorkspace
@@ -104,14 +113,9 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
           author: { email: c.author.email, name: c.author.name }
         })),
         readingState: readingState?.state ?? "new",
-        annotationLabels: annotationLabels.map(
-          (label): LabelView => ({
-            id: label.id,
-            name: label.name,
-            color: label.color,
-            scope: label.scope as LabelView["scope"]
-          })
-        ),
+        annotationLabels,
+        paperLabels,
+        paperLabelOptions,
         currentUserId: user.id
       }}
     />

@@ -102,6 +102,15 @@
     "errorAnnotationDelete": "删除失败，请重试",
     "errorReply": "回复发送失败"
   },
+  "paperLabels": {
+    "label": "标签：",
+    "none": "暂无",
+    "add": "添加标签",
+    "close": "收起",
+    "manage": "管理标签",
+    "empty": "尚无论文标签，去设置中创建。",
+    "saveFailed": "标签保存失败，请重试"
+  },
   "annotations": {
     "filterAllLabels": "全部 label",
     "filterAllMembers": "全部成员",
