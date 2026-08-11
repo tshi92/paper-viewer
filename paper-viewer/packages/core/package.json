@@ -7,6 +7,7 @@
     ".": "./src/validation.ts",
     "./permissions": "./src/permissions.ts",
     "./labels": "./src/labels.ts",
+    "./llm-config": "./src/llm-config.ts",
     "./paper-status": "./src/paper-status.ts",
     "./upload-validation": "./src/upload-validation.ts"
   },
