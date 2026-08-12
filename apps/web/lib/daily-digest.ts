@@ -47,11 +47,15 @@ const MAX_SUMMARY_LINE = 80;
 /** Lock expiry: if the lock holder is hard-killed (Vercel timeout), the next cron run can take over once this window has passed. */
 const LOCK_TTL_MS = 10 * 60_000;
 /**
- * Budget reserved per paper: pinning the PDF plus one full LLM analysis takes
- * roughly this long. We stop once the remaining budget cannot cover a whole
- * paper, so we do not start one only to have Vercel cut it off midway.
+ * Budget reserved per paper: pinning the PDF (up to 60s before its fetch
+ * timeout) plus one full LLM analysis (up to 120s before its timeout) can take
+ * this long in the worst case. We stop once the remaining budget cannot cover
+ * a whole paper, so we do not start one only to have Vercel cut it off midway
+ * — a hard kill skips `finally` and leaves the digest lock stuck for
+ * LOCK_TTL_MS. Production showed real papers exceeding the previous 60s
+ * estimate, which is exactly how a run got hard-killed.
  */
-const PER_PAPER_MARGIN_MS = 60_000;
+const PER_PAPER_MARGIN_MS = 150_000;
 
 type DigestRow = {
   id: string;

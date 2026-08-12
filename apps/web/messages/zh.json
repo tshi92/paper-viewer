@@ -23,7 +23,13 @@
     "languageSystemDescription": "使用浏览器请求的语言。",
     "languageZhDescription": "界面始终显示中文。",
     "languageEnDescription": "界面始终显示英文。",
-    "languageCurrent": "当前生效语言：{language}"
+    "languageCurrent": "当前生效语言：{language}",
+    "profileHeading": "个人资料",
+    "profileDescription": "显示名称会代替邮箱出现在评论、成员列表等处，团队成员都能看到。",
+    "displayNameLabel": "显示名称",
+    "profileSave": "保存",
+    "profileSaved": "显示名称已保存。",
+    "profileSaveFailed": "保存失败，请重试。"
   },
   "auth": {
     "signInTitle": "登录",
@@ -56,7 +62,8 @@
     "emptyGuideBodyReady": "研究偏好已设置。到推送时间这里会自动更新，也可以点击「发现论文」立即试一次。",
     "emptyGuideCta": "设置研究偏好",
     "savedBadge": "已在文库",
-    "digestRunning": "正在生成今日推送……可以离开此页，完成后会自动显示在这里。"
+    "digestRunning": "正在生成今日推送……可以离开此页，完成后会自动显示在这里。",
+    "digestRunningProgress": "正在生成今日推送（已完成 {done}/{total} 篇）……完成后会自动显示在这里。"
   },
   "library": {
     "title": "文库",

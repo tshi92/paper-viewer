@@ -39,6 +39,9 @@ async function downloadPdf(sourceUrl: string): Promise<Uint8Array | null> {
   const res = await fetch(sourceUrl, {
     headers: { "User-Agent": "PaperViewer/1.0" },
     redirect: "follow",
+    // A hung download must fail (snapshotting is best-effort) rather than eat
+    // the serverless function's whole time budget.
+    signal: AbortSignal.timeout(60_000),
     // A PDF of several MB has no business in Next's fetch data cache
     cache: "no-store"
   });

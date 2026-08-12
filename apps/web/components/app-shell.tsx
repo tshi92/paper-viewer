@@ -17,13 +17,13 @@ export async function AppShell({ user, children }: { user: CurrentUser; children
               items={[
                 { href: "/today", label: t("today") },
                 { href: "/conferences", label: t("conferences") },
-                { href: "/library", label: t("library"), also: ["/papers"] },
+                { href: "/library", label: t("library") },
                 { href: "/settings", label: t("settings") }
               ]}
             />
           </nav>
           <div className="flex items-center gap-3 text-sm text-muted">
-            <span>{user.email}</span>
+            <span title={user.email}>{user.name ?? user.email}</span>
             <form action="/api/auth/logout" method="post">
               <button className="rounded border border-border px-3 py-1" type="submit">{t("signOut")}</button>
             </form>

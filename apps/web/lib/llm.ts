@@ -39,6 +39,10 @@ async function callLlm(
 ): Promise<string> {
   const response = await fetch(`${config.baseUrl}/chat/completions`, {
     method: "POST",
+    // An unbounded call lets one hung upstream request run until the serverless
+    // platform hard-kills the whole function (skipping finally blocks and
+    // leaving the digest lock stuck); a thrown AbortError is handled cleanly.
+    signal: AbortSignal.timeout(120_000),
     headers: {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${config.apiKey}`

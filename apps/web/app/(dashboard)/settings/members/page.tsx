@@ -83,7 +83,14 @@ export default async function MembersPage({
           <div className="divide-y divide-border">
             {memberships.map((membership) => (
               <div className="flex items-center justify-between px-4 py-3" key={membership.id}>
-                <span>{membership.user.email}</span>
+                {membership.user.name ? (
+                  <span>
+                    {membership.user.name}
+                    <span className="ml-2 text-sm text-muted">{membership.user.email}</span>
+                  </span>
+                ) : (
+                  <span>{membership.user.email}</span>
+                )}
                 <span className="text-sm text-muted">{roleLabel(membership.role)}</span>
               </div>
             ))}

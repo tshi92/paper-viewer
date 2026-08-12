@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { PdfOutlineEntry } from "@/lib/pdf-outline";
 
 export type AnalysisView = {
@@ -97,19 +97,41 @@ export function AnalysisPanel({
       <OutlineBlock outline={outline} onJumpToPage={onJumpToPage} />
     ) : null;
 
+  // Generation takes minutes, long enough for proxies to drop the request
+  // connection while the server keeps working. So the request is not the
+  // source of truth: while generating, poll the server props — the analysis
+  // appearing there is what ends the wait, whatever happened to the fetch.
+  useEffect(() => {
+    if (!generating || analysis) return;
+    const interval = setInterval(() => router.refresh(), 5_000);
+    // Give up after the server's own time limit (300s) plus one poll.
+    const deadline = setTimeout(() => {
+      setGenerating(false);
+      setFailed(true);
+    }, 305_000);
+    return () => {
+      clearInterval(interval);
+      clearTimeout(deadline);
+    };
+  }, [generating, analysis, router]);
+
   async function generate() {
     if (generating) return;
     setGenerating(true);
     setFailed(false);
     try {
       const res = await fetch(`/api/papers/${paperId}/analyze`, { method: "POST" });
-      if (!res.ok) throw new Error("analysis request failed");
-      // The analysis arrives as a server prop, so a refresh pulls it in.
+      if (!res.ok) {
+        setGenerating(false);
+        setFailed(true);
+        return;
+      }
+      // Pull the fresh server props in right away; the polling effect stays on
+      // as the backstop until the analysis actually shows up in them.
       router.refresh();
     } catch {
-      setFailed(true);
-    } finally {
-      setGenerating(false);
+      // Connection dropped — the server is likely still generating. Leave the
+      // polling effect running; it either finds the analysis or times out.
     }
   }
 
