@@ -277,12 +277,12 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
   return { entries: entries.length, createdPapers: toCreate.length, linkedExisting, skipped };
 }
 
-type GithubContentEntry = { type: string; name: string; download_url: string | null; url: string };
+type GithubContentEntry = { type: string; name: string };
 
-async function fetchJson(url: string): Promise<unknown> {
+async function fetchJson(url: string, headers: Record<string, string> = {}): Promise<unknown> {
   const response = await fetch(url, {
     cache: "no-store",
-    headers: { "User-Agent": "paper-viewer-conference-sync" }
+    headers: { "User-Agent": "paper-viewer-conference-sync", ...headers }
   });
   if (!response.ok) {
     throw new Error(`Fetch failed (${response.status}) for ${url}`);
@@ -291,33 +291,69 @@ async function fetchJson(url: string): Promise<unknown> {
 }
 
 /**
- * Pull the whole catalog: enumerate data/{year}/{VENUE}.json through the
- * GitHub contents API (so new years and venues appear without code changes),
- * then import file by file.
+ * Enumerate data/{year}/{VENUE}.json paths. jsDelivr first: api.github.com
+ * rate-limits anonymous calls per source IP, and shared serverless egress IPs
+ * (Vercel) have that budget permanently exhausted. The GitHub contents API is
+ * only a fallback, honouring GITHUB_TOKEN when one is configured.
+ */
+async function listDataFiles(owner: string, repo: string): Promise<string[]> {
+  try {
+    const listing = (await fetchJson(
+      `https://data.jsdelivr.com/v1/packages/gh/${owner}/${repo}@main?structure=flat`
+    )) as { files?: { name: string }[] };
+    const files = (listing.files ?? [])
+      .map((file) => file.name)
+      .filter((name) => /^\/data\/\d{4}\/[^/]+\.json$/.test(name))
+      .map((name) => name.slice(1));
+    if (files.length > 0) {
+      return files;
+    }
+  } catch {
+    // fall through to the GitHub API
+  }
+
+  const headers: Record<string, string> = process.env.GITHUB_TOKEN
+    ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+    : {};
+  const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents`;
+  const years = (await fetchJson(`${apiBase}/data`, headers)) as GithubContentEntry[];
+  const paths: string[] = [];
+  for (const yearDir of years) {
+    if (yearDir.type !== "dir") continue;
+    const files = (await fetchJson(`${apiBase}/data/${yearDir.name}`, headers)) as GithubContentEntry[];
+    for (const file of files) {
+      if (file.type === "file" && file.name.endsWith(".json")) {
+        paths.push(`data/${yearDir.name}/${file.name}`);
+      }
+    }
+  }
+  return paths;
+}
+
+/**
+ * Pull the whole catalog: enumerate the data files (new years and venues
+ * appear without code changes), fetch each from raw.githubusercontent.com
+ * (not rate-limited like the API), and import file by file.
  */
 export async function syncConferencesFromSource(): Promise<ConferenceSyncResult> {
   const repo = parseGithubRepo(conferenceSourceUrl());
   if (!repo) {
     throw new Error(`CONFERENCE_SOURCE_URL is not a github.com repo URL: ${conferenceSourceUrl()}`);
   }
-  const apiBase = `https://api.github.com/repos/${repo.owner}/${repo.repo}/contents`;
 
-  const years = (await fetchJson(`${apiBase}/data`)) as GithubContentEntry[];
+  const paths = await listDataFiles(repo.owner, repo.repo);
   const totals: ConferenceSyncResult = { files: 0, entries: 0, createdPapers: 0, linkedExisting: 0, skipped: 0 };
 
-  for (const yearDir of years) {
-    if (yearDir.type !== "dir") continue;
-    const files = (await fetchJson(`${apiBase}/data/${yearDir.name}`)) as GithubContentEntry[];
-    for (const file of files) {
-      if (file.type !== "file" || !file.name.endsWith(".json") || !file.download_url) continue;
-      const feed = await fetchJson(file.download_url);
-      const result = await syncConferencePapers(feed);
-      totals.files += 1;
-      totals.entries += result.entries;
-      totals.createdPapers += result.createdPapers;
-      totals.linkedExisting += result.linkedExisting;
-      totals.skipped += result.skipped;
-    }
+  for (const path of paths) {
+    const feed = await fetchJson(
+      `https://raw.githubusercontent.com/${repo.owner}/${repo.repo}/main/${path}`
+    );
+    const result = await syncConferencePapers(feed);
+    totals.files += 1;
+    totals.entries += result.entries;
+    totals.createdPapers += result.createdPapers;
+    totals.linkedExisting += result.linkedExisting;
+    totals.skipped += result.skipped;
   }
 
   return totals;
