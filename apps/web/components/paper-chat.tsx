@@ -71,7 +71,10 @@ export function PaperChat({ paperId }: { paperId: string }) {
       });
 
       if (!res.ok || !res.body) {
-        setStreaming(t("errorResponse"));
+        // "Busy" is a distinct, actionable state: the LLM account's only
+        // concurrency slot is taken (digest run or a teammate's analysis).
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        setStreaming(body.error === "llm_busy" ? t("errorBusy") : t("errorResponse"));
         setLoading(false);
         return;
       }

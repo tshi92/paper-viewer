@@ -32,27 +32,84 @@ const TERMINOLOGY_RULES = `- 术语只用一种语言，绝不使用「英文（
 - 已有通行中文说法、翻译不损失含义的概念（如 延迟、能耗、吞吐、数据中心、准确率）直接写中文，不加英文
 - 生僻缩写不要用括号展开，直接选用其全称的一种语言写法`;
 
+// Statuses worth a retry: transient upstream trouble, most importantly 429 —
+// low-tier Kimi accounts allow ONE concurrent request per organization, so an
+// interactive chat/analysis racing the digest pipeline is rejected instantly.
+const RETRIABLE_STATUS = new Set([429, 500, 502, 503]);
+const RETRY_DELAYS_MS = [2_000, 5_000, 10_000];
+
+async function fetchChatCompletions(
+  config: LlmRuntimeConfig,
+  payload: Record<string, unknown>,
+  streaming: boolean
+): Promise<Response> {
+  // An unbounded call lets one hung upstream request run until the serverless
+  // platform hard-kills the whole function (skipping finally blocks and
+  // leaving e.g. the digest lock stuck); a thrown AbortError is handled
+  // cleanly. For streams only the wait for response headers is bounded here —
+  // the caller reads the body under the route's own time limit.
+  if (!streaming) {
+    return fetch(`${config.baseUrl}/chat/completions`, {
+      method: "POST",
+      signal: AbortSignal.timeout(120_000),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${config.apiKey}`
+      },
+      body: JSON.stringify(payload)
+    });
+  }
+
+  const controller = new AbortController();
+  const headerTimer = setTimeout(() => controller.abort(), 30_000);
+  try {
+    return await fetch(`${config.baseUrl}/chat/completions`, {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${config.apiKey}`
+      },
+      body: JSON.stringify(payload)
+    });
+  } finally {
+    clearTimeout(headerTimer);
+  }
+}
+
+/**
+ * POST to the chat-completions endpoint, briefly backing off and retrying on
+ * 429/5xx before giving up. Network errors and timeouts are NOT retried — they
+ * already consumed real time and propagate to the caller.
+ */
+export async function requestChatCompletions(
+  config: LlmRuntimeConfig,
+  payload: Record<string, unknown>,
+  opts: { streaming?: boolean; retryDelaysMs?: number[] } = {}
+): Promise<Response> {
+  const delays = opts.retryDelaysMs ?? RETRY_DELAYS_MS;
+  for (let attempt = 0; ; attempt++) {
+    const response = await fetchChatCompletions(config, payload, opts.streaming ?? false);
+    const delay = delays[attempt];
+    if (response.ok || delay === undefined || !RETRIABLE_STATUS.has(response.status)) {
+      return response;
+    }
+    // Drain the failed body so the connection can be reused, then wait.
+    await response.text().catch(() => "");
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+}
+
 async function callLlm(
   config: LlmRuntimeConfig,
   messages: { role: string; content: string }[],
   maxTokens = 16000
 ): Promise<string> {
-  const response = await fetch(`${config.baseUrl}/chat/completions`, {
-    method: "POST",
-    // An unbounded call lets one hung upstream request run until the serverless
-    // platform hard-kills the whole function (skipping finally blocks and
-    // leaving the digest lock stuck); a thrown AbortError is handled cleanly.
-    signal: AbortSignal.timeout(120_000),
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${config.apiKey}`
-    },
-    body: JSON.stringify({
-      model: config.model,
-      messages,
-      max_tokens: maxTokens,
-      response_format: { type: "json_object" }
-    })
+  const response = await requestChatCompletions(config, {
+    model: config.model,
+    messages,
+    max_tokens: maxTokens,
+    response_format: { type: "json_object" }
   });
 
   if (!response.ok) {

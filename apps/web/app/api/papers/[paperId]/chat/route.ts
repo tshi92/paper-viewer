@@ -1,8 +1,13 @@
 import { prisma } from "@paper-viewer/db";
 import { requireCurrentUser } from "@/lib/auth";
 import { resolveLlmConfig, type LlmRuntimeConfig } from "@/lib/llm-config";
+import { requestChatCompletions } from "@/lib/llm";
 import { getPaperText } from "@/lib/paper-text";
 import { z } from "zod";
+
+// Streaming a full answer over a large paper context takes minutes; the
+// default function time limit would cut the stream off mid-sentence.
+export const maxDuration = 300;
 
 const chatSchema = z.object({
   message: z.string().min(1).max(5000)
@@ -72,23 +77,25 @@ ${paperContent.slice(0, 60000)}`
     }))
   ];
 
-  // Stream response from LLM
-  const response = await fetch(`${llm.baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${llm.apiKey}`
-    },
-    body: JSON.stringify({
-      model: llm.model,
-      messages,
-      max_tokens: 16000,
-      stream: true
-    })
-  });
+  // Stream response from LLM; retries briefly on 429 — a low-tier Kimi org
+  // allows one concurrent request, so chatting while the digest pipeline runs
+  // is otherwise rejected instantly.
+  const response = await requestChatCompletions(
+    llm,
+    { model: llm.model, messages, max_tokens: 16000, stream: true },
+    { streaming: true }
+  );
 
   if (!response.ok || !response.body) {
-    return Response.json({ error: "LLM API error" }, { status: 502 });
+    const detail = (await response.text().catch(() => "")).slice(0, 200);
+    console.error("[chat] LLM request failed", response.status, detail);
+    // 429 after retries = the org's single slot is still busy (digest run or a
+    // teammate's analysis); tell the client so it can say so instead of a
+    // generic failure.
+    if (response.status === 429) {
+      return Response.json({ error: "llm_busy" }, { status: 502 });
+    }
+    return Response.json({ error: "llm_error", detail }, { status: 502 });
   }
 
   // Transform SSE stream and collect full response
