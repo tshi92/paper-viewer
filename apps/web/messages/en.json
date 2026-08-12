@@ -355,6 +355,8 @@
     "syncDone": "Synced: {entries} entries, {created} new papers",
     "truncatedNotice": "Too many results; showing the first {max}. Narrow with the filters.",
     "emptyFiltered": "No papers match the current filters.",
-    "clearFilters": "Clear filters"
+    "clearFilters": "Clear filters",
+    "pdfBadge": "PDF",
+    "pdfBadgeTitle": "Opens with an inline PDF preview"
   }
 }

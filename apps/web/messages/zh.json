@@ -355,6 +355,8 @@
     "syncDone": "同步完成：共 {entries} 条，新增 {created} 篇",
     "truncatedNotice": "结果过多，仅显示前 {max} 条，请用筛选缩小范围。",
     "emptyFiltered": "当前筛选下没有匹配的论文。",
-    "clearFilters": "清除筛选"
+    "clearFilters": "清除筛选",
+    "pdfBadge": "PDF",
+    "pdfBadgeTitle": "点击可在线预览 PDF 全文"
   }
 }
