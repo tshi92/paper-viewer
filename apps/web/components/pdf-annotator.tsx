@@ -219,11 +219,12 @@ function AnnotationPreview({ annotation, color }: AnnotationEntry) {
   return (
     <div className="max-w-[260px] rounded border border-border bg-white p-2 text-xs shadow-lg">
       <p className="text-muted">{annotation.author.name ?? annotation.author.email}</p>
-      {annotation.areaImage ? (
-        // eslint-disable-next-line @next/next/no-img-element -- data URL, not a routable asset
+      {annotation.areaImageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- small API-served thumbnail
         <img
-          src={annotation.areaImage}
+          src={annotation.areaImageUrl}
           alt={t("areaImageAlt")}
+          loading="lazy"
           className="mt-1 max-h-16 w-auto rounded border border-border"
         />
       ) : null}

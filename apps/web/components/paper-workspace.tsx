@@ -72,13 +72,26 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
   // a mutation would resurrect deleted rows or drop just-created ones. Bumping
   // `mutationSeq` on every mutation invalidates any snapshot already in flight.
   const mutationSeq = useRef(0);
+  // Raw body of the last applied poll: an identical response is dropped before
+  // setState, so an idle 30s poll no longer re-renders the highlight layer and
+  // sidebar with fresh-but-equal array identities.
+  const lastAppliedRaw = useRef<string | null>(null);
+
+  /** Every mutation goes through this: invalidates in-flight polls AND the raw-equality skip. */
+  const bumpMutation = useCallback(() => {
+    mutationSeq.current += 1;
+    lastAppliedRaw.current = null;
+  }, []);
 
   const refreshAnnotations = useCallback(async () => {
     const seq = mutationSeq.current;
     const response = await fetch(`/api/papers/${paper.id}/annotations`);
     if (!response.ok) return;
-    const data = (await response.json()) as { annotations: AnnotationView[] };
+    const raw = await response.text();
     if (seq !== mutationSeq.current) return;
+    if (raw === lastAppliedRaw.current) return;
+    lastAppliedRaw.current = raw;
+    const data = JSON.parse(raw) as { annotations: AnnotationView[] };
     setAnnotations(data.annotations);
   }, [paper.id]);
 
@@ -101,7 +114,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         // Throw so the selection tip stays open and the typed comment survives.
         throw new Error("annotation create failed");
       }
-      mutationSeq.current += 1;
+      bumpMutation();
       const { annotation } = (await response.json()) as { annotation: AnnotationView };
       setActionError(null);
       setAnnotations((prev) => [...prev, annotation]);
@@ -123,7 +136,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         setActionError("errorReply");
         throw new Error("Failed to post reply");
       }
-      mutationSeq.current += 1;
+      bumpMutation();
       setActionError(null);
       await refreshAnnotations();
     },
@@ -139,7 +152,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
     async (commentId: string, init: RequestInit) => {
       const response = await fetch(`/api/papers/${paper.id}/comments/${commentId}`, init);
       if (!response.ok) throw new Error("comment mutation failed");
-      mutationSeq.current += 1;
+      bumpMutation();
       await refreshAnnotations();
     },
     [paper.id, refreshAnnotations]
@@ -169,7 +182,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         setActionError("errorAnnotationDelete");
         return;
       }
-      mutationSeq.current += 1;
+      bumpMutation();
       setActionError(null);
       setAnnotations((prev) => prev.filter((it) => it.id !== annotation.id));
       setSelectedAnnotationId((current) => (current === annotation.id ? null : current));

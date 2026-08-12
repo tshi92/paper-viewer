@@ -113,11 +113,12 @@ export function AnnotationSidebar({
                 </span>
                 <span>{annotation.type === "area" ? t("typeArea") : t("typeHighlight")}</span>
               </div>
-              {annotation.areaImage ? (
-                // eslint-disable-next-line @next/next/no-img-element -- data URL, not a routable asset
+              {annotation.areaImageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- small API-served thumbnail
                 <img
-                  src={annotation.areaImage}
+                  src={annotation.areaImageUrl}
                   alt={t("areaImageAlt")}
+                  loading="lazy"
                   className="mt-1 max-h-24 w-auto rounded border border-border"
                 />
               ) : null}

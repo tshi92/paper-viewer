@@ -26,7 +26,12 @@ export type AnnotationView = {
   position: unknown;
   quotedText: string | null;
   /** PNG data URL screenshot of the region; only present on area annotations. */
-  areaImage: string | null;
+  /**
+   * URL of the area screenshot (own API route), or null for highlights. The
+   * base64 payload itself never travels in list responses — at up to 500KB per
+   * annotation it would ride along on every 30s poll.
+   */
+  areaImageUrl: string | null;
   createdAt: string;
   author: { id: string; email: string; name: string | null };
   labels: LabelView[];
