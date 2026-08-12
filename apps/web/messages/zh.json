@@ -176,6 +176,8 @@
     "empty": "暂无评论。",
     "pageBadge": "第 {page} 页",
     "placeholder": "添加评论",
+    "reply": "回复",
+    "replyPlaceholder": "回复 @{name}…",
     "submit": "评论",
     "edit": "编辑",
     "delete": "删除",

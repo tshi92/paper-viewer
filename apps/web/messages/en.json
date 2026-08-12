@@ -176,6 +176,8 @@
     "empty": "No comments yet.",
     "pageBadge": "p.{page}",
     "placeholder": "Add a comment",
+    "reply": "Reply",
+    "replyPlaceholder": "Reply to @{name}…",
     "submit": "Comment",
     "edit": "Edit",
     "delete": "Delete",

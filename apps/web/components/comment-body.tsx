@@ -18,14 +18,17 @@ export function CommentBody({
   canModify,
   replyCount,
   textClassName = "text-sm",
+  onReply,
   onEdit,
   onDelete
 }: {
   body: string;
   canModify: boolean;
-  /** Direct replies, used to warn that deleting takes the thread with it. */
+  /** Replies below this comment, used to warn that deleting takes the thread with it. */
   replyCount: number;
   textClassName?: string;
+  /** Renders a reply action when set; annotation threads have their own composer and omit it. */
+  onReply?: () => void;
   onEdit: (body: string) => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
@@ -109,6 +112,11 @@ export function CommentBody({
           and lists — and editing hands back the raw source. */}
       <MarkdownBody className={textClassName}>{body}</MarkdownBody>
       <div className="mt-1 flex items-center gap-2">
+        {onReply ? (
+          <button type="button" className="text-xs text-accent hover:underline" onClick={onReply}>
+            {t("reply")}
+          </button>
+        ) : null}
         <CopyTextButton text={body} />
         {canModify ? (
           <>
