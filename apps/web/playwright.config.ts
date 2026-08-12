@@ -2,6 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
+  // `next dev` compiles routes on first hit; right after an edit that window
+  // regularly blows the 5s default and reads as a flaky suite.
+  expect: { timeout: 10_000 },
   use: {
     baseURL: "http://127.0.0.1:3000",
     // The UI is translated and the locale resolver falls back to `Accept-Language`

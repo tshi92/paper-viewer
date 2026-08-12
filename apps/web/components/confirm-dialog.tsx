@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 
 /**
  * In-app replacement for window.confirm so every destructive flow shares one
@@ -29,6 +29,7 @@ export function ConfirmDialog({
   const t = useTranslations("common");
   const confirmRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const messageId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -57,14 +58,17 @@ export function ConfirmDialog({
         }
       }}
     >
+      {/* Named by the action, described by the visible message — pointing the
+          name at the message too would make screen readers read it twice. */}
       <div
         role="alertdialog"
         aria-modal="true"
-        aria-label={message}
+        aria-label={confirmLabel}
+        aria-describedby={messageId}
         className="w-full max-w-sm rounded border border-border bg-white p-4"
         onClick={(event) => event.stopPropagation()}
       >
-        <p className="text-sm leading-relaxed">{message}</p>
+        <p id={messageId} className="text-sm leading-relaxed">{message}</p>
         <div className="mt-4 flex justify-end gap-2">
           <button
             ref={cancelRef}

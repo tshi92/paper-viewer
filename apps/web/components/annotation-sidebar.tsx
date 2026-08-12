@@ -108,7 +108,12 @@ export function AnnotationSidebar({
                   style={{ background: color }}
                 />
                 <span>{annotation.author.name ?? annotation.author.email}</span>
-                <span className="rounded bg-surface px-1.5 py-0.5">
+                {/* The selected row is itself bg-surface, which would swallow the badge. */}
+                <span
+                  className={`rounded px-1.5 py-0.5 ${
+                    selectedId === annotation.id ? "bg-white" : "bg-surface"
+                  }`}
+                >
                   {t("pageBadge", { page: annotation.pageNumber })}
                 </span>
                 <span>{annotation.type === "area" ? t("typeArea") : t("typeHighlight")}</span>
