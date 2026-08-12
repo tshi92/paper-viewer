@@ -7,6 +7,7 @@ import { AreaHighlight, Highlight, PdfHighlighter, PdfLoader } from "react-pdf-h
 import type { Content, IHighlight, LTWHP, Position, ScaledPosition } from "react-pdf-highlighter";
 import "react-pdf-highlighter/dist/style.css";
 import { annotationColor, DEFAULT_HIGHLIGHT_COLOR } from "@paper-viewer/core/labels";
+import { LabelChip } from "./label-chip";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
 
 export type CreateAnnotationInput = {
@@ -211,16 +212,6 @@ function toHighlight(annotation: AnnotationView): IHighlight {
   };
 }
 
-function LabelChip({ label, dimmed = false }: { label: LabelView; dimmed?: boolean }) {
-  return (
-    <span
-      className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
-      style={{ background: label.color, opacity: dimmed ? 0.4 : 1 }}
-    >
-      {label.name}
-    </span>
-  );
-}
 
 function AnnotationPreview({ annotation, color }: AnnotationEntry) {
   const t = useTranslations("annotations");
@@ -247,7 +238,7 @@ function AnnotationPreview({ annotation, color }: AnnotationEntry) {
       {annotation.labels.length > 0 ? (
         <div className="mt-1 flex flex-wrap gap-1">
           {annotation.labels.map((label) => (
-            <LabelChip key={label.id} label={label} />
+            <LabelChip key={label.id} name={label.name} color={label.color} />
           ))}
         </div>
       ) : null}
@@ -310,7 +301,11 @@ function SelectionTip({
               onClick={() => toggleLabel(label.id)}
               className="rounded"
             >
-              <LabelChip label={label} dimmed={!selectedLabelIds.includes(label.id)} />
+              <LabelChip
+                name={label.name}
+                color={label.color}
+                dimmed={!selectedLabelIds.includes(label.id)}
+              />
             </button>
           ))}
         </div>

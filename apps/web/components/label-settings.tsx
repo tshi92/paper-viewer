@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { PAPER_LABEL_PALETTE } from "@paper-viewer/core/labels";
 import type { LabelListItem } from "@/lib/annotation-types";
 import { ConfirmDialog } from "./confirm-dialog";
 
@@ -12,7 +13,43 @@ const SCOPE_SECTIONS: { scope: LabelScope; headingKey: string; hintKey: string }
   { scope: "paper", headingKey: "paperHeading", hintKey: "paperHint" }
 ];
 
-const DEFAULT_COLOR = "#2563eb";
+const DEFAULT_COLOR: string = PAPER_LABEL_PALETTE[0];
+
+/**
+ * Preset swatches instead of the OS-native colour dialog: recognisable at a
+ * glance, one visual system with the rest of the page, and every option is a
+ * colour the tinted chips render well. A label whose stored colour predates
+ * the palette shows up as an extra leading swatch so the selection stays honest.
+ */
+function SwatchPicker({
+  value,
+  onChange,
+  ariaLabel
+}: {
+  value: string;
+  onChange: (color: string) => void;
+  ariaLabel: string;
+}) {
+  const palette = PAPER_LABEL_PALETTE.includes(value as (typeof PAPER_LABEL_PALETTE)[number])
+    ? PAPER_LABEL_PALETTE
+    : [value, ...PAPER_LABEL_PALETTE];
+  return (
+    <div role="radiogroup" aria-label={ariaLabel} className="flex shrink-0 flex-wrap items-center gap-1">
+      {palette.map((swatch) => (
+        <button
+          key={swatch}
+          type="button"
+          role="radio"
+          aria-checked={value === swatch}
+          aria-label={swatch}
+          className={`h-5 w-5 rounded-full ${value === swatch ? "ring-2 ring-accent ring-offset-1" : ""}`}
+          style={{ background: swatch }}
+          onClick={() => onChange(swatch)}
+        />
+      ))}
+    </div>
+  );
+}
 
 export function LabelSettings() {
   const t = useTranslations("settingsLabels");
@@ -164,13 +201,7 @@ function LabelRow({
     <div className="flex items-center gap-2 px-3 py-2" data-testid="label-row">
       {editing ? (
         <>
-          <input
-            aria-label={t("colorLabel")}
-            className="h-7 w-9 shrink-0 rounded border border-border"
-            type="color"
-            value={color}
-            onChange={(event) => setColor(event.target.value)}
-          />
+          <SwatchPicker value={color} onChange={setColor} ariaLabel={t("colorLabel")} />
           <input
             aria-label={t("namePlaceholder")}
             className="min-w-0 flex-1 rounded border border-border px-2 py-1 text-sm"
@@ -280,14 +311,7 @@ function AddLabelRow({
         void submit();
       }}
     >
-      <input
-        aria-label={t("colorLabel")}
-        className="h-7 w-9 shrink-0 rounded border border-border"
-        data-testid={`label-add-color-${scope}`}
-        type="color"
-        value={color}
-        onChange={(event) => setColor(event.target.value)}
-      />
+      <SwatchPicker value={color} onChange={setColor} ariaLabel={t("colorLabel")} />
       <input
         aria-label={t("namePlaceholder")}
         className="min-w-0 flex-1 rounded border border-border px-2 py-1 text-sm"

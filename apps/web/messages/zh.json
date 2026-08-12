@@ -141,7 +141,8 @@
     "tipCancel": "取消",
     "tipSave": "保存标注",
     "pdfLoading": "正在加载 PDF…",
-    "pdfError": "PDF 加载失败。"
+    "pdfError": "PDF 加载失败。",
+    "dotTitle": "高亮颜色"
   },
   "chat": {
     "heading": "与论文对话",

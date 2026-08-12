@@ -141,7 +141,8 @@
     "tipCancel": "Cancel",
     "tipSave": "Save annotation",
     "pdfLoading": "Loading PDF…",
-    "pdfError": "Failed to load PDF."
+    "pdfError": "Failed to load PDF.",
+    "dotTitle": "Highlight colour"
   },
   "chat": {
     "heading": "Chat with Paper",

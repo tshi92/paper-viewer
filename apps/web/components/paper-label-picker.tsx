@@ -4,18 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { LabelChip } from "./label-chip";
 import type { LabelView } from "@/lib/annotation-types";
-
-function LabelChip({ label, dimmed }: { label: LabelView; dimmed: boolean }) {
-  return (
-    <span
-      className="rounded px-1.5 py-0.5 text-[11px] font-medium text-white"
-      style={{ background: label.color, opacity: dimmed ? 0.35 : 1 }}
-    >
-      {label.name}
-    </span>
-  );
-}
 
 /**
  * Paper-level labels on the paper header card: the assigned labels as chips plus
@@ -71,7 +61,7 @@ export function PaperLabelPicker({
       <span className="text-xs text-muted">{t("label")}</span>
 
       {selectedLabels.map((label) => (
-        <LabelChip key={label.id} label={label} dimmed={false} />
+        <LabelChip key={label.id} name={label.name} color={label.color} />
       ))}
       {/* When the workspace has no paper labels at all, the hint below already
           says so — a bare "none" in front of it just reads as noise. */}
@@ -101,7 +91,11 @@ export function PaperLabelPicker({
         <div className="mt-1 flex w-full flex-wrap items-center gap-1 rounded border border-border bg-surface px-2 py-1.5">
           {available.map((label) => (
             <button key={label.id} type="button" onClick={() => void toggleLabel(label.id)} className="rounded">
-              <LabelChip label={label} dimmed={!selectedIds.includes(label.id)} />
+              <LabelChip
+                name={label.name}
+                color={label.color}
+                dimmed={!selectedIds.includes(label.id)}
+              />
             </button>
           ))}
           <Link className="ml-auto text-[11px] text-accent hover:underline" href="/settings/labels">

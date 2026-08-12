@@ -8,6 +8,7 @@ import { MoreTopics } from "@/components/more-topics";
 import { LibrarySearch } from "@/components/library-search";
 import { FilterDropdown } from "@/components/filter-dropdown";
 import { ReadingStateChips } from "@/components/reading-state-chips";
+import { LabelChip } from "@/components/label-chip";
 import { requireCurrentUser } from "@/lib/auth";
 
 /** Filter keys map to a translation key plus the window they select. */
@@ -260,13 +261,7 @@ export default async function LibraryPage({
                 {labelLinks.length > 0 ? (
                   <div className="flex gap-1">
                     {labelLinks.map(({ label: paperLabel }) => (
-                      <span
-                        key={paperLabel.id}
-                        className="rounded px-1.5 py-0.5 text-[10px] font-medium text-white"
-                        style={{ background: paperLabel.color }}
-                      >
-                        {paperLabel.name}
-                      </span>
+                      <LabelChip key={paperLabel.id} name={paperLabel.name} color={paperLabel.color} />
                     ))}
                   </div>
                 ) : null}

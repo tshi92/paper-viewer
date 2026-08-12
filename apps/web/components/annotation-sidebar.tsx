@@ -6,6 +6,7 @@ import { annotationColor } from "@paper-viewer/core/labels";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
 import { CommentBody } from "./comment-body";
 import { ConfirmDialog } from "./confirm-dialog";
+import { LabelChip } from "./label-chip";
 
 export function AnnotationSidebar({
   annotations,
@@ -96,7 +97,14 @@ export function AnnotationSidebar({
           >
             <button type="button" className="block w-full text-left" onClick={() => onJump(annotation)}>
               <div className="flex items-center gap-2 text-xs text-muted">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />
+                {/* The dot always mirrors the colour this annotation is painted
+                    with in the document — label names travel as text chips below. */}
+                <span
+                  aria-hidden
+                  title={t("dotTitle")}
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ background: color }}
+                />
                 <span>{annotation.author.name ?? annotation.author.email}</span>
                 <span className="rounded bg-surface px-1.5 py-0.5">
                   {t("pageBadge", { page: annotation.pageNumber })}
@@ -122,13 +130,7 @@ export function AnnotationSidebar({
               {annotation.labels.length > 0 ? (
                 <div className="mt-1 flex flex-wrap gap-1">
                   {annotation.labels.map((label) => (
-                    <span
-                      key={label.id}
-                      className="rounded px-1.5 py-0.5 text-[10px] text-white"
-                      style={{ background: label.color }}
-                    >
-                      {label.name}
-                    </span>
+                    <LabelChip key={label.id} name={label.name} color={label.color} />
                   ))}
                 </div>
               ) : null}
