@@ -220,29 +220,13 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-6">
       <section>
-        <div className="mb-4 rounded border border-border bg-white p-4">
-          <h1 className="text-xl font-semibold">{paper.title}</h1>
-          <p className="mt-2 text-sm text-muted">{paper.authors.join(", ")}</p>
-          <PaperLabelPicker
-            paperId={paper.id}
-            assigned={paper.paperLabels}
-            available={paper.paperLabelOptions}
-          />
-          <div className="mt-3 flex items-center gap-3">
-            {paper.arxivId ? (
-              <a
-                href={`https://arxiv.org/abs/${paper.arxivId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90"
-              >
-                {t("viewOnArxiv")}
-              </a>
-            ) : null}
-            {!paper.hasPdf && paper.arxivId ? (
-              <DownloadPdfButton paperId={paper.id} arxivId={paper.arxivId} />
-            ) : null}
-            <div className="ml-auto flex items-center gap-3 text-sm">
+        {/* Compact header: the PDF below is the page's protagonist, so the
+            card spends as little vertical space as possible. The arXiv link is
+            reference material, not a primary action — it reads as a text link. */}
+        <div className="mb-3 rounded border border-border bg-white px-4 py-3">
+          <div className="flex items-start justify-between gap-4">
+            <h1 className="text-lg font-semibold leading-snug">{paper.title}</h1>
+            <div className="flex shrink-0 items-center gap-3 text-sm">
               {paper.prevPaperId ? (
                 <Link className="text-accent hover:underline" href={`/papers/${paper.prevPaperId}`}>
                   {t("prevPaper")}
@@ -254,6 +238,32 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
                 </Link>
               ) : null}
             </div>
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            {paper.authors.join(", ")}
+            {paper.arxivId ? (
+              <>
+                {" · "}
+                <a
+                  href={`https://arxiv.org/abs/${paper.arxivId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="whitespace-nowrap text-accent hover:underline"
+                >
+                  arXiv:{paper.arxivId} ↗
+                </a>
+              </>
+            ) : null}
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <PaperLabelPicker
+              paperId={paper.id}
+              assigned={paper.paperLabels}
+              available={paper.paperLabelOptions}
+            />
+            {!paper.hasPdf && paper.arxivId ? (
+              <DownloadPdfButton paperId={paper.id} arxivId={paper.arxivId} />
+            ) : null}
           </div>
         </div>
 
@@ -290,8 +300,11 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           </div>
         )}
       </section>
-      <aside className="grid min-w-0 content-start gap-3">
-        <div className="rounded border border-border bg-white p-3">
+      {/* Sticky full-height column: the tab panel flexes to whatever the
+          viewport leaves over, so composers at the bottom always stay visible
+          no matter how tall the header card is. */}
+      <aside className="sticky top-6 flex h-[calc(100vh-3rem)] min-w-0 flex-col gap-3 self-start">
+        <div className="shrink-0 rounded border border-border bg-white p-3">
           <ReadingStateChips paperId={paper.id} state={paper.readingState as ReadingState} showLabel />
         </div>
 
@@ -305,7 +318,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         ) : null}
 
         {/* Tab switcher */}
-        <div className="flex rounded border border-border bg-white overflow-hidden">
+        <div className="flex shrink-0 rounded border border-border bg-white overflow-hidden">
           {(["annotations", "analysis", "chat", "comments"] as const).map((tab) => {
             const labels = {
               annotations: t("tabAnnotations"),
@@ -325,10 +338,10 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           })}
         </div>
 
-        {/* Fixed shared height so all four tab panels line up exactly; min-w-0
-            keeps the min-width chain intact so wide chat/code content scrolls
-            inside its panel instead of widening the 360px column. */}
-        <div className="h-[calc(100vh-240px)] min-h-0 min-w-0">
+        {/* All four tab panels share this flexed slot, so they line up exactly;
+            min-w-0 keeps the min-width chain intact so wide chat/code content
+            scrolls inside its panel instead of widening the 360px column. */}
+        <div className="min-h-0 min-w-0 flex-1">
         {activeTab === "annotations" ? (
           <AnnotationSidebar
             annotations={annotations}

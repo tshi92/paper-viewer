@@ -125,16 +125,18 @@ export default async function TodayPage() {
                     {Array.isArray(paper.authors) ? paper.authors.join(", ") : ""}
                   </p>
                   {analysis ? (
+                    // Clamped so one wordy analysis can't take over the day's
+                    // list; the paper page carries the full text.
                     <div className="mt-3 space-y-2 text-sm">
-                      <p>{analysis.summary}</p>
+                      <p className="line-clamp-3">{analysis.summary}</p>
                       {analysis.problem ? (
-                        <p className="text-muted"><span className="font-medium text-ink">{t("analysisProblem")}</span> {analysis.problem}</p>
+                        <p className="line-clamp-2 text-muted"><span className="font-medium text-ink">{t("analysisProblem")}</span> {analysis.problem}</p>
                       ) : null}
                       {analysis.method ? (
-                        <p className="text-muted"><span className="font-medium text-ink">{t("analysisMethod")}</span> {analysis.method}</p>
+                        <p className="line-clamp-2 text-muted"><span className="font-medium text-ink">{t("analysisMethod")}</span> {analysis.method}</p>
                       ) : null}
                       {analysis.keyFindings ? (
-                        <p className="text-muted"><span className="font-medium text-ink">{t("analysisResults")}</span> {analysis.keyFindings}</p>
+                        <p className="line-clamp-2 text-muted"><span className="font-medium text-ink">{t("analysisResults")}</span> {analysis.keyFindings}</p>
                       ) : null}
                       {analysis.keywords.length > 0 ? (
                         <div className="flex flex-wrap gap-1.5 pt-1">
