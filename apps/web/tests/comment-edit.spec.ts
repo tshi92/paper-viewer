@@ -196,6 +196,8 @@ test("annotation threads offer the same author-only edit and delete", async ({ p
 
   await signIn(page, ownerEmail);
   await page.goto(`/papers/${paperId}`);
+  // 简介 opens by default now; the annotation threads live in the 标注 tab.
+  await page.getByRole("button", { name: "标注" }).click();
 
   const thread = page.locator("article", { hasText: "thread comment by owner" });
   await expect(thread).toBeVisible();

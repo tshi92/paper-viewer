@@ -175,6 +175,7 @@ async function expectLandedOnSelectedMark(page: Page, label: string): Promise<vo
 test("sidebar jump reaches an off-screen page on every attempt", async ({ page }) => {
   await signIn(page);
   await page.goto(`/papers/${paperId}`);
+  await page.getByRole("button", { name: "标注" }).click();
 
   await expect(page.locator(".textLayer span").first()).toBeVisible({ timeout: 30_000 });
 
@@ -195,6 +196,7 @@ test("sidebar jump reaches an off-screen page on every attempt", async ({ page }
 test("sidebar jumps alternate between a far page and a near one", async ({ page }) => {
   await signIn(page);
   await page.goto(`/papers/${paperId}`);
+  await page.getByRole("button", { name: "标注" }).click();
 
   await expect(page.locator(".textLayer span").first()).toBeVisible({ timeout: 30_000 });
 

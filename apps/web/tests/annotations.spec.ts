@@ -139,6 +139,7 @@ test("highlight → label → comment → persists after reload", async ({ page 
   await expect(page.getByText("interesting")).toBeVisible();
 
   await page.reload();
+  await page.getByRole("button", { name: "标注" }).click();
 
   await expect(page.getByText("1 条")).toBeVisible();
   await expect(page.getByText("interesting")).toBeVisible();
@@ -186,6 +187,7 @@ test("⌥ drag area → label → paints a coloured box and persists", async ({ 
   // Reload proves the API stored it: area positions ship `rects: []`, which an
   // over-strict schema rejects outright.
   await page.reload();
+  await page.getByRole("button", { name: "标注" }).click();
   await expect(page.getByText("划区")).toBeVisible();
 });
 

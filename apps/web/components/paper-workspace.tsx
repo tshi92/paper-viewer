@@ -57,12 +57,14 @@ type SidebarTab = "annotations" | "analysis" | "chat" | "comments";
 /** Errors are stored as message keys, not rendered strings, so the banner follows the locale. */
 type WorkspaceErrorKey = "errorAnnotationCreate" | "errorAnnotationDelete" | "errorReply";
 
-const SIDEBAR_TABS = ["annotations", "analysis", "chat", "comments"] as const;
+// 简介 leads: opening a paper starts with what it's about; clicking a
+// highlight in the PDF still switches to 标注 automatically.
+const SIDEBAR_TABS = ["analysis", "annotations", "chat", "comments"] as const;
 
 export function PaperWorkspace({ paper }: { paper: PaperData }) {
   const t = useTranslations("workspace");
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<SidebarTab>("annotations");
+  const [activeTab, setActiveTab] = useState<SidebarTab>("analysis");
   const [annotations, setAnnotations] = useState<AnnotationView[]>([]);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<WorkspaceErrorKey | null>(null);
@@ -335,7 +337,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
 
         {/* Tab switcher */}
         <div className="flex shrink-0 rounded border border-border bg-white overflow-hidden">
-          {(["annotations", "analysis", "chat", "comments"] as const).map((tab) => {
+          {SIDEBAR_TABS.map((tab) => {
             const labels = {
               annotations: t("tabAnnotations"),
               analysis: t("tabAnalysis"),
