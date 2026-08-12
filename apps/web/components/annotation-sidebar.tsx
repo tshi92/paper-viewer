@@ -121,7 +121,11 @@ export function AnnotationSidebar({
         {filtered.map(({ annotation, color }) => (
           <article
             key={annotation.id}
-            className={`px-3 py-2.5 ${selectedId === annotation.id ? "bg-surface" : ""}`}
+            className={`border-l-2 px-3 py-2.5 transition-colors duration-150 ${
+              selectedId === annotation.id
+                ? "border-l-accent bg-accent/5"
+                : "border-l-transparent hover:bg-surface"
+            }`}
           >
             {/* The meta row lives outside the jump button so the annotation's own
                 delete action can sit next to the timestamp — inside the reply row
@@ -136,12 +140,7 @@ export function AnnotationSidebar({
                 style={{ background: color }}
               />
               <span>{annotation.author.name ?? annotation.author.email}</span>
-              {/* The selected row is itself bg-surface, which would swallow the badge. */}
-              <span
-                className={`rounded px-1.5 py-0.5 ${
-                  selectedId === annotation.id ? "bg-white" : "bg-surface"
-                }`}
-              >
+              <span className="rounded bg-surface px-1.5 py-0.5">
                 {t("pageBadge", { page: annotation.pageNumber })}
               </span>
               <span>{annotation.type === "area" ? t("typeArea") : t("typeHighlight")}</span>
@@ -244,7 +243,15 @@ export function AnnotationSidebar({
       <ConfirmDialog
         open={pendingDelete !== null}
         message={
-          pendingDelete ? t("deleteConfirm", { count: pendingDelete.comments.length }) : ""
+          pendingDelete
+            ? // Lead with what is being deleted: the quote is the annotation's
+              // identity, so the decision does not rely on memory.
+              `${
+                pendingDelete.quotedText
+                  ? `“${pendingDelete.quotedText.slice(0, 80)}${pendingDelete.quotedText.length > 80 ? "…" : ""}”\n`
+                  : ""
+              }${t("deleteConfirm", { count: pendingDelete.comments.length })}`
+            : ""
         }
         confirmLabel={t("delete")}
         busy={deleting}

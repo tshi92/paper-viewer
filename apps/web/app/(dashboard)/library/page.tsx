@@ -241,13 +241,20 @@ export default async function LibraryPage({
         ) : null}
       </div>
 
-      <div className="px-4 py-2 text-xs text-muted">
-        {t("paperCount", { count: workspacePapers.length })}
-        {time !== "all" ? ` · ${t(timeFilter.labelKey)}` : ""}
-        {tag ? ` · ${tag}` : ""}
-        {activeLabel ? ` · ${activeLabel.name}` : ""}
-        {stateFilter ? ` · ${tReadingState(stateFilter)}` : ""}
-        {query ? ` · "${q?.trim()}"` : ""}
+      <div className="flex items-center gap-2 px-4 py-2 text-xs text-muted">
+        <span className="tabular-nums">
+          {t("paperCount", { count: workspacePapers.length })}
+          {time !== "all" ? ` · ${t(timeFilter.labelKey)}` : ""}
+          {tag ? ` · ${tag}` : ""}
+          {activeLabel ? ` · ${activeLabel.name}` : ""}
+          {stateFilter ? ` · ${tReadingState(stateFilter)}` : ""}
+          {query ? ` · "${q?.trim()}"` : ""}
+        </span>
+        {time !== "all" || tag || label || stateFilter || query ? (
+          <Link className="text-accent hover:underline" href="/library">
+            {t("clearFilters")}
+          </Link>
+        ) : null}
       </div>
 
       <div className="divide-y divide-border">
@@ -296,7 +303,7 @@ export default async function LibraryPage({
                   arXiv
                 </a>
               ) : null}
-              <RemovePaperButton workspacePaperId={wpId} />
+              <RemovePaperButton workspacePaperId={wpId} paperTitle={paper.title} />
             </div>
           </div>
         ))}

@@ -42,6 +42,18 @@ export function LibrarySearch() {
 
   return (
     <div className="relative ml-auto">
+      <svg
+        aria-hidden
+        viewBox="0 0 16 16"
+        className="pointer-events-none absolute left-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      >
+        <circle cx="7" cy="7" r="4.5" />
+        <path d="m10.5 10.5 3 3" />
+      </svg>
       <input
         // text rather than search, so WebKit's native clear button does not duplicate the ✕ below
         type="text"
@@ -49,7 +61,7 @@ export function LibrarySearch() {
         onChange={(event) => setValue(event.target.value)}
         placeholder={t("searchPlaceholder")}
         aria-label={t("searchPlaceholder")}
-        className="w-56 rounded border border-control bg-white px-2 py-1 pr-6 text-xs placeholder:text-muted focus:border-accent"
+        className="w-56 rounded border border-control bg-white py-1 pl-7 pr-6 text-xs placeholder:text-muted focus:border-accent"
       />
       {value ? (
         <button

@@ -81,8 +81,7 @@
     "emptyFiltered": "No papers found with current filters.",
     "emptySearch": "No matching papers.",
     "remove": "Remove",
-    "removeConfirm": "Confirm",
-    "removeCancel": "Cancel",
+    "removeDialogMessage": "Remove \"{title}\" from the library?\nThe paper is archived; annotation and comment data are kept.",
     "clearFilters": "Clear filters"
   },
   "upload": {
@@ -355,6 +354,8 @@
     "syncFailed": "Sync failed. Please try again.",
     "syncNotConfigured": "Data source not configured yet (waiting for the repo link)",
     "syncDone": "Synced: {entries} entries, {created} new papers",
-    "truncatedNotice": "Too many results; showing the first {max}. Narrow with the filters."
+    "truncatedNotice": "Too many results; showing the first {max}. Narrow with the filters.",
+    "emptyFiltered": "No papers match the current filters.",
+    "clearFilters": "Clear filters"
   }
 }

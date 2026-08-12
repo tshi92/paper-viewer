@@ -72,7 +72,9 @@ export function ConfirmDialog({
         className="w-full max-w-sm rounded border border-border bg-white p-4 shadow-overlay"
         onClick={(event) => event.stopPropagation()}
       >
-        <p id={messageId} className="text-sm leading-relaxed">{message}</p>
+        {/* pre-line lets callers add context lines (quoted text, affected
+            objects) above the question without extra markup. */}
+        <p id={messageId} className="whitespace-pre-line text-sm leading-relaxed">{message}</p>
         <div className="mt-4 flex justify-end gap-2">
           <button
             ref={cancelRef}

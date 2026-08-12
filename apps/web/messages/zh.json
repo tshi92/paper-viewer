@@ -81,8 +81,7 @@
     "emptyFiltered": "当前筛选条件下没有论文。",
     "emptySearch": "没有匹配的论文。",
     "remove": "移除",
-    "removeConfirm": "确认",
-    "removeCancel": "取消",
+    "removeDialogMessage": "从文库移除《{title}》？\n论文将被归档，标注与评论数据保留。",
     "clearFilters": "清除筛选"
   },
   "upload": {
@@ -355,6 +354,8 @@
     "syncFailed": "同步失败，请重试",
     "syncNotConfigured": "数据源尚未配置（等待 repo 链接）",
     "syncDone": "同步完成：共 {entries} 条，新增 {created} 篇",
-    "truncatedNotice": "结果过多，仅显示前 {max} 条，请用筛选缩小范围。"
+    "truncatedNotice": "结果过多，仅显示前 {max} 条，请用筛选缩小范围。",
+    "emptyFiltered": "当前筛选下没有匹配的论文。",
+    "clearFilters": "清除筛选"
   }
 }
