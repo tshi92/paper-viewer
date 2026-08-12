@@ -113,7 +113,8 @@
     "pdfFallbackNotice": "PDF snapshot unavailable; showing the live arXiv version. Reload the page to retry pinning.",
     "analysisGenerate": "Generate intro",
     "analysisGenerating": "Generating…",
-    "analysisGenerateFailed": "Generation failed. Please try again."
+    "analysisGenerateFailed": "Generation failed. Please try again.",
+    "outlineHeading": "Contents"
   },
   "paperLabels": {
     "label": "Labels:",

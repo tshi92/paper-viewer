@@ -16,6 +16,7 @@ import type { CreateAnnotationInput } from "./pdf-annotator";
 import type { ReadingState } from "@paper-viewer/core/paper-status";
 import type { WorkspaceRole } from "@paper-viewer/core/permissions";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
+import type { PdfOutlineEntry } from "@/lib/pdf-outline";
 
 // react-pdf-highlighter touches the DOM at import time, so the annotator is
 // client-only.
@@ -73,6 +74,10 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<WorkspaceErrorKey | null>(null);
   const scrollToAnnotation = useRef<((annotation: AnnotationView) => void) | null>(null);
+  // Embedded PDF bookmarks, reported by the annotator once the document loads;
+  // null while loading (or when the paper renders without the annotator).
+  const [outline, setOutline] = useState<PdfOutlineEntry[] | null>(null);
+  const scrollToPage = useRef<((page: number) => void) | null>(null);
 
   // Local mutations apply optimistically, so a poll response that started before
   // a mutation would resurrect deleted rows or drop just-created ones. Bumping
@@ -201,6 +206,10 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
     scrollToAnnotation.current = fn;
   }, []);
 
+  const registerScrollToPage = useCallback((fn: (page: number) => void) => {
+    scrollToPage.current = fn;
+  }, []);
+
   // Triage accelerators: j/k step through the library order, 1–4 switch the
   // sidebar tabs. Anything typed into a field never reaches these.
   useEffect(() => {
@@ -311,6 +320,8 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             }}
             onCreate={handleCreateAnnotation}
             registerScrollTo={registerScrollTo}
+            onOutline={setOutline}
+            registerScrollToPage={registerScrollToPage}
           />
           </>
         ) : (
@@ -392,7 +403,12 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             onDelete={handleDeleteAnnotation}
           />
         ) : activeTab === "analysis" ? (
-          <AnalysisPanel analysis={paper.analysis} paperId={paper.id} />
+          <AnalysisPanel
+            analysis={paper.analysis}
+            paperId={paper.id}
+            outline={outline}
+            onJumpToPage={(page) => scrollToPage.current?.(page)}
+          />
         ) : activeTab === "chat" ? (
           <PaperChat paperId={paper.id} />
         ) : (

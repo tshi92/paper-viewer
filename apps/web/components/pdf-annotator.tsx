@@ -9,6 +9,7 @@ import "react-pdf-highlighter/dist/style.css";
 import { annotationColor, DEFAULT_HIGHLIGHT_COLOR } from "@paper-viewer/core/labels";
 import { LabelChip } from "./label-chip";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
+import { extractPdfOutline, type OutlineCapableDocument, type PdfOutlineEntry } from "@/lib/pdf-outline";
 
 export type CreateAnnotationInput = {
   type: "highlight" | "area";
@@ -94,6 +95,11 @@ class StablePdfHighlighter extends PdfHighlighter<IHighlight> {
     if (viewer.pagesCount > 0) this.onDocumentReady();
     this.onTextLayerRendered();
   }
+
+  /** Page-level jump for the outline panel (highlight jumps go via scrollRef). */
+  scrollToPage(pageNumber: number) {
+    this.viewer?.scrollPageIntoView({ pageNumber });
+  }
 }
 
 /**
@@ -102,6 +108,30 @@ class StablePdfHighlighter extends PdfHighlighter<IHighlight> {
  * re-inits in place, hitting the same viewer-versus-bus split described above.
  * Keying the highlighter on the document turns that into a clean remount.
  */
+/**
+ * Extracts the embedded bookmark outline once per document and reports it up.
+ * Lives inside PdfLoader's render prop, which is the only place the document
+ * proxy exists; renders nothing.
+ */
+function OutlineExtractor({
+  pdfDocument,
+  onOutline
+}: {
+  pdfDocument: OutlineCapableDocument;
+  onOutline: (outline: PdfOutlineEntry[]) => void;
+}) {
+  useEffect(() => {
+    let cancelled = false;
+    void extractPdfOutline(pdfDocument).then((outline) => {
+      if (!cancelled) onOutline(outline);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pdfDocument, onOutline]);
+  return null;
+}
+
 const documentKeys = new WeakMap<object, string>();
 let documentKeySeq = 0;
 function documentKey(pdfDocument: object): string {
@@ -380,7 +410,9 @@ export function PdfAnnotator({
   selectedId,
   onSelect,
   onCreate,
-  registerScrollTo
+  registerScrollTo,
+  onOutline,
+  registerScrollToPage
 }: {
   pdfUrl: string;
   annotations: AnnotationView[];
@@ -389,6 +421,9 @@ export function PdfAnnotator({
   onSelect: (id: string) => void;
   onCreate: (input: CreateAnnotationInput) => Promise<void>;
   registerScrollTo?: (fn: (annotation: AnnotationView) => void) => void;
+  /** Reports the document's embedded bookmark outline (possibly []) once loaded. */
+  onOutline?: (outline: PdfOutlineEntry[]) => void;
+  registerScrollToPage?: (fn: (page: number) => void) => void;
 }) {
   const t = useTranslations("annotations");
 
@@ -592,6 +627,13 @@ export function PdfAnnotator({
     registerScrollTo?.(scrollToAnnotation);
   }, [registerScrollTo, scrollToAnnotation]);
 
+  // Page jumps come from the outline panel; the instance ref survives the
+  // StrictMode remount because the highlighter is keyed on the document.
+  const highlighterRef = useRef<StablePdfHighlighter | null>(null);
+  useEffect(() => {
+    registerScrollToPage?.((page) => highlighterRef.current?.scrollToPage(page));
+  }, [registerScrollToPage]);
+
   // Selecting from anywhere but the sidebar — creating an annotation, clicking a
   // mark — has to bring the target into view too. The sidebar's own jump has
   // already run by the time this fires and recorded the id, so it is not
@@ -716,19 +758,28 @@ export function PdfAnnotator({
         errorMessage={<p className="p-4 text-sm text-muted">{t("pdfError")}</p>}
       >
         {(pdfDocument) => (
-          <StablePdfHighlighter
-            key={documentKey(pdfDocument)}
-            pdfDocument={pdfDocument}
-            highlights={highlights}
-            pdfScaleValue="page-width"
-            onScrollChange={noop}
-            scrollRef={(scrollTo) => {
-              scrollToRef.current = scrollTo;
-            }}
-            enableAreaSelection={(event) => event.altKey}
-            onSelectionFinished={handleSelectionFinished}
-            highlightTransform={renderHighlight}
-          />
+          <>
+            {onOutline ? (
+              <OutlineExtractor
+                pdfDocument={pdfDocument as unknown as OutlineCapableDocument}
+                onOutline={onOutline}
+              />
+            ) : null}
+            <StablePdfHighlighter
+              ref={highlighterRef}
+              key={documentKey(pdfDocument)}
+              pdfDocument={pdfDocument}
+              highlights={highlights}
+              pdfScaleValue="page-width"
+              onScrollChange={noop}
+              scrollRef={(scrollTo) => {
+                scrollToRef.current = scrollTo;
+              }}
+              enableAreaSelection={(event) => event.altKey}
+              onSelectionFinished={handleSelectionFinished}
+              highlightTransform={renderHighlight}
+            />
+          </>
         )}
       </PdfLoader>
       {hoverPreview && previewEntry ? (
