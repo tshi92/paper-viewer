@@ -2,6 +2,7 @@
   "nav": {
     "brand": "Paper Viewer",
     "today": "Today",
+    "conferences": "Conferences",
     "library": "Library",
     "settings": "Settings",
     "signOut": "Sign out"
@@ -332,6 +333,25 @@
     "saveToLibrary": "Save to library",
     "saving": "Saving…",
     "saveFailed": "Save failed. Please try again.",
-    "noPdf": "No PDF available."
+    "noPdf": "No PDF available.",
+    "duplicateInLibrary": "Already in the library",
+    "duplicateView": "View"
+  },
+  "conferences": {
+    "title": "Conferences",
+    "venueFilterAria": "Filter by venue",
+    "yearFilterAria": "Filter by year",
+    "allVenues": "All venues",
+    "allYears": "All years",
+    "count": "{count} papers",
+    "emptyTitle": "No conference papers yet",
+    "emptyBody": "Once an admin syncs the data source, recent systems-conference papers will appear here.",
+    "emptyBodyAdmin": "Configure the data source (CONFERENCE_SOURCE_URL), then click \"Sync catalog\" to import the conference list.",
+    "sync": "Sync catalog",
+    "syncing": "Syncing…",
+    "syncFailed": "Sync failed. Please try again.",
+    "syncNotConfigured": "Data source not configured yet (waiting for the repo link)",
+    "syncDone": "Synced: {entries} entries, {created} new papers",
+    "truncatedNotice": "Too many results; showing the first {max}. Narrow with the filters."
   }
 }

@@ -112,6 +112,7 @@ model Paper {
   files           PaperFile[]
   workspacePapers WorkspacePaper[]
   analyses        PaperAnalysis[]
+  conferenceEntries ConferenceEntry[]
 
   @@unique([source, sourceId])
   @@unique([doi])
@@ -133,6 +134,23 @@ model PaperAnalysis {
   createdAt       DateTime  @default(now())
   paper           Paper     @relation(fields: [paperId], references: [id], onDelete: Cascade)
 
+  @@index([paperId])
+}
+
+// A paper's membership in a top-conference program (e.g. SOSP 2025). Rows are
+// global, not per-workspace: the conference catalog is shared content synced
+// from an external GitHub repo, and every workspace may preview these papers
+// until someone saves one into their own library.
+model ConferenceEntry {
+  id        String   @id @default(cuid())
+  venue     String
+  year      Int
+  paperId   String
+  createdAt DateTime @default(now())
+  paper     Paper    @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@unique([venue, year, paperId])
+  @@index([venue, year])
   @@index([paperId])
 }
 

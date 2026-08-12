@@ -16,6 +16,7 @@ export async function AppShell({ user, children }: { user: CurrentUser; children
             <TopNav
               items={[
                 { href: "/today", label: t("today") },
+                { href: "/conferences", label: t("conferences") },
                 { href: "/library", label: t("library"), also: ["/papers"] },
                 { href: "/settings", label: t("settings") }
               ]}
