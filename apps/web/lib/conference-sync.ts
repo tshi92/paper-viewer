@@ -158,7 +158,74 @@ export type ConferenceSyncResult = {
   createdPapers: number;
   linkedExisting: number;
   skipped: number;
+  removedDuplicates: number;
 };
+
+export type CatalogEntryRow = {
+  id: string;
+  paper: {
+    title: string;
+    arxivId: string | null;
+    pdfUrl: string | null;
+    blobUrl: string | null;
+    externalUrl: string | null;
+  };
+};
+
+/** Rows that can render an inline PDF outrank bare metadata; a source link breaks ties. */
+function catalogRowScore(row: CatalogEntryRow): number {
+  const pdfCapable = row.paper.arxivId || row.paper.pdfUrl || row.paper.blobUrl;
+  return (pdfCapable ? 2 : 0) + (row.paper.externalUrl ? 1 : 0);
+}
+
+/**
+ * Catalog entries of one venue-year that list the same article twice. Re-syncs
+ * can legitimately re-resolve an article to a different Paper row — an arXiv
+ * or uploaded twin that did not exist at the first import — and the
+ * (venue, year, paperId) unique key cannot see that. Within one venue-year an
+ * identical normalized title IS the same article, so each title group keeps
+ * exactly one entry (the highest-scoring row) and the rest are surplus.
+ */
+export function surplusCatalogEntries(rows: CatalogEntryRow[]): string[] {
+  const groups = new Map<string, CatalogEntryRow[]>();
+  for (const row of rows) {
+    const key = normalizeTitle(row.paper.title);
+    if (!key) continue;
+    const bucket = groups.get(key) ?? [];
+    bucket.push(row);
+    groups.set(key, bucket);
+  }
+
+  const surplus: string[] = [];
+  for (const bucket of groups.values()) {
+    if (bucket.length < 2) continue;
+    const keep = [...bucket].sort((a, b) => catalogRowScore(b) - catalogRowScore(a))[0]!;
+    for (const row of bucket) {
+      if (row.id !== keep.id) surplus.push(row.id);
+    }
+  }
+  return surplus;
+}
+
+/** Delete duplicate catalog entries for the given venue-years; returns how many were removed. */
+async function dedupeConferenceEntries(pairs: { venue: string; year: number }[]): Promise<number> {
+  let removed = 0;
+  for (const { venue, year } of pairs) {
+    const rows = await prisma.conferenceEntry.findMany({
+      where: { venue, year },
+      select: {
+        id: true,
+        paper: { select: { title: true, arxivId: true, pdfUrl: true, blobUrl: true, externalUrl: true } }
+      }
+    });
+    const surplus = surplusCatalogEntries(rows);
+    if (surplus.length > 0) {
+      await prisma.conferenceEntry.deleteMany({ where: { id: { in: surplus } } });
+      removed += surplus.length;
+    }
+  }
+  return removed;
+}
 
 /**
  * Import one parsed feed (typically one venue-year file) in a fixed number of
@@ -172,7 +239,7 @@ export type ConferenceSyncResult = {
 export async function syncConferencePapers(feed: unknown): Promise<Omit<ConferenceSyncResult, "files">> {
   const { entries, skipped } = parseConferenceFeed(feed);
   if (entries.length === 0) {
-    return { entries: 0, createdPapers: 0, linkedExisting: 0, skipped };
+    return { entries: 0, createdPapers: 0, linkedExisting: 0, skipped, removedDuplicates: 0 };
   }
 
   const arxivIds = [...new Set(entries.map((entry) => entry.arxivId).filter((id): id is string => Boolean(id)))];
@@ -189,12 +256,37 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
         { source: "conference", sourceId: { in: sourceIds } }
       ]
     },
-    select: { id: true, title: true, doi: true, arxivId: true, sourceId: true, source: true, externalUrl: true }
+    select: {
+      id: true,
+      title: true,
+      doi: true,
+      arxivId: true,
+      sourceId: true,
+      source: true,
+      externalUrl: true,
+      pdfUrl: true,
+      blobUrl: true
+    }
   });
 
   const byArxiv = new Map(existing.filter((p) => p.arxivId).map((p) => [p.arxivId!, p.id]));
   const byDoi = new Map(existing.filter((p) => p.doi).map((p) => [p.doi!, p.id]));
-  const byTitle = new Map(existing.map((p) => [normalizeTitle(p.title), p.id]));
+  // Several rows can share a title (a conference shell next to an arXiv or
+  // uploaded twin). Resolution must be deterministic and prefer the row that
+  // can show a PDF — last-write-wins here made re-syncs flip targets and
+  // list the article twice in the catalog.
+  const titleScore = (p: (typeof existing)[number]) =>
+    (p.arxivId || p.pdfUrl || p.blobUrl ? 2 : 0) + (p.externalUrl ? 1 : 0);
+  const byTitle = new Map<string, string>();
+  const byTitleScore = new Map<string, number>();
+  for (const paper of existing) {
+    const key = normalizeTitle(paper.title);
+    const score = titleScore(paper);
+    if (!byTitle.has(key) || score > (byTitleScore.get(key) ?? -1)) {
+      byTitle.set(key, paper.id);
+      byTitleScore.set(key, score);
+    }
+  }
   const bySourceId = new Map(
     existing.filter((p) => p.source === "conference" && p.sourceId).map((p) => [p.sourceId!, p.id])
   );
@@ -274,7 +366,15 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
   }
   await prisma.conferenceEntry.createMany({ data: links, skipDuplicates: true });
 
-  return { entries: entries.length, createdPapers: toCreate.length, linkedExisting, skipped };
+  // Self-heal: collapse entries that list the same article twice — both the
+  // leftovers of pre-fix flip-flops and anything a future resolution change
+  // might introduce. Runs per venue-year touched by this feed.
+  const venueYears = [
+    ...new Map(entries.map((entry) => [`${entry.venue} ${entry.year}`, { venue: entry.venue, year: entry.year }])).values()
+  ];
+  const removedDuplicates = await dedupeConferenceEntries(venueYears);
+
+  return { entries: entries.length, createdPapers: toCreate.length, linkedExisting, skipped, removedDuplicates };
 }
 
 type GithubContentEntry = { type: string; name: string };
@@ -342,7 +442,14 @@ export async function syncConferencesFromSource(): Promise<ConferenceSyncResult>
   }
 
   const paths = await listDataFiles(repo.owner, repo.repo);
-  const totals: ConferenceSyncResult = { files: 0, entries: 0, createdPapers: 0, linkedExisting: 0, skipped: 0 };
+  const totals: ConferenceSyncResult = {
+    files: 0,
+    entries: 0,
+    createdPapers: 0,
+    linkedExisting: 0,
+    skipped: 0,
+    removedDuplicates: 0
+  };
 
   for (const path of paths) {
     const feed = await fetchJson(
@@ -354,6 +461,7 @@ export async function syncConferencesFromSource(): Promise<ConferenceSyncResult>
     totals.createdPapers += result.createdPapers;
     totals.linkedExisting += result.linkedExisting;
     totals.skipped += result.skipped;
+    totals.removedDuplicates += result.removedDuplicates;
   }
 
   return totals;
