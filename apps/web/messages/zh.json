@@ -93,7 +93,8 @@
     "processing": "处理中…",
     "urlPlaceholder": "或粘贴 arXiv / PDF 链接",
     "add": "添加",
-    "urlFailed": "无法从该链接添加论文"
+    "urlFailed": "无法从该链接添加论文",
+    "duplicateMerged": "该论文已在文库中，已为你打开现有条目。"
   },
   "workspace": {
     "tabAnnotations": "标注",

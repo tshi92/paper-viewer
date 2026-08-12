@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import { toast } from "@/components/toast";
 
 export function PaperUploadForm() {
   const t = useTranslations("upload");
@@ -24,8 +25,11 @@ export function PaperUploadForm() {
     try {
       const res = await fetch("/api/papers", { method: "POST", body: formData });
       if (res.ok) {
-        const data = (await res.json()) as { paperId?: string };
+        const data = (await res.json()) as { paperId?: string; duplicate?: boolean };
         if (data.paperId) {
+          // A duplicate points at the library's existing row (with this PDF
+          // attached when that row had none) — say so instead of silently landing there.
+          if (data.duplicate) toast.info(t("duplicateMerged"));
           router.push(`/papers/${data.paperId}`);
           return;
         }
@@ -53,8 +57,9 @@ export function PaperUploadForm() {
         body: JSON.stringify({ url: trimmed })
       });
       if (res.ok) {
-        const data = (await res.json()) as { paperId?: string };
+        const data = (await res.json()) as { paperId?: string; duplicate?: boolean };
         if (data.paperId) {
+          if (data.duplicate) toast.info(t("duplicateMerged"));
           router.push(`/papers/${data.paperId}`);
           return;
         }

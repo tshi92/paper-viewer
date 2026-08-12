@@ -93,7 +93,8 @@
     "processing": "Processing...",
     "urlPlaceholder": "or paste arXiv / PDF link",
     "add": "Add",
-    "urlFailed": "Failed to add paper from URL"
+    "urlFailed": "Failed to add paper from URL",
+    "duplicateMerged": "Already in the library — opened the existing entry."
   },
   "workspace": {
     "tabAnnotations": "Annotations",
