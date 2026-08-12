@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { annotationColor } from "@paper-viewer/core/labels";
 import { canModifyComment, type WorkspaceRole } from "@paper-viewer/core/permissions";
@@ -43,6 +43,9 @@ export function AnnotationSidebar({
   const [authorFilter, setAuthorFilter] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("position");
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  // Reply posts already in flight; a second Enter before the first resolves
+  // must not send the same draft again.
+  const sendingReplies = useRef(new Set<string>());
   const [pendingDelete, setPendingDelete] = useState<AnnotationView | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -232,15 +235,22 @@ export function AnnotationSidebar({
                 }
                 onKeyDown={async (event) => {
                   if (event.key !== "Enter") return;
+                  // An IME's confirm-candidate Enter arrives as a keydown too;
+                  // without this guard one physical Enter posts the reply twice.
+                  if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                   const body = (replyDrafts[annotation.id] ?? "").trim();
                   if (!body) return;
                   event.preventDefault();
+                  if (sendingReplies.current.has(annotation.id)) return;
+                  sendingReplies.current.add(annotation.id);
                   try {
                     await onReply(annotation.id, body);
                   } catch {
                     // Keep the draft so the reply is not lost; the workspace
                     // surfaces the failure in its error banner.
                     return;
+                  } finally {
+                    sendingReplies.current.delete(annotation.id);
                   }
                   setReplyDrafts((drafts) => ({ ...drafts, [annotation.id]: "" }));
                 }}

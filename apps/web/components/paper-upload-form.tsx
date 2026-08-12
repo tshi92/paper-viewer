@@ -86,7 +86,11 @@ export function PaperUploadForm() {
           placeholder={t("urlPlaceholder")} aria-label={t("urlPlaceholder")}
           value={url}
           onChange={(e) => { setUrl(e.target.value); setError(""); }}
-          onKeyDown={(e) => { if (e.key === "Enter") handleUrl(); }}
+          onKeyDown={(e) => {
+            // Skip the IME's confirm-candidate Enter (double-submit guard).
+            if (e.nativeEvent.isComposing || e.keyCode === 229) return;
+            if (e.key === "Enter") handleUrl();
+          }}
           disabled={loading}
         />
         <button

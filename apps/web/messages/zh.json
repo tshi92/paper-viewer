@@ -111,8 +111,6 @@
     "errorAnnotationDelete": "删除失败，请重试",
     "errorReply": "回复发送失败",
     "pdfFallbackNotice": "PDF 快照暂不可用，当前显示 arXiv 实时版本；刷新页面可重试固化。",
-    "prevPaper": "← 上一篇",
-    "nextPaper": "下一篇 →",
     "analysisGenerate": "生成简介",
     "analysisGenerating": "生成中…",
     "analysisGenerateFailed": "生成失败，请重试。"

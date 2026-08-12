@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { CommentPanel } from "./comment-panel";
@@ -243,21 +242,9 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             card spends as little vertical space as possible. The arXiv link is
             reference material, not a primary action — it reads as a text link. */}
         <div className="mb-3 rounded border border-border bg-white shadow-card px-4 py-3">
-          <div className="flex items-start justify-between gap-4">
-            <h1 className="text-lg font-semibold leading-snug">{paper.title}</h1>
-            <div className="flex shrink-0 items-center gap-3 text-sm">
-              {paper.prevPaperId ? (
-                <Link className="text-accent hover:underline" href={`/papers/${paper.prevPaperId}`}>
-                  {t("prevPaper")}
-                </Link>
-              ) : null}
-              {paper.nextPaperId ? (
-                <Link className="text-accent hover:underline" href={`/papers/${paper.nextPaperId}`}>
-                  {t("nextPaper")}
-                </Link>
-              ) : null}
-            </div>
-          </div>
+          {/* Prev/next stays keyboard-only (j/k): the header links duplicated
+              it and competed with the title for attention. */}
+          <h1 className="text-lg font-semibold leading-snug">{paper.title}</h1>
           <p className="mt-1 text-xs text-muted">
             {paper.authors.join(", ")}
             {paper.arxivId ? (

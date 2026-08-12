@@ -111,8 +111,6 @@
     "errorAnnotationDelete": "Delete failed. Please try again.",
     "errorReply": "Could not send the reply.",
     "pdfFallbackNotice": "PDF snapshot unavailable; showing the live arXiv version. Reload the page to retry pinning.",
-    "prevPaper": "← Previous",
-    "nextPaper": "Next →",
     "analysisGenerate": "Generate intro",
     "analysisGenerating": "Generating…",
     "analysisGenerateFailed": "Generation failed. Please try again."

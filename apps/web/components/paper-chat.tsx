@@ -139,6 +139,8 @@ export function PaperChat({ paperId }: { paperId: string }) {
   );
 
   function handleKeyDown(e: React.KeyboardEvent) {
+    // Skip the IME's confirm-candidate Enter, or one physical Enter sends twice.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();

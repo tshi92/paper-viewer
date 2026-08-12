@@ -241,6 +241,8 @@ function LabelRow({
             value={name}
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => {
+              // Skip the IME's confirm-candidate Enter (double-submit guard).
+              if (event.nativeEvent.isComposing || event.keyCode === 229) return;
               if (event.key === "Enter") {
                 event.preventDefault();
                 void save();
