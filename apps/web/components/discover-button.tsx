@@ -3,16 +3,22 @@
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "@/components/toast";
 
+/**
+ * Kicks off the digest pipeline. Failures go to the global toast stack (it
+ * lives in the layout and error toasts stay until dismissed), because an
+ * inline message under this button vanished as soon as the user switched
+ * pages — which made an instant failure indistinguishable from a run in
+ * progress. Mid-run state is carried by the server-derived progress banner.
+ */
 export function DiscoverButton() {
   const t = useTranslations("home");
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   async function handleDiscover() {
     setLoading(true);
-    setError(null);
 
     try {
       const res = await fetch("/api/papers/discover", { method: "POST" });
@@ -22,33 +28,30 @@ export function DiscoverButton() {
       try {
         data = JSON.parse(text);
       } catch {
-        setError(text || t("discoverServerError"));
+        toast.error(text || t("discoverServerError"));
         return;
       }
 
       if (!res.ok) {
-        setError(data.error ?? t("discoverFailed"));
+        toast.error(data.error ?? t("discoverFailed"));
         return;
       }
 
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("discoverNetworkError"));
+      toast.error(err instanceof Error ? err.message : t("discoverNetworkError"));
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <button
-        className="rounded bg-accent transition-transform duration-150 active:scale-[0.98] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        onClick={handleDiscover}
-        disabled={loading}
-      >
-        {loading ? t("discovering") : t("discover")}
-      </button>
-      {error ? <p role="alert" className="text-xs text-danger">{error}</p> : null}
-    </div>
+    <button
+      className="rounded bg-accent transition-transform duration-150 active:scale-[0.98] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+      onClick={handleDiscover}
+      disabled={loading}
+    >
+      {loading ? t("discovering") : t("discover")}
+    </button>
   );
 }

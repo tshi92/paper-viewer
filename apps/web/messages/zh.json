@@ -115,7 +115,8 @@
     "analysisGenerate": "生成简介",
     "analysisGenerating": "生成中…",
     "analysisGenerateFailed": "生成失败，请重试。",
-    "outlineHeading": "目录"
+    "outlineHeading": "目录",
+    "downloadFailed": "下载失败"
   },
   "paperLabels": {
     "label": "标签：",

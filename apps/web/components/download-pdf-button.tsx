@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "@/components/toast";
 
 export function DownloadPdfButton({ paperId, arxivId }: { paperId: string; arxivId: string }) {
   const t = useTranslations("workspace");
@@ -20,7 +21,14 @@ export function DownloadPdfButton({ paperId, arxivId }: { paperId: string; arxiv
 
       if (res.ok) {
         router.refresh();
+      } else {
+        // A silent failure here hid "no storage configured" for a whole
+        // production session; name the cause so the admin can act.
+        const body = (await res.json().catch(() => ({}))) as { error?: string };
+        toast.error(body.error ? `${t("downloadFailed")} (${body.error})` : t("downloadFailed"));
       }
+    } catch {
+      toast.error(t("downloadFailed"));
     } finally {
       setLoading(false);
     }
