@@ -1,5 +1,5 @@
 import { canManageWorkspaceSettings } from "@paper-viewer/core/permissions";
-import { conferenceSourceUrl, syncConferencesFromSource } from "@/lib/conference-sync";
+import { conferenceSourceUrl, parseGithubRepo, syncConferencesFromSource } from "@/lib/conference-sync";
 import { requireCurrentUser } from "@/lib/auth";
 
 // Importing a full multi-year catalog can exceed the default function limit.
@@ -18,7 +18,9 @@ export async function POST() {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  if (!conferenceSourceUrl()) {
+  // The default source is built in, so the only configuration failure left is
+  // an override that is not a github.com repo URL.
+  if (!parseGithubRepo(conferenceSourceUrl())) {
     return Response.json({ error: "source_not_configured" }, { status: 400 });
   }
 

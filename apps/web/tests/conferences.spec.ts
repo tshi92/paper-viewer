@@ -99,7 +99,9 @@ async function signIn(page: Page): Promise<void> {
 
 test("catalog lists entries by venue, previews before save, saves into the library", async ({ page }) => {
   await signIn(page);
-  await page.goto("/conferences");
+  // The unfiltered catalog holds thousands of real entries and caps the page,
+  // so every fixture assertion goes through its own venue filter.
+  await page.goto(`/conferences?venue=${venueA}`);
 
   await expect(page.getByRole("heading", { name: `${venueA} 2025` })).toBeVisible();
   const sectionA = page.locator("section", { has: page.getByText(`Conference Fixture Alpha ${run}`) });
@@ -110,7 +112,7 @@ test("catalog lists entries by venue, previews before save, saves into the libra
   await expect(page.getByText("预览模式", { exact: false })).toBeVisible();
 
   // Save from the catalog card.
-  await page.goto("/conferences");
+  await page.goto(`/conferences?venue=${venueA}`);
   await sectionA.getByRole("button", { name: "存入文库" }).click();
   await expect(sectionA.getByText("已在文库")).toBeVisible();
 
@@ -125,7 +127,7 @@ test("catalog lists entries by venue, previews before save, saves into the libra
 
 test("saving a title twin of a library paper is refused with a pointer to the existing entry", async ({ page }) => {
   await signIn(page);
-  await page.goto("/conferences");
+  await page.goto(`/conferences?venue=${venueB}`);
 
   const sectionB = page.locator("section", { has: page.getByText(`conference fixture TWIN ${run}!`) });
   await sectionB.getByRole("button", { name: "存入文库" }).click();
@@ -145,20 +147,35 @@ test("venue filter narrows the catalog", async ({ page }) => {
   await signIn(page);
   await page.goto("/conferences");
 
-  await expect(page.getByText(`Conference Fixture Alpha ${run}`)).toBeVisible();
-  await expect(page.getByText(`conference fixture TWIN ${run}!`)).toBeVisible();
-
+  // The fixture venues sort far outside the capped unfiltered page, but the
+  // filter options list every venue, so selecting one must surface it.
   await page.getByLabel("按会议筛选").selectOption(venueA);
   await expect(page).toHaveURL(new RegExp(`venue=${venueA}`));
   await expect(page.getByText(`Conference Fixture Alpha ${run}`)).toBeVisible();
   await expect(page.getByText(`conference fixture TWIN ${run}!`)).toHaveCount(0);
 });
 
-test("sync endpoint is admin-gated and reports the placeholder source", async ({ page }) => {
-  await signIn(page);
+test("sync endpoint is admin-gated", async ({ page }) => {
+  // A plain member must not be able to trigger a catalog import.
+  const memberEmail = `conferences-e2e-member-${run}@example.com`;
+  const member = await prisma.user.create({
+    data: {
+      email: memberEmail,
+      name: `Conferences E2E Member ${run}`,
+      passwordHash: await bcrypt.hash(password, 10),
+      memberships: { create: { role: "member", workspaceId } }
+    }
+  });
+  try {
+    await page.goto("/login");
+    await page.getByPlaceholder("邮箱").fill(memberEmail);
+    await page.getByPlaceholder("密码").fill(password);
+    await page.getByRole("button", { name: "登录" }).click();
+    await expect(page).toHaveURL(/\/(today)?$/);
 
-  // Owner + unconfigured source → explicit "not configured" error.
-  const response = await page.request.post("/api/conferences/sync");
-  expect(response.status()).toBe(400);
-  expect((await response.json()).error).toBe("source_not_configured");
+    const response = await page.request.post("/api/conferences/sync");
+    expect(response.status()).toBe(403);
+  } finally {
+    await prisma.user.delete({ where: { id: member.id } }).catch(() => undefined);
+  }
 });
