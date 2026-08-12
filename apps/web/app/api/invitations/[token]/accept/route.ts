@@ -51,5 +51,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   });
 
   await setSession(user.id);
-  redirect("/library");
+  redirect("/");
 }

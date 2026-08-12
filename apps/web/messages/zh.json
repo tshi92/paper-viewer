@@ -107,7 +107,12 @@
     "errorAnnotationCreate": "标注保存失败，请重试",
     "errorAnnotationDelete": "删除失败，请重试",
     "errorReply": "回复发送失败",
-    "pdfFallbackNotice": "PDF 快照暂不可用，当前显示 arXiv 实时版本；刷新页面可重试固化。"
+    "pdfFallbackNotice": "PDF 快照暂不可用，当前显示 arXiv 实时版本；刷新页面可重试固化。",
+    "prevPaper": "← 上一篇",
+    "nextPaper": "下一篇 →",
+    "analysisGenerate": "生成 AI 分析",
+    "analysisGenerating": "生成中…",
+    "analysisGenerateFailed": "生成失败，请重试。"
   },
   "paperLabels": {
     "label": "标签：",
@@ -166,11 +171,11 @@
   },
   "readingState": {
     "label": "阅读状态",
-    "save": "保存",
     "new": "未读",
     "reading": "在读",
     "discussed": "已讨论",
-    "skipped": "已跳过"
+    "skipped": "已跳过",
+    "saveFailed": "保存失败，请重试"
   },
   "settingsPreferences": {
     "title": "研究偏好",

@@ -1,6 +1,8 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export type AnalysisView = {
   summary: string;
@@ -21,13 +23,47 @@ const SECTIONS = [
   { field: "whyItMatters", labelKey: "analysisWhyItMatters" }
 ] as const;
 
-export function AnalysisPanel({ analysis }: { analysis: AnalysisView | null }) {
+export function AnalysisPanel({
+  analysis,
+  paperId
+}: {
+  analysis: AnalysisView | null;
+  paperId: string;
+}) {
   const t = useTranslations("workspace");
+  const router = useRouter();
+  const [generating, setGenerating] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function generate() {
+    if (generating) return;
+    setGenerating(true);
+    setFailed(false);
+    try {
+      const res = await fetch(`/api/papers/${paperId}/analyze`, { method: "POST" });
+      if (!res.ok) throw new Error("analysis request failed");
+      // The analysis arrives as a server prop, so a refresh pulls it in.
+      router.refresh();
+    } catch {
+      setFailed(true);
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   if (!analysis) {
     return (
-      <section className="flex h-full items-center justify-center rounded border border-border bg-white px-4 py-8 text-center text-sm text-muted">
-        {t("analysisEmpty")}
+      <section className="flex h-full flex-col items-center justify-center gap-3 rounded border border-border bg-white px-4 py-8 text-center text-sm text-muted">
+        <p>{t("analysisEmpty")}</p>
+        <button
+          type="button"
+          className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+          onClick={() => void generate()}
+          disabled={generating}
+        >
+          {generating ? t("analysisGenerating") : t("analysisGenerate")}
+        </button>
+        {failed ? <p className="text-xs text-red-600">{t("analysisGenerateFailed")}</p> : null}
       </section>
     );
   }

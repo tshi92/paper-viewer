@@ -50,7 +50,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
     }
   }
 
-  const [comments, readingState, workspaceLabels] = await Promise.all([
+  const [comments, readingState, workspaceLabels, libraryOrder] = await Promise.all([
     prisma.comment.findMany({
       // annotationId: null keeps annotation-thread comments out of the paper-level
       // Discussion list; parentId stays unfiltered so replies to paper-level
@@ -72,8 +72,23 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
       where: { workspaceId: user.workspaceId },
       orderBy: { createdAt: "asc" },
       select: { id: true, name: true, color: true, scope: true }
+    }),
+    // Same ordering as the library listing, so prev/next and the j/k keys walk
+    // the list the user just came from.
+    prisma.workspacePaper.findMany({
+      where: { workspaceId: user.workspaceId, state: "visible" },
+      orderBy: { createdAt: "desc" },
+      select: { paperId: true }
     })
   ]);
+
+  const paperIdsInOrder = libraryOrder.map((entry) => entry.paperId);
+  const positionInOrder = paperIdsInOrder.indexOf(paperId);
+  const prevPaperId = positionInOrder > 0 ? paperIdsInOrder[positionInOrder - 1]! : null;
+  const nextPaperId =
+    positionInOrder >= 0 && positionInOrder < paperIdsInOrder.length - 1
+      ? paperIdsInOrder[positionInOrder + 1]!
+      : null;
 
   function toLabelView(label: { id: string; name: string; color: string; scope: string }): LabelView {
     return { id: label.id, name: label.name, color: label.color, scope: label.scope as LabelView["scope"] };
@@ -114,6 +129,8 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
           author: { id: c.author.id, email: c.author.email, name: c.author.name }
         })),
         readingState: readingState?.state ?? "new",
+        prevPaperId,
+        nextPaperId,
         annotationLabels,
         paperLabels,
         paperLabelOptions,

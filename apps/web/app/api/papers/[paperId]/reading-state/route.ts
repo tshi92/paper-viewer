@@ -6,8 +6,18 @@ import { requireCurrentUser } from "@/lib/auth";
 export async function POST(request: Request, { params }: { params: Promise<{ paperId: string }> }) {
   const user = await requireCurrentUser();
   const { paperId } = await params;
-  const formData = await request.formData();
-  const state = formData.get("state")?.toString() ?? "";
+
+  // JSON is the interactive path (inline chips, no page reload); the form
+  // fallback stays for plain <form> posts and finishes with a redirect.
+  const isJson = (request.headers.get("content-type") ?? "").includes("application/json");
+  let state = "";
+  if (isJson) {
+    const body = (await request.json().catch(() => null)) as { state?: unknown } | null;
+    state = typeof body?.state === "string" ? body.state : "";
+  } else {
+    const formData = await request.formData();
+    state = formData.get("state")?.toString() ?? "";
+  }
 
   if (!isReadingState(state)) {
     return new Response("Invalid reading state", { status: 400 });
@@ -43,5 +53,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
     }
   });
 
+  if (isJson) {
+    return Response.json({ state });
+  }
   redirect(`/papers/${paperId}`);
 }

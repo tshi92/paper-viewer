@@ -306,6 +306,16 @@ async function revertFeishuSend(digestId: string): Promise<void> {
   await prisma.dailyDigest.updateMany({ where: { id: digestId }, data: { feishuSentAt: null } });
 }
 
+/**
+ * 手动为单篇论文补分析（Analysis tab 的生成按钮）。
+ * 复用管道的单篇处理，产出与每日 digest 完全一致。
+ */
+export async function analyzePaperOnDemand(workspaceId: string, paperId: string): Promise<void> {
+  const llm = await resolveLlmConfig(workspaceId);
+  const prefs = await prisma.researchPreferences.findUnique({ where: { workspaceId } });
+  await processPaper({ workspaceId, paperId, llm, topics: prefs?.topics ?? [] });
+}
+
 /** 单篇论文的完整处理：固化 PDF → LLM 分析 → 落库 + 打标签。 */
 async function processPaper(params: {
   workspaceId: string;

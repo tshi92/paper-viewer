@@ -107,7 +107,12 @@
     "errorAnnotationCreate": "Could not save the annotation. Please try again.",
     "errorAnnotationDelete": "Delete failed. Please try again.",
     "errorReply": "Could not send the reply.",
-    "pdfFallbackNotice": "PDF snapshot unavailable; showing the live arXiv version. Reload the page to retry pinning."
+    "pdfFallbackNotice": "PDF snapshot unavailable; showing the live arXiv version. Reload the page to retry pinning.",
+    "prevPaper": "← Previous",
+    "nextPaper": "Next →",
+    "analysisGenerate": "Generate AI analysis",
+    "analysisGenerating": "Generating…",
+    "analysisGenerateFailed": "Generation failed. Please try again."
   },
   "paperLabels": {
     "label": "Labels:",
@@ -166,11 +171,11 @@
   },
   "readingState": {
     "label": "Reading state",
-    "save": "Save",
     "new": "New",
     "reading": "Reading",
     "discussed": "Discussed",
-    "skipped": "Skipped"
+    "skipped": "Skipped",
+    "saveFailed": "Save failed. Please try again."
   },
   "settingsPreferences": {
     "title": "Research Preferences",

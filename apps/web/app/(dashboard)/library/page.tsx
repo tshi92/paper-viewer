@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
-import { isReadingState, readingStates } from "@paper-viewer/core/paper-status";
+import { isReadingState, readingStates, type ReadingState } from "@paper-viewer/core/paper-status";
 import { PaperUploadForm } from "@/components/paper-upload-form";
 import { RemovePaperButton } from "@/components/remove-paper-button";
 import { MoreTopics } from "@/components/more-topics";
 import { LibrarySearch } from "@/components/library-search";
 import { FilterDropdown } from "@/components/filter-dropdown";
+import { ReadingStateChips } from "@/components/reading-state-chips";
 import { requireCurrentUser } from "@/lib/auth";
 
 /** Filter keys map to a translation key plus the window they select. */
@@ -240,7 +241,7 @@ export default async function LibraryPage({
       </div>
 
       <div className="divide-y divide-border">
-        {workspacePapers.map(({ paper, tags, labelLinks, id: wpId }) => (
+        {workspacePapers.map(({ paper, tags, labelLinks, readingStates: rowStates, id: wpId }) => (
           <div className="flex items-center justify-between px-4 py-4 hover:bg-surface group" key={paper.id}>
             <Link className="min-w-0 flex-1" href={`/papers/${paper.id}`}>
               <h2 className="font-medium">{paper.title}</h2>
@@ -274,6 +275,11 @@ export default async function LibraryPage({
               </div>
             </Link>
             <div className="flex items-center gap-2">
+              {/* Prisma's ReadingState enum and the core union carry the same members. */}
+              <ReadingStateChips
+                paperId={paper.id}
+                state={(rowStates[0]?.state ?? "new") as ReadingState}
+              />
               {paper.arxivId ? (
                 <a
                   href={`https://arxiv.org/abs/${paper.arxivId}`}

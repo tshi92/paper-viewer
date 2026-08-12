@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
+import { isReadingState } from "@paper-viewer/core/paper-status";
 import { requireCurrentUser } from "@/lib/auth";
 import { DiscoverButton } from "@/components/discover-button";
+import { ReadingStateChips } from "@/components/reading-state-chips";
 
 export default async function TodayPage() {
   const user = await requireCurrentUser();
   const t = await getTranslations("home");
-  const tReadingState = await getTranslations("readingState");
   const locale = await getLocale();
 
   // Find the most recent digest
@@ -95,13 +96,14 @@ export default async function TodayPage() {
           const readingState = wp?.readingStates[0]?.state ?? "new";
 
           return (
-            <Link
+            <div
               key={paper.id}
-              href={`/papers/${paper.id}`}
-              className="block rounded border border-border bg-white p-5 transition hover:border-accent/40"
+              className="rounded border border-border bg-white p-5 transition hover:border-accent/40"
             >
               <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
+                {/* Only the content column links out, so the reading-state chips
+                    on the right stay clickable without nesting buttons in an <a>. */}
+                <Link href={`/papers/${paper.id}`} className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-accent">{index + 1}/{sortedPapers.length}</span>
                     <h2 className="font-semibold">{paper.title}</h2>
@@ -130,17 +132,18 @@ export default async function TodayPage() {
                       ) : null}
                     </div>
                   ) : null}
-                </div>
+                </Link>
                 <div className="flex flex-col items-end gap-2">
-                  <span className={`rounded px-2 py-0.5 text-xs ${readingState === "new" ? "bg-accent/10 text-accent" : "bg-surface text-muted"}`}>
-                    {tReadingState(readingState)}
-                  </span>
+                  <ReadingStateChips
+                    paperId={paper.id}
+                    state={isReadingState(readingState) ? readingState : "new"}
+                  />
                   {paper.arxivId ? (
                     <span className="text-xs text-muted">arXiv:{paper.arxivId}</span>
                   ) : null}
                 </div>
               </div>
-            </Link>
+            </div>
           );
         })}
       </div>

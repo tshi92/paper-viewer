@@ -111,7 +111,9 @@ async function signIn(page: Page): Promise<void> {
   await page.getByPlaceholder("邮箱").fill(email);
   await page.getByPlaceholder("密码").fill(password);
   await page.getByRole("button", { name: "登录" }).click();
-  await expect(page).toHaveURL(/\/library/);
+  // Sign-in lands on Today; the whole suite works the library listing.
+  await expect(page).toHaveURL(/\/(today)?$/);
+  await page.goto("/library");
 }
 
 /** Paper titles currently listed, in render order. */
@@ -201,4 +203,24 @@ test("arrow keys move focus through the options and Enter picks one", async ({ p
 
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/time=month/);
+});
+
+// Runs last on purpose: it flips "Never Opened" to reading, which the
+// unread-filter test above still needs untouched.
+test("inline reading-state chips mark a paper without leaving the library", async ({ page }) => {
+  await signIn(page);
+  await page.goto("/library");
+
+  const row = page.locator("div.divide-y > div", { hasText: title("Never Opened") });
+  await row.getByRole("radio", { name: "在读" }).click();
+  await expect(row.getByRole("radio", { name: "在读" })).toHaveAttribute("aria-checked", "true");
+
+  await expect(async () => {
+    const record = await prisma.readingStateRecord.findUnique({
+      where: {
+        workspaceId_paperId_userId: { workspaceId, paperId: paperIds[3]!, userId }
+      }
+    });
+    expect(record?.state).toBe("reading");
+  }).toPass({ timeout: 10_000 });
 });

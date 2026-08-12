@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { CommentPanel } from "./comment-panel";
 import { PaperChat } from "./paper-chat";
 import { AnalysisPanel, type AnalysisView } from "./analysis-panel";
-import { ReadingStateSelect } from "./reading-state-select";
+import { ReadingStateChips } from "./reading-state-chips";
 import { DownloadPdfButton } from "./download-pdf-button";
 import { AnnotationSidebar } from "./annotation-sidebar";
 import { PaperLabelPicker } from "./paper-label-picker";
@@ -45,6 +47,9 @@ type PaperData = {
   /** Every paper-scope label in the workspace, i.e. what the picker can offer. */
   paperLabelOptions: LabelView[];
   currentUserId: string;
+  /** Neighbours in the library ordering; null at either end of the list. */
+  prevPaperId: string | null;
+  nextPaperId: string | null;
 };
 
 type SidebarTab = "annotations" | "analysis" | "chat" | "comments";
@@ -52,8 +57,11 @@ type SidebarTab = "annotations" | "analysis" | "chat" | "comments";
 /** Errors are stored as message keys, not rendered strings, so the banner follows the locale. */
 type WorkspaceErrorKey = "errorAnnotationCreate" | "errorAnnotationDelete" | "errorReply";
 
+const SIDEBAR_TABS = ["annotations", "analysis", "chat", "comments"] as const;
+
 export function PaperWorkspace({ paper }: { paper: PaperData }) {
   const t = useTranslations("workspace");
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<SidebarTab>("annotations");
   const [annotations, setAnnotations] = useState<AnnotationView[]>([]);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
@@ -174,6 +182,33 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
     scrollToAnnotation.current = fn;
   }, []);
 
+  // Triage accelerators: j/k step through the library order, 1–4 switch the
+  // sidebar tabs. Anything typed into a field never reaches these.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (event.key === "j" && paper.nextPaperId) {
+        router.push(`/papers/${paper.nextPaperId}`);
+      } else if (event.key === "k" && paper.prevPaperId) {
+        router.push(`/papers/${paper.prevPaperId}`);
+      } else if (event.key >= "1" && event.key <= "4") {
+        setActiveTab(SIDEBAR_TABS[Number(event.key) - 1]!);
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [paper.nextPaperId, paper.prevPaperId, router]);
+
   const pdfUrl = paper.hasPdf
     ? `/api/papers/${paper.id}/file`
     : paper.arxivId
@@ -207,6 +242,18 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             {!paper.hasPdf && paper.arxivId ? (
               <DownloadPdfButton paperId={paper.id} arxivId={paper.arxivId} />
             ) : null}
+            <div className="ml-auto flex items-center gap-3 text-sm">
+              {paper.prevPaperId ? (
+                <Link className="text-accent hover:underline" href={`/papers/${paper.prevPaperId}`}>
+                  {t("prevPaper")}
+                </Link>
+              ) : null}
+              {paper.nextPaperId ? (
+                <Link className="text-accent hover:underline" href={`/papers/${paper.nextPaperId}`}>
+                  {t("nextPaper")}
+                </Link>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -244,8 +291,8 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         )}
       </section>
       <aside className="grid min-w-0 content-start gap-3">
-        <div className="rounded border border-border bg-white p-4">
-          <ReadingStateSelect paperId={paper.id} state={paper.readingState as ReadingState} />
+        <div className="rounded border border-border bg-white p-3">
+          <ReadingStateChips paperId={paper.id} state={paper.readingState as ReadingState} showLabel />
         </div>
 
         {actionError ? (
@@ -278,8 +325,10 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           })}
         </div>
 
-        {/* Fixed shared height so all four tab panels line up exactly. */}
-        <div className="h-[calc(100vh-240px)] min-h-0">
+        {/* Fixed shared height so all four tab panels line up exactly; min-w-0
+            keeps the min-width chain intact so wide chat/code content scrolls
+            inside its panel instead of widening the 360px column. */}
+        <div className="h-[calc(100vh-240px)] min-h-0 min-w-0">
         {activeTab === "annotations" ? (
           <AnnotationSidebar
             annotations={annotations}
@@ -299,7 +348,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             onDelete={handleDeleteAnnotation}
           />
         ) : activeTab === "analysis" ? (
-          <AnalysisPanel analysis={paper.analysis} />
+          <AnalysisPanel analysis={paper.analysis} paperId={paper.id} />
         ) : activeTab === "chat" ? (
           <PaperChat paperId={paper.id} />
         ) : (

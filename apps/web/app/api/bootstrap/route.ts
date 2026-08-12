@@ -78,5 +78,5 @@ export async function POST(request: Request) {
   }
 
   await setSession(user.id);
-  redirect("/library");
+  redirect("/");
 }

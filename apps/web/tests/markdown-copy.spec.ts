@@ -86,7 +86,7 @@ async function signIn(page: Page): Promise<void> {
   await page.getByPlaceholder("邮箱").fill(email);
   await page.getByPlaceholder("密码").fill(password);
   await page.getByRole("button", { name: "登录" }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/(today)?$/);
 }
 
 async function readClipboard(page: Page): Promise<string> {
@@ -155,7 +155,7 @@ test.describe("in English", () => {
     await page.getByPlaceholder("Email").fill(email);
     await page.getByPlaceholder("Password").fill(password);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page).toHaveURL(/\/library/);
+    await expect(page).toHaveURL(/\/(today)?$/);
 
     await page.goto(`/papers/${paperId}`);
     await page.getByRole("button", { name: "AI Chat" }).click();

@@ -105,7 +105,7 @@ async function signIn(page: Page, email: string): Promise<void> {
   await page.getByPlaceholder("邮箱").fill(email);
   await page.getByPlaceholder("密码").fill(password);
   await page.getByRole("button", { name: "登录" }).click();
-  await expect(page).toHaveURL(/\/library/);
+  await expect(page).toHaveURL(/\/(today)?$/);
 }
 
 test("the author edits a discussion comment; other people's carry no affordances", async ({ page }) => {
