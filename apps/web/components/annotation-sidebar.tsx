@@ -19,6 +19,7 @@ export function AnnotationSidebar({
   currentUserRole,
   selectedId,
   onJump,
+  onSelect,
   onReply,
   onEditComment,
   onDeleteComment,
@@ -30,6 +31,8 @@ export function AnnotationSidebar({
   currentUserRole: WorkspaceRole;
   selectedId: string | null;
   onJump: (annotation: AnnotationView) => void;
+  /** Marks the annotation as current without scrolling the document to it. */
+  onSelect: (annotationId: string) => void;
   onReply: (annotationId: string, body: string) => Promise<void>;
   onEditComment: (commentId: string, body: string) => Promise<void>;
   onDeleteComment: (commentId: string) => Promise<void>;
@@ -121,6 +124,11 @@ export function AnnotationSidebar({
         {filtered.map(({ annotation, color }) => (
           <article
             key={annotation.id}
+            // A click anywhere on the card makes it the current annotation
+            // (blue edge) — users read the whole card as one object, not just
+            // the quote/image jump button. The annotator's selection effect
+            // then brings the annotation into view once per selection.
+            onClick={() => onSelect(annotation.id)}
             className={`border-l-2 px-3 py-2.5 transition-colors duration-150 ${
               selectedId === annotation.id
                 ? "border-l-accent bg-accent/5"

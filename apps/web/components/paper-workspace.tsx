@@ -371,6 +371,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             currentUserId={paper.currentUserId}
             currentUserRole={paper.currentUserRole}
             selectedId={selectedAnnotationId}
+            onSelect={setSelectedAnnotationId}
             // Selecting alone would not move the viewer when the row is already
             // selected, so the jump is asked for directly; the annotator makes
             // sure a fresh selection is not then scrolled to twice.
