@@ -2,7 +2,7 @@ import { prisma } from "@paper-viewer/db";
 import { after } from "next/server";
 import { analysisTags, analyzePaperOnDemand, isUniqueViolation } from "@/lib/daily-digest";
 import { canAccessPaper } from "@/lib/paper-access";
-import { normalizeTitle } from "@/lib/paper-identity";
+import { findLibraryDuplicate } from "@/lib/library-dedup";
 import { requireCurrentUser } from "@/lib/auth";
 
 // The post-save analysis runs in after(); give it the same budget as /analyze.
@@ -48,19 +48,9 @@ export async function POST(_request: Request, { params }: { params: Promise<{ pa
   // Duplicate-article check: the same paper can exist as two Paper rows when
   // sources disagree on identifiers (digest row with an arXiv id, conference
   // row without one). Never let both end up in the library.
-  const libraryPapers = await prisma.workspacePaper.findMany({
-    where: { workspaceId: user.workspaceId },
-    select: { paperId: true, paper: { select: { title: true, doi: true, arxivId: true } } }
-  });
-  const wantedTitle = normalizeTitle(paper.title);
-  const duplicate = libraryPapers.find(
-    (entry) =>
-      (paper.doi && entry.paper.doi === paper.doi) ||
-      (paper.arxivId && entry.paper.arxivId === paper.arxivId) ||
-      (wantedTitle.length > 0 && normalizeTitle(entry.paper.title) === wantedTitle)
-  );
-  if (duplicate) {
-    return Response.json({ saved: false, duplicate: true, existingPaperId: duplicate.paperId });
+  const duplicateId = await findLibraryDuplicate(user.workspaceId, paper);
+  if (duplicateId) {
+    return Response.json({ saved: false, duplicate: true, existingPaperId: duplicateId });
   }
 
   try {

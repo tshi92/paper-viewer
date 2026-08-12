@@ -1,10 +1,12 @@
 import { validatePdfUpload } from "@paper-viewer/core/upload-validation";
 import { prisma } from "@paper-viewer/db";
 import { createPdfObjectKey, createS3Client, putPdfObject } from "@paper-viewer/storage/pdf-storage";
+import { put } from "@vercel/blob";
 import { createHash } from "node:crypto";
 import { fetchArxivMetadata } from "@/lib/arxiv";
 import { requireCurrentUser } from "@/lib/auth";
 import { getEnv, getS3Config } from "@/lib/env";
+import { findLibraryDuplicate } from "@/lib/library-dedup";
 import { resolveLlmConfig, type LlmRuntimeConfig } from "@/lib/llm-config";
 import { getExistingTopics, assignTopics } from "@/lib/topics";
 import { extractPdfText } from "@/lib/pdf-extract";
@@ -105,6 +107,54 @@ async function extractMetadataViaLlm(
     jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
   }
   return JSON.parse(jsonStr);
+}
+
+/**
+ * Persist the uploaded bytes wherever this deployment stores PDFs: S3/MinIO
+ * when configured (local dev), Vercel Blob otherwise (production). Previously
+ * only the S3 path existed, so direct uploads on production silently dropped
+ * the file.
+ */
+async function storePdfBytes(params: {
+  workspaceId: string;
+  paperId: string;
+  bytes: Uint8Array;
+  sha256: string;
+  fileName: string;
+}): Promise<void> {
+  const { workspaceId, paperId, bytes, sha256, fileName } = params;
+
+  const s3 = getS3Config();
+  if (s3) {
+    const objectKey = createPdfObjectKey({ workspaceId, paperId, sha256 });
+    const client = createS3Client(s3);
+    await putPdfObject({ client, bucket: s3.bucket, key: objectKey, body: bytes, contentType: "application/pdf" });
+    await prisma.paperFile.create({
+      data: {
+        paperId,
+        objectKey,
+        fileName,
+        contentType: "application/pdf",
+        byteLength: bytes.byteLength,
+        sha256,
+        status: "ready"
+      }
+    });
+    return;
+  }
+
+  const env = getEnv();
+  if (env.BLOB_READ_WRITE_TOKEN) {
+    // Same path and access mode as lib/pdf-snapshot.ts: URLs carry an
+    // unguessable hash and are never handed out directly.
+    const blob = await put(`papers/${paperId}/${sha256}.pdf`, Buffer.from(bytes), {
+      access: "public",
+      contentType: "application/pdf",
+      allowOverwrite: true,
+      token: env.BLOB_READ_WRITE_TOKEN
+    });
+    await prisma.paper.update({ where: { id: paperId }, data: { blobUrl: blob.url } });
+  }
 }
 
 export async function POST(request: Request) {
@@ -210,6 +260,45 @@ export async function POST(request: Request) {
 
   const sha256 = createHash("sha256").update(bytes).digest("hex");
 
+  // The same article must never enter the library twice, whichever door it
+  // comes through — this mirrors the save button's check. When the duplicate
+  // sits in the library WITHOUT a PDF (a saved conference row, typically),
+  // uploading its PDF really means "give that paper the file": attach the
+  // bytes to the existing row instead of creating a twin.
+  const duplicateId = await findLibraryDuplicate(user.workspaceId, {
+    title: metadata.title,
+    arxivId
+  });
+  if (duplicateId) {
+    const duplicate = await prisma.paper.findUnique({
+      where: { id: duplicateId },
+      select: {
+        pdfUrl: true,
+        blobUrl: true,
+        arxivId: true,
+        files: { select: { id: true }, take: 1 }
+      }
+    });
+    const hasPdf =
+      duplicate !== null &&
+      (duplicate.pdfUrl !== null ||
+        duplicate.blobUrl !== null ||
+        duplicate.arxivId !== null ||
+        duplicate.files.length > 0);
+    if (!hasPdf) {
+      try {
+        await storePdfBytes({ workspaceId: user.workspaceId, paperId: duplicateId, bytes, sha256, fileName });
+        if (pdfUrl) {
+          await prisma.paper.update({ where: { id: duplicateId }, data: { pdfUrl } });
+        }
+      } catch (error) {
+        // Attaching is best-effort; pointing at the existing row still beats a twin.
+        console.error("[upload] attaching pdf to existing paper failed", duplicateId, error);
+      }
+    }
+    return Response.json({ ok: true, paperId: duplicateId, duplicate: true });
+  }
+
   const existingTopics = await getExistingTopics(user.workspaceId);
   let topics: string[];
   try {
@@ -256,27 +345,12 @@ export async function POST(request: Request) {
     });
   }
 
-  const s3 = getS3Config();
-  if (s3) {
-    const objectKey = createPdfObjectKey({
-      workspaceId: user.workspaceId,
-      paperId: paper.id,
-      sha256
-    });
-
-    const client = createS3Client(s3);
-    await putPdfObject({ client, bucket: s3.bucket, key: objectKey, body: bytes, contentType: "application/pdf" });
-    await prisma.paperFile.create({
-      data: {
-        paperId: paper.id,
-        objectKey,
-        fileName,
-        contentType: "application/pdf",
-        byteLength: bytes.byteLength,
-        sha256,
-        status: "ready"
-      }
-    });
+  try {
+    await storePdfBytes({ workspaceId: user.workspaceId, paperId: paper.id, bytes, sha256, fileName });
+  } catch (error) {
+    // The paper row is already useful without the file (metadata, analysis);
+    // the PDF can be re-attached by uploading again.
+    console.error("[upload] storing pdf failed", paper.id, error);
   }
 
   return Response.json({ ok: true, paperId: paper.id });
