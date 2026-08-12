@@ -11,17 +11,24 @@ const loginSchema = z.object({
 
 export async function POST(request: Request) {
   const formData = await request.formData();
-  const input = loginSchema.parse({
+  const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password")
   });
 
+  // One shared error path for malformed input and wrong credentials: the login
+  // page must never distinguish "no such user" from "wrong password" (account
+  // enumeration), so a bad email shape gets the same message too.
+  if (!parsed.success) {
+    redirect("/login?error=invalid");
+  }
+
   const user = await prisma.user.findUnique({
-    where: { email: input.email.toLowerCase() }
+    where: { email: parsed.data.email.toLowerCase() }
   });
 
-  if (!user || !(await bcrypt.compare(input.password, user.passwordHash))) {
-    redirect("/login");
+  if (!user || !(await bcrypt.compare(parsed.data.password, user.passwordHash))) {
+    redirect("/login?error=invalid");
   }
 
   await setSession(user.id);

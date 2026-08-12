@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { annotationColor } from "@paper-viewer/core/labels";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
 import { CommentBody } from "./comment-body";
+import { ConfirmDialog } from "./confirm-dialog";
 
 export function AnnotationSidebar({
   annotations,
@@ -31,6 +32,8 @@ export function AnnotationSidebar({
   const [labelFilter, setLabelFilter] = useState<string>("all");
   const [authorFilter, setAuthorFilter] = useState<string>("all");
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  const [pendingDelete, setPendingDelete] = useState<AnnotationView | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const authors = useMemo(() => {
     const map = new Map<string, string>();
@@ -178,13 +181,7 @@ export function AnnotationSidebar({
                 <button
                   type="button"
                   className="text-xs text-red-500"
-                  onClick={async () => {
-                    if (
-                      confirm(t("deleteConfirm", { count: annotation.comments.length }))
-                    ) {
-                      await onDelete(annotation);
-                    }
-                  }}
+                  onClick={() => setPendingDelete(annotation)}
                 >
                   {t("delete")}
                 </button>
@@ -196,6 +193,29 @@ export function AnnotationSidebar({
           <p className="px-3 py-6 text-sm text-muted">{t("empty")}</p>
         ) : null}
       </div>
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        message={
+          pendingDelete ? t("deleteConfirm", { count: pendingDelete.comments.length }) : ""
+        }
+        confirmLabel={t("delete")}
+        busy={deleting}
+        onConfirm={async () => {
+          if (!pendingDelete || deleting) return;
+          setDeleting(true);
+          try {
+            await onDelete(pendingDelete);
+          } finally {
+            // Failures surface in the workspace error banner; either way the
+            // dialog has done its job.
+            setDeleting(false);
+            setPendingDelete(null);
+          }
+        }}
+        onCancel={() => {
+          if (!deleting) setPendingDelete(null);
+        }}
+      />
     </section>
   );
 }

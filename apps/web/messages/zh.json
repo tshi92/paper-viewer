@@ -33,7 +33,9 @@
     "inviteSubmit": "加入工作区",
     "namePlaceholder": "姓名",
     "emailPlaceholder": "邮箱",
-    "passwordPlaceholder": "密码"
+    "passwordPlaceholder": "密码",
+    "loginError": "邮箱或密码不正确，请重试。",
+    "bootstrapError": "创建失败，请检查填写内容后重试。"
   },
   "home": {
     "title": "今日",
@@ -48,7 +50,7 @@
     "discover": "发现论文",
     "discovering": "发现中…",
     "discoverFailed": "发现失败",
-    "discoverServerError": "服务器错误 {status}",
+    "discoverServerError": "服务暂时不可用，请稍后重试。",
     "discoverNetworkError": "网络错误"
   },
   "library": {
@@ -104,7 +106,8 @@
     "noPdf": "暂无 PDF。",
     "errorAnnotationCreate": "标注保存失败，请重试",
     "errorAnnotationDelete": "删除失败，请重试",
-    "errorReply": "回复发送失败"
+    "errorReply": "回复发送失败",
+    "pdfFallbackNotice": "PDF 快照暂不可用，当前显示 arXiv 实时版本；刷新页面可重试固化。"
   },
   "paperLabels": {
     "label": "标签：",
@@ -142,7 +145,7 @@
     "emptySuggestionLimitations": "它有哪些局限？",
     "inputPlaceholder": "问点关于这篇论文的问题…（回车发送）",
     "send": "发送",
-    "errorResponse": "错误：获取回复失败",
+    "errorResponse": "获取回复失败，请重试。",
     "errorNetwork": "错误：网络异常",
     "saveToComments": "存入评论",
     "savedToComments": "已存入评论",
@@ -257,7 +260,8 @@
     "saveFailed": "保存失败",
     "clear": "清除",
     "clearConfirm": "确定要清除飞书 webhook 吗？清除后将不再推送每日论文。",
-    "cleared": "已清除"
+    "cleared": "已清除",
+    "testConfirm": "将向飞书群发送一条测试消息，确认发送？"
   },
   "settingsLabels": {
     "title": "标签",
@@ -286,6 +290,8 @@
   },
   "common": {
     "copy": "复制",
-    "copied": "已复制"
+    "copied": "已复制",
+    "confirm": "确认",
+    "cancel": "取消"
   }
 }

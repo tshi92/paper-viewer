@@ -33,7 +33,9 @@
     "inviteSubmit": "Join workspace",
     "namePlaceholder": "Name",
     "emailPlaceholder": "Email",
-    "passwordPlaceholder": "Password"
+    "passwordPlaceholder": "Password",
+    "loginError": "Incorrect email or password. Please try again.",
+    "bootstrapError": "Could not create the account. Please check the form and try again."
   },
   "home": {
     "title": "Today",
@@ -48,7 +50,7 @@
     "discover": "Discover papers",
     "discovering": "Discovering...",
     "discoverFailed": "Discovery failed",
-    "discoverServerError": "Server error {status}",
+    "discoverServerError": "The service is temporarily unavailable. Please try again later.",
     "discoverNetworkError": "Network error"
   },
   "library": {
@@ -104,7 +106,8 @@
     "noPdf": "No PDF available.",
     "errorAnnotationCreate": "Could not save the annotation. Please try again.",
     "errorAnnotationDelete": "Delete failed. Please try again.",
-    "errorReply": "Could not send the reply."
+    "errorReply": "Could not send the reply.",
+    "pdfFallbackNotice": "PDF snapshot unavailable; showing the live arXiv version. Reload the page to retry pinning."
   },
   "paperLabels": {
     "label": "Labels:",
@@ -142,7 +145,7 @@
     "emptySuggestionLimitations": "What are the limitations?",
     "inputPlaceholder": "Ask about this paper… (Enter to send)",
     "send": "Send",
-    "errorResponse": "Error: Failed to get response",
+    "errorResponse": "Failed to get a reply. Please try again.",
     "errorNetwork": "Error: Network error",
     "saveToComments": "Save to comments",
     "savedToComments": "Saved to comments",
@@ -257,7 +260,8 @@
     "saveFailed": "Save failed",
     "clear": "Clear",
     "clearConfirm": "Clear the Feishu webhook? The daily digest will no longer be pushed.",
-    "cleared": "Cleared"
+    "cleared": "Cleared",
+    "testConfirm": "This will send a test message to the Feishu group. Send it?"
   },
   "settingsLabels": {
     "title": "Labels",
@@ -286,6 +290,8 @@
   },
   "common": {
     "copy": "Copy",
-    "copied": "Copied"
+    "copied": "Copied",
+    "confirm": "Confirm",
+    "cancel": "Cancel"
   }
 }

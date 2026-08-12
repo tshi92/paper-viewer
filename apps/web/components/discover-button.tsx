@@ -22,7 +22,7 @@ export function DiscoverButton() {
       try {
         data = JSON.parse(text);
       } catch {
-        setError(text || t("discoverServerError", { status: res.status }));
+        setError(text || t("discoverServerError"));
         return;
       }
 

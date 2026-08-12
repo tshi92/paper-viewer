@@ -211,7 +211,13 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         </div>
 
         {pdfUrl ? (
-          <PdfAnnotator
+          <>
+            {!paper.hasPdf ? (
+              <p className="mb-2 rounded border border-border bg-surface px-3 py-2 text-xs text-muted">
+                {t("pdfFallbackNotice")}
+              </p>
+            ) : null}
+            <PdfAnnotator
             pdfUrl={pdfUrl}
             annotations={annotations}
             annotationLabels={paper.annotationLabels}
@@ -223,6 +229,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             onCreate={handleCreateAnnotation}
             registerScrollTo={registerScrollTo}
           />
+          </>
         ) : (
           <div className="flex items-center justify-center rounded border border-border bg-white p-12 text-sm text-muted">
             {paper.abstract ? (

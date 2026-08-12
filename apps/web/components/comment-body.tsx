@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { ConfirmDialog } from "./confirm-dialog";
 import { CopyTextButton } from "./copy-text-button";
 import { MarkdownBody } from "./markdown-body";
 
@@ -31,6 +32,7 @@ export function CommentBody({
   const [draft, setDraft] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   async function handleSave() {
     const next = (draft ?? "").trim();
@@ -50,14 +52,15 @@ export function CommentBody({
 
   async function handleDelete() {
     if (busy) return;
-    if (!confirm(t("deleteConfirm", { count: replyCount }))) return;
     setBusy(true);
     setFailed(false);
     try {
       await onDelete();
+      setConfirmingDelete(false);
     } catch {
       setFailed(true);
       setBusy(false);
+      setConfirmingDelete(false);
     }
   }
 
@@ -116,11 +119,21 @@ export function CommentBody({
             <button
               type="button"
               className="text-xs text-muted hover:underline"
-              onClick={() => void handleDelete()}
+              onClick={() => setConfirmingDelete(true)}
               disabled={busy}
             >
               {t("delete")}
             </button>
+            <ConfirmDialog
+              open={confirmingDelete}
+              message={t("deleteConfirm", { count: replyCount })}
+              confirmLabel={t("delete")}
+              busy={busy}
+              onConfirm={() => void handleDelete()}
+              onCancel={() => {
+                if (!busy) setConfirmingDelete(false);
+              }}
+            />
           </>
         ) : null}
         {failed ? <span className="text-xs text-red-600">{t("actionFailed")}</span> : null}

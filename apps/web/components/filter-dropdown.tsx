@@ -149,7 +149,7 @@ export function FilterDropdown({
         aria-expanded={open}
         onClick={() => (open ? closeMenu(false) : openMenu())}
         onKeyDown={handleTriggerKeyDown}
-        className={`flex h-[26px] items-center gap-1.5 rounded border px-2 text-xs focus:outline-none ${
+        className={`flex h-[26px] items-center gap-1.5 rounded border px-2 text-xs ${
           isFiltering ? "border-accent text-accent font-medium" : "border-border text-muted hover:bg-surface"
         }`}
       >
@@ -183,7 +183,7 @@ export function FilterDropdown({
                   router.push(option.href);
                 }}
                 onMouseEnter={() => setActiveIndex(index)}
-                className="flex w-full items-center gap-2 whitespace-nowrap rounded px-2 py-1.5 text-xs text-ink hover:bg-surface focus:bg-surface focus:outline-none"
+                className="flex w-full items-center gap-2 whitespace-nowrap rounded px-2 py-1.5 text-xs text-ink hover:bg-surface focus:bg-surface"
               >
                 {option.color ? <ColorDot color={option.color} /> : null}
                 <span className="flex-1 text-left">

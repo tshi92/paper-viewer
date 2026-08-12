@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { LabelListItem } from "@/lib/annotation-types";
+import { ConfirmDialog } from "./confirm-dialog";
 
 type LabelScope = LabelListItem["scope"];
 
@@ -134,6 +135,7 @@ function LabelRow({
   const [name, setName] = useState(label.name);
   const [color, setColor] = useState(label.color);
   const [busy, setBusy] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   function startEditing() {
     setName(label.name);
@@ -152,14 +154,10 @@ function LabelRow({
 
   async function remove() {
     if (busy) return;
-    const message =
-      label.usageCount > 0
-        ? t("deleteConfirm", { name: label.name, count: label.usageCount })
-        : t("deleteConfirmUnused", { name: label.name });
-    if (!confirm(message)) return;
     setBusy(true);
     await onDelete(label.id);
     setBusy(false);
+    setConfirmingDelete(false);
   }
 
   return (
@@ -226,10 +224,24 @@ function LabelRow({
             type="button"
             data-testid="label-delete"
             disabled={busy}
-            onClick={() => void remove()}
+            onClick={() => setConfirmingDelete(true)}
           >
             {busy ? t("deleting") : t("delete")}
           </button>
+          <ConfirmDialog
+            open={confirmingDelete}
+            message={
+              label.usageCount > 0
+                ? t("deleteConfirm", { name: label.name, count: label.usageCount })
+                : t("deleteConfirmUnused", { name: label.name })
+            }
+            confirmLabel={t("delete")}
+            busy={busy}
+            onConfirm={() => void remove()}
+            onCancel={() => {
+              if (!busy) setConfirmingDelete(false);
+            }}
+          />
         </>
       )}
     </div>

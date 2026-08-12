@@ -155,20 +155,17 @@ test("deleting a comment warns about its replies and takes the thread with it", 
   await page.goto(`/papers/${paperId}`);
   await page.getByRole("button", { name: /^评论（/ }).click();
 
-  let dialogMessage = "";
-  page.on("dialog", (dialog) => {
-    dialogMessage = dialog.message();
-    void dialog.accept();
-  });
-
   await page
     .locator("article", { hasText: "owner parent with replies" })
     .getByRole("button", { name: "删除" })
     .click();
 
+  const dialog = page.getByRole("alertdialog");
+  await expect(dialog).toContainText("2");
+  await expect(dialog).toContainText("回复");
+  await dialog.getByRole("button", { name: "删除" }).click();
+
   await expect(page.getByText("owner parent with replies")).toHaveCount(0);
-  expect(dialogMessage).toContain("2");
-  expect(dialogMessage).toContain("回复");
 
   const remaining = await prisma.comment.findMany({
     where: { id: { in: [parentWithReplies, ...replyIds] } }
@@ -213,12 +210,12 @@ test("annotation threads offer the same author-only edit and delete", async ({ p
     "thread comment edited"
   );
 
-  page.on("dialog", (dialog) => void dialog.accept());
   await page
     .locator("article", { hasText: "thread comment edited" })
     .getByRole("button", { name: "删除" })
     .first()
     .click();
+  await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();
   await expect(page.getByText("thread comment edited")).toHaveCount(0);
   expect(await prisma.comment.findUnique({ where: { id: mineId } })).toBeNull();
 

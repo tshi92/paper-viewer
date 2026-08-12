@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import { ConfirmDialog } from "./confirm-dialog";
 
 type NotificationView = {
   configured: boolean;
@@ -31,6 +32,9 @@ export function NotificationSettingsForm() {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [saveError, setSaveError] = useState("");
+  // Both the test send (it pings the real Feishu group) and the clear (it stops
+  // the daily push) deserve a pause before firing.
+  const [pendingAction, setPendingAction] = useState<"test" | "clear" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,7 +137,6 @@ export function NotificationSettingsForm() {
   }
 
   async function handleClear() {
-    if (!window.confirm(t("clearConfirm"))) return;
     await submit({ feishuWebhookUrl: "" }, t("cleared"));
   }
 
@@ -195,7 +198,7 @@ export function NotificationSettingsForm() {
         <button
           className="rounded border border-border px-4 py-2 font-medium disabled:opacity-50"
           type="button"
-          onClick={handleTest}
+          onClick={() => setPendingAction("test")}
           disabled={busy}
         >
           {testing ? t("testing") : t("test")}
@@ -211,12 +214,26 @@ export function NotificationSettingsForm() {
         <button
           className="rounded border border-border px-4 py-2 font-medium text-red-600 disabled:opacity-50"
           type="button"
-          onClick={handleClear}
+          onClick={() => setPendingAction("clear")}
           disabled={busy || !config.configured}
         >
           {t("clear")}
         </button>
       </div>
+
+      <ConfirmDialog
+        open={pendingAction !== null}
+        message={pendingAction === "clear" ? t("clearConfirm") : t("testConfirm")}
+        confirmLabel={pendingAction === "clear" ? t("clear") : t("test")}
+        destructive={pendingAction === "clear"}
+        onConfirm={() => {
+          const action = pendingAction;
+          setPendingAction(null);
+          if (action === "test") void handleTest();
+          if (action === "clear") void handleClear();
+        }}
+        onCancel={() => setPendingAction(null)}
+      />
 
       {testResult ? (
         testResult.ok ? (
