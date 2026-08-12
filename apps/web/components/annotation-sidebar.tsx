@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { annotationColor } from "@paper-viewer/core/labels";
 import { canModifyComment, type WorkspaceRole } from "@paper-viewer/core/permissions";
@@ -19,6 +19,7 @@ export function AnnotationSidebar({
   currentUserRole,
   selectedId,
   onJump,
+  onSelect,
   onReply,
   onEditComment,
   onDeleteComment,
@@ -30,6 +31,8 @@ export function AnnotationSidebar({
   currentUserRole: WorkspaceRole;
   selectedId: string | null;
   onJump: (annotation: AnnotationView) => void;
+  /** Marks the annotation as current without scrolling the document to it. */
+  onSelect: (annotationId: string) => void;
   onReply: (annotationId: string, body: string) => Promise<void>;
   onEditComment: (commentId: string, body: string) => Promise<void>;
   onDeleteComment: (commentId: string) => Promise<void>;
@@ -40,6 +43,9 @@ export function AnnotationSidebar({
   const [authorFilter, setAuthorFilter] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState<SortOrder>("position");
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
+  // Reply posts already in flight; a second Enter before the first resolves
+  // must not send the same draft again.
+  const sendingReplies = useRef(new Set<string>());
   const [pendingDelete, setPendingDelete] = useState<AnnotationView | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -74,7 +80,7 @@ export function AnnotationSidebar({
   }, [annotations, authorFilter, labelFilter, sortOrder]);
 
   return (
-    <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white">
+    <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white shadow-card">
       {/* Three selects plus the count outgrow 360px in English — let it wrap. */}
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
         <select
@@ -117,11 +123,24 @@ export function AnnotationSidebar({
           {t("count", { count: filtered.length })}
         </span>
       </div>
-      <div className="min-h-0 flex-1 divide-y divide-border overflow-auto">
+      {/* Separators live on each card (border-t only) instead of divide-*:
+          .divide-border's child selector outranks the cards' own
+          border-l-accent/transparent and painted every non-first left edge
+          gray, so selection was only ever visible on the first card. */}
+      <div className="min-h-0 flex-1 overflow-auto">
         {filtered.map(({ annotation, color }) => (
           <article
             key={annotation.id}
-            className={`px-3 py-2.5 ${selectedId === annotation.id ? "bg-surface" : ""}`}
+            // A click anywhere on the card makes it the current annotation
+            // (blue edge) — users read the whole card as one object, not just
+            // the quote/image jump button. The annotator's selection effect
+            // then brings the annotation into view once per selection.
+            onClick={() => onSelect(annotation.id)}
+            className={`border-l-2 border-t border-t-border px-3 py-2.5 transition-colors duration-150 first:border-t-0 ${
+              selectedId === annotation.id
+                ? "border-l-accent bg-accent/5"
+                : "border-l-transparent hover:bg-surface"
+            }`}
           >
             {/* The meta row lives outside the jump button so the annotation's own
                 delete action can sit next to the timestamp — inside the reply row
@@ -136,12 +155,7 @@ export function AnnotationSidebar({
                 style={{ background: color }}
               />
               <span>{annotation.author.name ?? annotation.author.email}</span>
-              {/* The selected row is itself bg-surface, which would swallow the badge. */}
-              <span
-                className={`rounded px-1.5 py-0.5 ${
-                  selectedId === annotation.id ? "bg-white" : "bg-surface"
-                }`}
-              >
+              <span className="rounded bg-surface px-1.5 py-0.5">
                 {t("pageBadge", { page: annotation.pageNumber })}
               </span>
               <span>{annotation.type === "area" ? t("typeArea") : t("typeHighlight")}</span>
@@ -221,15 +235,22 @@ export function AnnotationSidebar({
                 }
                 onKeyDown={async (event) => {
                   if (event.key !== "Enter") return;
+                  // An IME's confirm-candidate Enter arrives as a keydown too;
+                  // without this guard one physical Enter posts the reply twice.
+                  if (event.nativeEvent.isComposing || event.keyCode === 229) return;
                   const body = (replyDrafts[annotation.id] ?? "").trim();
                   if (!body) return;
                   event.preventDefault();
+                  if (sendingReplies.current.has(annotation.id)) return;
+                  sendingReplies.current.add(annotation.id);
                   try {
                     await onReply(annotation.id, body);
                   } catch {
                     // Keep the draft so the reply is not lost; the workspace
                     // surfaces the failure in its error banner.
                     return;
+                  } finally {
+                    sendingReplies.current.delete(annotation.id);
                   }
                   setReplyDrafts((drafts) => ({ ...drafts, [annotation.id]: "" }));
                 }}
@@ -244,7 +265,15 @@ export function AnnotationSidebar({
       <ConfirmDialog
         open={pendingDelete !== null}
         message={
-          pendingDelete ? t("deleteConfirm", { count: pendingDelete.comments.length }) : ""
+          pendingDelete
+            ? // Lead with what is being deleted: the quote is the annotation's
+              // identity, so the decision does not rely on memory.
+              `${
+                pendingDelete.quotedText
+                  ? `“${pendingDelete.quotedText.slice(0, 80)}${pendingDelete.quotedText.length > 80 ? "…" : ""}”\n`
+                  : ""
+              }${t("deleteConfirm", { count: pendingDelete.comments.length })}`
+            : ""
         }
         confirmLabel={t("delete")}
         busy={deleting}

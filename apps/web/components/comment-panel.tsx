@@ -85,7 +85,7 @@ export function CommentPanel({
   }
 
   return (
-    <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white">
+    <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white shadow-card">
       {/* No panel heading — the active tab already names this view. Same
           shape as the annotations header: filters left, count right. */}
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
@@ -162,7 +162,7 @@ export function CommentPanel({
           placeholder={t("placeholder")} aria-label={t("placeholder")}
           required
         />
-        <button className="rounded bg-accent px-3 py-2 text-sm font-medium text-white" type="submit">{t("submit")}</button>
+        <button className="rounded bg-accent transition-transform duration-150 active:scale-[0.98] px-3 py-2 text-sm font-medium text-white" type="submit">{t("submit")}</button>
       </form>
     </section>
   );

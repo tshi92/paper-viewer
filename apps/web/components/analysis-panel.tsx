@@ -53,11 +53,11 @@ export function AnalysisPanel({
 
   if (!analysis) {
     return (
-      <section className="flex h-full flex-col items-center justify-center gap-3 rounded border border-border bg-white px-4 py-8 text-center text-sm text-muted">
+      <section className="flex h-full flex-col items-center justify-center gap-3 rounded border border-border bg-white shadow-card px-4 py-8 text-center text-sm text-muted">
         <p>{t("analysisEmpty")}</p>
         <button
           type="button"
-          className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+          className="rounded bg-accent transition-transform duration-150 active:scale-[0.98] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
           onClick={() => void generate()}
           disabled={generating}
         >
@@ -69,7 +69,7 @@ export function AnalysisPanel({
   }
 
   return (
-    <section className="h-full overflow-auto rounded border border-border bg-white p-4">
+    <section className="h-full overflow-auto rounded border border-border bg-white shadow-card p-4">
       <h2 className="text-sm font-semibold uppercase text-muted">{t("analysisHeading")}</h2>
       <div className="mt-3 space-y-3 text-sm leading-relaxed">
         <p>{analysis.summary}</p>

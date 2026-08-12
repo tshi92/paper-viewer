@@ -44,7 +44,7 @@ export async function PaperPreview({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <section>
-        <div className="mb-3 rounded border border-border bg-white px-4 py-3">
+        <div className="mb-3 rounded border border-border bg-white shadow-card px-4 py-3">
           <h1 className="text-lg font-semibold leading-snug">{paper.title}</h1>
           <p className="mt-1 text-xs text-muted">
             {paper.authors.join(", ")}
@@ -75,7 +75,7 @@ export async function PaperPreview({
             className="h-[calc(100vh-3rem)] w-full rounded border border-border bg-surface"
           />
         ) : (
-          <div className="flex items-center justify-center rounded border border-border bg-white p-12 text-sm text-muted">
+          <div className="flex items-center justify-center rounded border border-border bg-white shadow-card p-12 text-sm text-muted">
             {paper.abstract ? (
               <div className="max-w-2xl">
                 <h2 className="font-semibold text-ink">{tWorkspace("abstractHeading")}</h2>
@@ -89,7 +89,7 @@ export async function PaperPreview({
       </section>
 
       <aside className="min-w-0 lg:sticky lg:top-6 lg:self-start">
-        <section className="max-h-[calc(100vh-3rem)] overflow-auto rounded border border-border bg-white p-4">
+        <section className="max-h-[calc(100vh-3rem)] overflow-auto rounded border border-border bg-white shadow-card p-4">
           <h2 className="text-sm font-semibold uppercase text-muted">
             {tWorkspace("analysisHeading")}
           </h2>

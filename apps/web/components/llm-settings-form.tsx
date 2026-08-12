@@ -201,7 +201,7 @@ export function LlmSettingsForm() {
           {testing ? t("testing") : t("test")}
         </button>
         <button
-          className="rounded bg-accent px-4 py-2 font-medium text-white disabled:opacity-50"
+          className="rounded bg-accent transition-transform duration-150 active:scale-[0.98] px-4 py-2 font-medium text-white disabled:opacity-50"
           type="button"
           onClick={handleSave}
           disabled={busy}

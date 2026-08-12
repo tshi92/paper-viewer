@@ -249,7 +249,7 @@ function AnnotationPreview({ annotation, color }: AnnotationEntry) {
   const t = useTranslations("annotations");
   const firstComment = annotation.comments[0];
   return (
-    <div className="max-w-[260px] rounded border border-border bg-white p-2 text-xs shadow-lg">
+    <div className="max-w-[260px] rounded border border-border bg-white p-2 text-xs shadow-overlay">
       <p className="text-muted">{annotation.author.name ?? annotation.author.email}</p>
       {annotation.areaImageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- small API-served thumbnail
@@ -324,7 +324,7 @@ function SelectionTip({
   }
 
   return (
-    <div className="w-64 rounded border border-border bg-white p-3 shadow-lg">
+    <div className="w-64 rounded border border-border bg-white p-3 shadow-overlay">
       {labels.length > 0 ? (
         <div className="flex flex-wrap gap-1">
           {labels.map((label) => (
@@ -362,7 +362,7 @@ function SelectionTip({
         </button>
         <button
           type="button"
-          className="rounded bg-accent px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
+          className="rounded bg-accent transition-transform duration-150 active:scale-[0.98] px-2 py-1 text-xs font-medium text-white disabled:opacity-50"
           onClick={handleSave}
           disabled={saving}
         >

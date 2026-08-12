@@ -139,6 +139,8 @@ export function PaperChat({ paperId }: { paperId: string }) {
   );
 
   function handleKeyDown(e: React.KeyboardEvent) {
+    // Skip the IME's confirm-candidate Enter, or one physical Enter sends twice.
+    if (e.nativeEvent.isComposing || e.keyCode === 229) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -146,7 +148,7 @@ export function PaperChat({ paperId }: { paperId: string }) {
   }
 
   return (
-    <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white">
+    <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white shadow-card">
       <div className="border-b border-border px-4 py-3">
         <h2 className="font-semibold">{t("heading")}</h2>
       </div>
@@ -238,7 +240,7 @@ export function PaperChat({ paperId }: { paperId: string }) {
             disabled={loading}
           />
           <button
-            className="self-end rounded bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="self-end rounded bg-accent transition-transform duration-150 active:scale-[0.98] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             onClick={handleSubmit}
             disabled={loading || !input.trim()}
           >

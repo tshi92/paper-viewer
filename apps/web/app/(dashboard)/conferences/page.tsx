@@ -69,24 +69,46 @@ export default async function ConferencesPage({
   }
 
   const canSync = canManageWorkspaceSettings(user.role);
+  const hasFilters = Boolean(venue || year);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{t("title")}</h1>
         <div className="flex items-center gap-3">
+          {facets.length > 0 ? (
+            <span className="text-xs text-muted tabular-nums">
+              {t("count", { count: visibleEntries.length })}
+            </span>
+          ) : null}
+          {hasFilters ? (
+            <Link className="text-xs text-accent hover:underline" href="/conferences">
+              {t("clearFilters")}
+            </Link>
+          ) : null}
           {facets.length > 0 ? <ConferenceFilters venues={venueOptions} years={yearOptions} /> : null}
           {canSync ? <ConferenceSyncButton /> : null}
         </div>
       </div>
 
       {sections.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded border border-border bg-white px-6 py-16 text-center">
-          <h2 className="text-lg font-semibold">{t("emptyTitle")}</h2>
-          <p className="max-w-md text-sm leading-relaxed text-muted">
-            {canSync ? t("emptyBodyAdmin") : t("emptyBody")}
-          </p>
-        </div>
+        // Filtered-empty and truly-empty are different situations: one needs
+        // an exit from the filters, the other an explanation of the feature.
+        hasFilters ? (
+          <div className="flex flex-col items-center gap-3 rounded border border-border bg-white shadow-card px-6 py-16 text-center">
+            <p className="text-sm text-muted">{t("emptyFiltered")}</p>
+            <Link className="text-sm text-accent hover:underline" href="/conferences">
+              {t("clearFilters")}
+            </Link>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 rounded border border-border bg-white shadow-card px-6 py-16 text-center">
+            <h2 className="text-lg font-semibold">{t("emptyTitle")}</h2>
+            <p className="max-w-md text-sm leading-relaxed text-muted">
+              {canSync ? t("emptyBodyAdmin") : t("emptyBody")}
+            </p>
+          </div>
+        )
       ) : null}
 
       {truncated ? (
@@ -97,7 +119,7 @@ export default async function ConferencesPage({
 
       {sections.map((section) => (
         <section key={section.key} className="space-y-3">
-          <div className="flex items-baseline justify-between rounded border border-border bg-white px-5 py-3">
+          <div className="flex items-baseline justify-between rounded border border-border bg-white shadow-card px-5 py-3">
             <h2 className="text-sm font-semibold uppercase text-muted">
               {section.venue} {section.year}
             </h2>
@@ -112,7 +134,7 @@ export default async function ConferencesPage({
             return (
               <div
                 key={entry.id}
-                className="rounded border border-border bg-white p-5 transition hover:border-accent/40"
+                className="rounded border border-border bg-white shadow-card p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-raised"
               >
                 <div className="flex items-start justify-between gap-4">
                   {/* Only the content column links out, so the actions on the
