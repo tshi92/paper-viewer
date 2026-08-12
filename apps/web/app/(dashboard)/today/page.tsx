@@ -60,6 +60,13 @@ export default async function TodayPage() {
     (digest) =>
       digest.pendingPaperIds.length > 0 && digest.date.toISOString().slice(0, 10) === todayUtc
   );
+
+  // Today gets the full treatment; older days collapse to one row each so the
+  // page stays scannable (they expand to plain title lists on demand).
+  const todayDigest = digests.find(
+    (digest) => digest.date.toISOString().slice(0, 10) === todayUtc
+  );
+  const pastDigests = digests.filter((digest) => digest !== todayDigest);
   const digestInProgress = lockFresh || Boolean(pendingDigest);
   const digestTotal = pendingDigest?.paperIds.length ?? 0;
   const digestDone = pendingDigest ? digestTotal - pendingDigest.pendingPaperIds.length : 0;
@@ -115,40 +122,40 @@ export default async function TodayPage() {
         </div>
       ) : null}
 
-      {digests.map((digest) => {
-        const digestPapers = digest.paperIds
-          .map((id) => papersById.get(id))
-          .filter((paper): paper is NonNullable<typeof paper> => Boolean(paper));
+      {todayDigest ? (
+        <section className="space-y-3">
+          <div className="rounded border border-border bg-white shadow-card p-5">
+            <h2 className="text-sm font-semibold uppercase text-muted">
+              {t("digestMeta", {
+                date: dateFormat.format(new Date(todayDigest.date)),
+                count: todayDigest.paperIds.length
+              })}
+            </h2>
+            {todayDigest.overviewSummary ? (
+              <div className="mt-3 whitespace-pre-line text-sm leading-relaxed">
+                {todayDigest.overviewSummary}
+              </div>
+            ) : null}
+          </div>
 
-        return (
-          <section key={digest.id} className="space-y-3">
-            <div className="rounded border border-border bg-white shadow-card p-5">
-              <h2 className="text-sm font-semibold uppercase text-muted">
-                {t("digestMeta", {
-                  date: dateFormat.format(new Date(digest.date)),
-                  count: digestPapers.length
-                })}
-              </h2>
-              {digest.overviewSummary ? (
-                <div className="mt-3 whitespace-pre-line text-sm leading-relaxed">
-                  {digest.overviewSummary}
-                </div>
-              ) : null}
-            </div>
-
-            {digestPapers.map((paper, index) => {
+          {todayDigest.paperIds
+            .map((id) => papersById.get(id))
+            .filter((paper): paper is NonNullable<typeof paper> => Boolean(paper))
+            .map((paper, index, digestPapers) => {
               const analysis = paper.analyses[0];
               const workspacePaper = paper.workspacePapers[0];
               const readingState = workspacePaper?.readingStates[0]?.state ?? "new";
 
               return (
                 <div
-                  key={`${digest.id}-${paper.id}`}
+                  key={paper.id}
                   className="rounded border border-border bg-white shadow-card p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-raised"
                 >
                   <div className="flex items-start justify-between gap-4">
                     {/* Only the content column links out, so the actions on the
-                        right stay clickable without nesting buttons in an <a>. */}
+                        right stay clickable without nesting buttons in an <a>.
+                        Cards are deliberately slim — a two-line summary and the
+                        keywords; the full analysis lives on the paper page. */}
                     <Link href={`/papers/${paper.id}?from=today`} className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-accent">
@@ -156,25 +163,14 @@ export default async function TodayPage() {
                         </span>
                         <h3 className="font-semibold">{paper.title}</h3>
                       </div>
-                      <p className="mt-1 text-sm text-muted">
+                      <p className="mt-1 line-clamp-1 text-sm text-muted">
                         {Array.isArray(paper.authors) ? paper.authors.join(", ") : ""}
                       </p>
                       {analysis ? (
-                        // Clamped so one wordy analysis can't take over the day's
-                        // list; the paper page carries the full text.
-                        <div className="mt-3 space-y-2 text-sm">
-                          <p className="line-clamp-3">{analysis.summary}</p>
-                          {analysis.problem ? (
-                            <p className="line-clamp-2 text-muted"><span className="font-medium text-ink">{t("analysisProblem")}</span> {analysis.problem}</p>
-                          ) : null}
-                          {analysis.method ? (
-                            <p className="line-clamp-2 text-muted"><span className="font-medium text-ink">{t("analysisMethod")}</span> {analysis.method}</p>
-                          ) : null}
-                          {analysis.keyFindings ? (
-                            <p className="line-clamp-2 text-muted"><span className="font-medium text-ink">{t("analysisResults")}</span> {analysis.keyFindings}</p>
-                          ) : null}
+                        <div className="mt-2 space-y-2 text-sm">
+                          <p className="line-clamp-2">{analysis.summary}</p>
                           {analysis.keywords.length > 0 ? (
-                            <div className="flex flex-wrap gap-1.5 pt-1">
+                            <div className="flex flex-wrap gap-1.5">
                               {analysis.keywords.map((kw) => (
                                 <span key={kw} className="rounded bg-surface px-2 py-0.5 text-xs text-muted">{kw}</span>
                               ))}
@@ -198,14 +194,71 @@ export default async function TodayPage() {
                         <SaveToLibraryButton paperId={paper.id} />
                       )}
                       {paper.arxivId ? (
-                        <span className="text-xs text-muted">arXiv:{paper.arxivId}</span>
+                        <a
+                          href={`https://arxiv.org/abs/${paper.arxivId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-muted hover:text-accent hover:underline"
+                        >
+                          arXiv:{paper.arxivId} ↗
+                        </a>
                       ) : null}
                     </div>
                   </div>
                 </div>
               );
             })}
-          </section>
+        </section>
+      ) : null}
+
+      {pastDigests.map((digest, digestIndex) => {
+        const digestPapers = digest.paperIds
+          .map((id) => papersById.get(id))
+          .filter((paper): paper is NonNullable<typeof paper> => Boolean(paper));
+
+        return (
+          // Native disclosure keeps this a server component; with no digest for
+          // today the most recent day starts open so the page is never bare.
+          <details
+            key={digest.id}
+            open={!todayDigest && digestIndex === 0}
+            className="group rounded border border-border bg-white shadow-card"
+          >
+            <summary className="flex cursor-pointer select-none items-center gap-2 px-5 py-3 text-sm font-semibold uppercase text-muted list-none [&::-webkit-details-marker]:hidden">
+              <span aria-hidden className="text-xs transition-transform duration-150 group-open:rotate-90">
+                ▸
+              </span>
+              {t("digestMeta", {
+                date: dateFormat.format(new Date(digest.date)),
+                count: digestPapers.length
+              })}
+            </summary>
+            <div className="border-t border-border">
+              {digestPapers.map((paper) => {
+                const workspacePaper = paper.workspacePapers[0];
+                return (
+                  <div
+                    key={`${digest.id}-${paper.id}`}
+                    className="flex items-center justify-between gap-3 border-t border-t-border px-5 py-2 first:border-t-0"
+                  >
+                    <Link
+                      href={`/papers/${paper.id}?from=today`}
+                      className="min-w-0 flex-1 truncate text-sm hover:text-accent"
+                    >
+                      {paper.title}
+                    </Link>
+                    {workspacePaper ? (
+                      <span className="shrink-0 rounded bg-surface px-2 py-0.5 text-xs text-muted">
+                        {t("savedBadge")}
+                      </span>
+                    ) : (
+                      <SaveToLibraryButton paperId={paper.id} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </details>
         );
       })}
     </div>
