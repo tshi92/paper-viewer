@@ -28,6 +28,8 @@ export type ConferencePaperInput = {
   authors: string[];
   abstract: string | null;
   pdfUrl: string | null;
+  /** Publisher/USENIX/DOI landing page — the paper's canonical home. */
+  externalUrl: string | null;
   doi: string | null;
   arxivId: string | null;
 };
@@ -115,18 +117,29 @@ export function parseConferenceFeed(raw: unknown): ConferenceFeedParseResult {
       skipped += 1;
       continue;
     }
+    const doi = asTrimmedString(record.doi);
+    const rawUrl = asTrimmedString(record.url ?? record.ee);
     entries.push({
       venue: venue.toUpperCase(),
       year,
       title,
       authors: asAuthors(record.authors),
       abstract: asTrimmedString(record.abstract),
-      pdfUrl: asPdfUrl(record.pdfUrl ?? record.pdf ?? record.url ?? record.ee),
-      doi: asTrimmedString(record.doi),
+      pdfUrl: asPdfUrl(record.pdfUrl ?? record.pdf ?? rawUrl),
+      externalUrl: rawUrl ?? (doi ? `https://doi.org/${doi}` : null),
+      doi,
       arxivId: asTrimmedString(record.arxivId ?? record.arxiv)
     });
   }
   return { entries, skipped };
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    out.push(items.slice(i, i + size));
+  }
+  return out;
 }
 
 /** Deterministic per-entry identity for papers that carry no DOI/arXiv id. */
@@ -176,7 +189,7 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
         { source: "conference", sourceId: { in: sourceIds } }
       ]
     },
-    select: { id: true, title: true, doi: true, arxivId: true, sourceId: true, source: true }
+    select: { id: true, title: true, doi: true, arxivId: true, sourceId: true, source: true, externalUrl: true }
   });
 
   const byArxiv = new Map(existing.filter((p) => p.arxivId).map((p) => [p.arxivId!, p.id]));
@@ -212,6 +225,7 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
         authors: entry.authors,
         abstract: entry.abstract,
         pdfUrl: entry.pdfUrl,
+        externalUrl: entry.externalUrl,
         doi: entry.doi,
         arxivId: entry.arxivId,
         source: "conference",
@@ -226,6 +240,29 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
     for (const paper of created) {
       bySourceId.set(paper.sourceId!, paper.id);
     }
+  }
+
+  // Later syncs can learn a link the first import lacked (DBLP indexes a
+  // venue after its website listing). Backfill our own conference rows only —
+  // papers matched from other sources keep their own metadata.
+  const missingUrl = new Map(
+    existing
+      .filter((p) => p.source === "conference" && !p.externalUrl)
+      .map((p) => [p.id, true])
+  );
+  const urlBackfills = new Map<string, string>();
+  for (const entry of entries) {
+    const paperId = resolve(entry);
+    if (paperId && entry.externalUrl && missingUrl.has(paperId) && !urlBackfills.has(paperId)) {
+      urlBackfills.set(paperId, entry.externalUrl);
+    }
+  }
+  for (const batch of chunk([...urlBackfills.entries()], 25)) {
+    await Promise.all(
+      batch.map(([paperId, externalUrl]) =>
+        prisma.paper.update({ where: { id: paperId }, data: { externalUrl } })
+      )
+    );
   }
 
   const links: { venue: string; year: number; paperId: string }[] = [];

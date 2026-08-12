@@ -103,7 +103,8 @@ test("catalog lists entries by venue, previews before save, saves into the libra
   // so every fixture assertion goes through its own venue filter.
   await page.goto(`/conferences?venue=${venueA}`);
 
-  await expect(page.getByRole("heading", { name: `${venueA} 2025` })).toBeVisible();
+  // The count line names the selected program.
+  await expect(page.getByText(`${venueA} 2025 ·`)).toBeVisible();
   const sectionA = page.locator("section", { has: page.getByText(`Conference Fixture Alpha ${run}`) });
   await expect(sectionA.getByRole("button", { name: "存入文库" })).toBeVisible();
 
@@ -143,16 +144,20 @@ test("saving a title twin of a library paper is refused with a pointer to the ex
   ).toBeNull();
 });
 
-test("venue filter narrows the catalog", async ({ page }) => {
+test("venue chips and search surface a program from the whole catalog", async ({ page }) => {
   await signIn(page);
   await page.goto("/conferences");
 
-  // The fixture venues sort far outside the capped unfiltered page, but the
-  // filter options list every venue, so selecting one must surface it.
-  await page.getByLabel("按会议筛选").selectOption(venueA);
+  // The chip rail lists every program; picking one shows exactly its papers.
+  await page.getByRole("link", { name: new RegExp(`${venueA} ·`) }).click();
   await expect(page).toHaveURL(new RegExp(`venue=${venueA}`));
   await expect(page.getByText(`Conference Fixture Alpha ${run}`)).toBeVisible();
   await expect(page.getByText(`conference fixture TWIN ${run}!`)).toHaveCount(0);
+
+  // Search spans all venues and years regardless of the chip selection.
+  await page.getByLabel("搜索标题或作者…").fill(`Conference Fixture Twin ${run}`);
+  await expect(page.getByText(`conference fixture TWIN ${run}!`)).toBeVisible();
+  await expect(page.getByText(`${venueB} 2024`, { exact: false })).toBeVisible();
 });
 
 test("sync endpoint is admin-gated", async ({ page }) => {

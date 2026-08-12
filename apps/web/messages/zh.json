@@ -325,7 +325,9 @@
     "confirm": "确认",
     "cancel": "取消",
     "dismiss": "关闭",
-    "loading": "加载中…"
+    "loading": "加载中…",
+    "back": "返回",
+    "sourceLink": "原文链接"
   },
   "preview": {
     "readOnlyNotice": "预览模式：存入文库后即可标注、评论与讨论。",
@@ -335,14 +337,12 @@
     "noPdf": "暂无 PDF。",
     "duplicateInLibrary": "该论文已在文库中",
     "duplicateView": "查看",
-    "saveDone": "已存入文库"
+    "saveDone": "已存入文库",
+    "introAfterSave": "存入文库后会自动生成 AI 简介。",
+    "searchScholar": "在 Google Scholar 查找"
   },
   "conferences": {
     "title": "顶会",
-    "venueFilterAria": "按会议筛选",
-    "yearFilterAria": "按年份筛选",
-    "allVenues": "全部会议",
-    "allYears": "全部年份",
     "count": "{count} 篇",
     "emptyTitle": "暂无顶会论文",
     "emptyBody": "管理员同步数据源后，这里会展示近几年系统方向顶会的论文。",

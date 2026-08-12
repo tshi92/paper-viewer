@@ -1,12 +1,15 @@
 import { getTranslations } from "next-intl/server";
+import { BackButton } from "./back-button";
 import { SaveToLibraryButton } from "./save-to-library-button";
 import type { AnalysisView } from "./analysis-panel";
 
 /**
  * Read-only view of a paper that has not been saved to the library yet
- * (surfaced by a digest, later also by the conference feed). No annotations,
- * comments or reading state — the PDF renders in the browser's own viewer via
- * an iframe, and the only action is "save to library".
+ * (surfaced by a digest or the conference catalog). No annotations, comments
+ * or reading state — the PDF renders in the browser's own viewer via an
+ * iframe, and the only action is "save to library". Catalog entries often
+ * arrive as bare metadata (no PDF, no abstract), so the layout must carry a
+ * link-out (publisher page, Scholar search) instead of a wall of empty boxes.
  */
 export async function PaperPreview({
   paper
@@ -17,13 +20,17 @@ export async function PaperPreview({
     authors: string[];
     arxivId: string | null;
     pdfUrl: string | null;
+    externalUrl: string | null;
+    doi: string | null;
     abstract: string | null;
     hasPdf: boolean;
     analysis: AnalysisView | null;
+    conference: { venue: string; year: number } | null;
   };
 }) {
   const t = await getTranslations("preview");
   const tWorkspace = await getTranslations("workspace");
+  const tCommon = await getTranslations("common");
 
   const pdfUrl = paper.hasPdf
     ? `/api/papers/${paper.id}/file`
@@ -32,6 +39,9 @@ export async function PaperPreview({
       : paper.pdfUrl
         ? `/api/papers/${paper.id}/proxy-pdf`
         : null;
+
+  const scholarUrl = `https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}`;
+  const externalUrl = paper.externalUrl ?? (paper.doi ? `https://doi.org/${paper.doi}` : null);
 
   const sections = [
     { body: paper.analysis?.motivation, labelKey: "analysisMotivation" as const },
@@ -45,9 +55,13 @@ export async function PaperPreview({
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <section>
         <div className="mb-3 rounded border border-border bg-white shadow-card px-4 py-3">
-          <h1 className="text-lg font-semibold leading-snug">{paper.title}</h1>
+          <div className="flex items-start gap-3">
+            <BackButton fallbackHref={paper.conference ? "/conferences" : "/today"} />
+            <h1 className="text-lg font-semibold leading-snug">{paper.title}</h1>
+          </div>
           <p className="mt-1 text-xs text-muted">
             {paper.authors.join(", ")}
+            {paper.conference ? ` · ${paper.conference.venue} ${paper.conference.year}` : ""}
             {paper.arxivId ? (
               <>
                 {" · "}
@@ -58,6 +72,19 @@ export async function PaperPreview({
                   className="whitespace-nowrap text-accent hover:underline"
                 >
                   arXiv:{paper.arxivId} ↗
+                </a>
+              </>
+            ) : null}
+            {externalUrl ? (
+              <>
+                {" · "}
+                <a
+                  href={externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="whitespace-nowrap text-accent hover:underline"
+                >
+                  {tCommon("sourceLink")} ↗
                 </a>
               </>
             ) : null}
@@ -74,17 +101,26 @@ export async function PaperPreview({
             title={paper.title}
             className="h-[calc(100vh-3rem)] w-full rounded border border-border bg-surface"
           />
-        ) : (
-          <div className="flex items-center justify-center rounded border border-border bg-white shadow-card p-12 text-sm text-muted">
-            {paper.abstract ? (
-              <div className="max-w-2xl">
-                <h2 className="font-semibold text-ink">{tWorkspace("abstractHeading")}</h2>
-                <p className="mt-2 leading-relaxed">{paper.abstract}</p>
-              </div>
-            ) : (
-              <p>{t("noPdf")}</p>
-            )}
+        ) : paper.abstract ? (
+          <div className="rounded border border-border bg-white shadow-card p-6 text-sm text-muted">
+            <div className="max-w-2xl">
+              <h2 className="font-semibold text-ink">{tWorkspace("abstractHeading")}</h2>
+              <p className="mt-2 leading-relaxed">{paper.abstract}</p>
+            </div>
           </div>
+        ) : (
+          // No PDF and no abstract: a slim pointer out instead of an empty box.
+          <p className="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
+            {t("noPdf")}{" "}
+            <a
+              href={externalUrl ?? scholarUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline"
+            >
+              {externalUrl ? tCommon("sourceLink") : t("searchScholar")} ↗
+            </a>
+          </p>
         )}
       </section>
 
@@ -115,7 +151,8 @@ export async function PaperPreview({
               ) : null}
             </div>
           ) : (
-            <p className="mt-3 text-sm text-muted">{tWorkspace("analysisEmpty")}</p>
+            // Not a defect, a lifecycle note: the intro appears after saving.
+            <p className="mt-3 text-sm text-muted">{t("introAfterSave")}</p>
           )}
         </section>
       </aside>

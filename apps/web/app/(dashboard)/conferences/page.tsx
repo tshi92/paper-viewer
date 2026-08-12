@@ -2,176 +2,205 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
 import { canManageWorkspaceSettings } from "@paper-viewer/core/permissions";
-import { isReadingState } from "@paper-viewer/core/paper-status";
 import { requireCurrentUser } from "@/lib/auth";
-import { ConferenceFilters } from "@/components/conference-filters";
 import { ConferenceSyncButton } from "@/components/conference-sync-button";
-import { ReadingStateChips } from "@/components/reading-state-chips";
+import { LibrarySearch } from "@/components/library-search";
 import { SaveToLibraryButton } from "@/components/save-to-library-button";
 
-// Guard against a runaway catalog rendering thousands of cards at once; the
-// truncation is announced in the UI, never silent.
-const MAX_ENTRIES = 500;
+// A single program never comes close to this; only a broad search can, and
+// the truncation is announced in the UI, never silent.
+const MAX_ROWS = 500;
 
+/**
+ * The catalog reads like conference proceedings: pick a program (venue+year
+ * chip) and scan a dense list, or search across everything. Browsing "all
+ * 2000 papers" is not a real task, so there is no unfiltered firehose view —
+ * the newest program opens by default.
+ */
 export default async function ConferencesPage({
   searchParams
 }: {
-  searchParams: Promise<{ venue?: string; year?: string }>;
+  searchParams: Promise<{ venue?: string; year?: string; q?: string }>;
 }) {
   const user = await requireCurrentUser();
   const t = await getTranslations("conferences");
   const tHome = await getTranslations("home");
-  const { venue, year: rawYear } = await searchParams;
-  const year = rawYear && /^\d{4}$/.test(rawYear) ? Number.parseInt(rawYear, 10) : undefined;
+  const tCommon = await getTranslations("common");
+  const { venue: rawVenue, year: rawYear, q } = await searchParams;
+  const query = (q ?? "").trim().toLowerCase();
 
-  const [facets, entries] = await Promise.all([
-    prisma.conferenceEntry.findMany({
-      select: { venue: true, year: true },
-      distinct: ["venue", "year"],
-      orderBy: [{ year: "desc" }, { venue: "asc" }]
-    }),
-    prisma.conferenceEntry.findMany({
-      where: {
-        ...(venue ? { venue } : {}),
-        ...(year ? { year } : {})
-      },
-      orderBy: [{ year: "desc" }, { venue: "asc" }, { createdAt: "asc" }],
-      take: MAX_ENTRIES + 1,
-      include: {
-        paper: {
-          include: {
-            // Present only once someone saved the paper to the library.
-            workspacePapers: {
-              where: { workspaceId: user.workspaceId },
-              include: { readingStates: { where: { userId: user.id } } }
+  const facets = await prisma.conferenceEntry.groupBy({
+    by: ["venue", "year"],
+    _count: { _all: true },
+    orderBy: [{ year: "desc" }, { venue: "asc" }]
+  });
+
+  // An explicit selection wins; otherwise the newest year's first program.
+  // A search spans the whole catalog and ignores the chip selection.
+  const validSelection = facets.find(
+    (facet) => facet.venue === rawVenue && (!rawYear || String(facet.year) === rawYear)
+  );
+  const selected = query
+    ? null
+    : validSelection
+      ? { venue: validSelection.venue, year: validSelection.year }
+      : facets.length > 0
+        ? { venue: facets[0]!.venue, year: facets[0]!.year }
+        : null;
+
+  const entries = facets.length
+    ? await prisma.conferenceEntry.findMany({
+        where: selected ? { venue: selected.venue, year: selected.year } : {},
+        orderBy: [{ year: "desc" }, { venue: "asc" }, { createdAt: "asc" }],
+        include: {
+          paper: {
+            select: {
+              id: true,
+              title: true,
+              authors: true,
+              externalUrl: true,
+              // Present only once someone saved the paper to the library.
+              workspacePapers: { where: { workspaceId: user.workspaceId }, select: { id: true } }
             }
           }
         }
-      }
-    })
-  ]);
+      })
+    : [];
 
-  const truncated = entries.length > MAX_ENTRIES;
-  const visibleEntries = truncated ? entries.slice(0, MAX_ENTRIES) : entries;
+  const matched = query
+    ? entries.filter(({ paper }) => {
+        if (paper.title.toLowerCase().includes(query)) return true;
+        const authors = Array.isArray(paper.authors) ? paper.authors : [];
+        return authors.some(
+          (author) => typeof author === "string" && author.toLowerCase().includes(query)
+        );
+      })
+    : entries;
+  const truncated = matched.length > MAX_ROWS;
+  const rows = truncated ? matched.slice(0, MAX_ROWS) : matched;
 
-  const venueOptions = [...new Set(facets.map((facet) => facet.venue))].sort();
-  const yearOptions = [...new Set(facets.map((facet) => facet.year))];
-
-  // One section per venue+year program, newest year first (query order).
-  const sections: { key: string; venue: string; year: number; items: typeof visibleEntries }[] = [];
-  for (const entry of visibleEntries) {
-    const last = sections[sections.length - 1];
-    if (last && last.venue === entry.venue && last.year === entry.year) {
-      last.items.push(entry);
-    } else {
-      sections.push({ key: `${entry.venue}-${entry.year}`, venue: entry.venue, year: entry.year, items: [entry] });
-    }
-  }
-
+  const years = [...new Set(facets.map((facet) => facet.year))];
   const canSync = canManageWorkspaceSettings(user.role);
-  const hasFilters = Boolean(venue || year);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{t("title")}</h1>
-        <div className="flex items-center gap-3">
-          {facets.length > 0 ? (
-            <span className="text-xs text-muted tabular-nums">
-              {t("count", { count: visibleEntries.length })}
-            </span>
-          ) : null}
-          {hasFilters ? (
-            <Link className="text-xs text-accent hover:underline" href="/conferences">
-              {t("clearFilters")}
-            </Link>
-          ) : null}
-          {facets.length > 0 ? <ConferenceFilters venues={venueOptions} years={yearOptions} /> : null}
+        <div className="flex flex-wrap items-center gap-3">
+          <LibrarySearch basePath="/conferences" />
           {canSync ? <ConferenceSyncButton /> : null}
         </div>
       </div>
 
-      {sections.length === 0 ? (
-        // Filtered-empty and truly-empty are different situations: one needs
-        // an exit from the filters, the other an explanation of the feature.
-        hasFilters ? (
-          <div className="flex flex-col items-center gap-3 rounded border border-border bg-white shadow-card px-6 py-16 text-center">
-            <p className="text-sm text-muted">{t("emptyFiltered")}</p>
-            <Link className="text-sm text-accent hover:underline" href="/conferences">
-              {t("clearFilters")}
-            </Link>
+      {facets.length > 0 ? (
+        <div className="space-y-1.5">
+          {years.map((year) => (
+            <div key={year} className="flex flex-wrap items-center gap-1.5">
+              <span className="w-10 text-xs font-medium tabular-nums text-muted">{year}</span>
+              {facets
+                .filter((facet) => facet.year === year)
+                .map((facet) => {
+                  const isActive = selected?.venue === facet.venue && selected?.year === facet.year;
+                  return (
+                    <Link
+                      key={`${facet.venue}-${facet.year}`}
+                      href={`/conferences?venue=${encodeURIComponent(facet.venue)}&year=${facet.year}`}
+                      aria-current={isActive ? "true" : undefined}
+                      className={`rounded px-2 py-0.5 text-xs tabular-nums transition-colors duration-150 ${
+                        isActive
+                          ? "bg-accent text-white"
+                          : "bg-white text-muted ring-1 ring-inset ring-border hover:text-ink"
+                      }`}
+                    >
+                      {facet.venue} · {facet._count._all}
+                    </Link>
+                  );
+                })}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {facets.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded border border-border bg-white shadow-card px-6 py-16 text-center">
+          <h2 className="text-lg font-semibold">{t("emptyTitle")}</h2>
+          <p className="max-w-md text-sm leading-relaxed text-muted">
+            {canSync ? t("emptyBodyAdmin") : t("emptyBody")}
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 text-xs text-muted">
+            <span className="tabular-nums">
+              {query
+                ? `${t("count", { count: matched.length })} · "${q?.trim()}"`
+                : selected
+                  ? `${selected.venue} ${selected.year} · ${t("count", { count: matched.length })}`
+                  : t("count", { count: matched.length })}
+            </span>
+            {query ? (
+              <Link className="text-accent hover:underline" href="/conferences">
+                {t("clearFilters")}
+              </Link>
+            ) : null}
           </div>
-        ) : (
-          <div className="flex flex-col items-center gap-3 rounded border border-border bg-white shadow-card px-6 py-16 text-center">
-            <h2 className="text-lg font-semibold">{t("emptyTitle")}</h2>
-            <p className="max-w-md text-sm leading-relaxed text-muted">
-              {canSync ? t("emptyBodyAdmin") : t("emptyBody")}
+
+          {truncated ? (
+            <p className="rounded border border-border bg-surface px-4 py-2 text-sm text-muted">
+              {t("truncatedNotice", { max: MAX_ROWS })}
             </p>
-          </div>
-        )
-      ) : null}
+          ) : null}
 
-      {truncated ? (
-        <p className="rounded border border-border bg-surface px-4 py-2 text-sm text-muted">
-          {t("truncatedNotice", { max: MAX_ENTRIES })}
-        </p>
-      ) : null}
-
-      {sections.map((section) => (
-        <section key={section.key} className="space-y-3">
-          <div className="flex items-baseline justify-between rounded border border-border bg-white shadow-card px-5 py-3">
-            <h2 className="text-sm font-semibold uppercase text-muted">
-              {section.venue} {section.year}
-            </h2>
-            <span className="text-xs text-muted">{t("count", { count: section.items.length })}</span>
-          </div>
-
-          {section.items.map((entry) => {
-            const paper = entry.paper;
-            const workspacePaper = paper.workspacePapers[0];
-            const readingState = workspacePaper?.readingStates[0]?.state ?? "new";
-
-            return (
-              <div
-                key={entry.id}
-                className="rounded border border-border bg-white shadow-card p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-raised"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  {/* Only the content column links out, so the actions on the
-                      right stay clickable without nesting buttons in an <a>. */}
-                  <Link href={`/papers/${paper.id}`} className="min-w-0 flex-1">
-                    <h3 className="font-semibold">{paper.title}</h3>
-                    <p className="mt-1 text-sm text-muted">
-                      {Array.isArray(paper.authors) ? (paper.authors as string[]).join(", ") : ""}
-                    </p>
-                    {paper.abstract ? (
-                      <p className="mt-3 line-clamp-3 text-sm">{paper.abstract}</p>
-                    ) : null}
-                  </Link>
-                  <div className="flex flex-col items-end gap-2">
-                    {workspacePaper ? (
-                      <>
+          {rows.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded border border-border bg-white shadow-card px-6 py-12 text-center">
+              <p className="text-sm text-muted">{t("emptyFiltered")}</p>
+              <Link className="text-sm text-accent hover:underline" href="/conferences">
+                {t("clearFilters")}
+              </Link>
+            </div>
+          ) : (
+            <section className="rounded border border-border bg-white shadow-card">
+              {rows.map((entry) => {
+                const paper = entry.paper;
+                const saved = paper.workspacePapers.length > 0;
+                return (
+                  <div
+                    key={entry.id}
+                    className="flex items-center justify-between gap-4 border-t border-t-border px-4 py-3 transition-colors duration-150 first:border-t-0 hover:bg-surface"
+                  >
+                    <Link className="min-w-0 flex-1" href={`/papers/${paper.id}`}>
+                      <h3 className="font-medium leading-snug">{paper.title}</h3>
+                      <p className="mt-0.5 line-clamp-1 text-sm text-muted">
+                        {query ? `${entry.venue} ${entry.year} · ` : ""}
+                        {Array.isArray(paper.authors) ? (paper.authors as string[]).join(", ") : ""}
+                      </p>
+                    </Link>
+                    <div className="flex shrink-0 items-center gap-3">
+                      {paper.externalUrl ? (
+                        <a
+                          href={paper.externalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="whitespace-nowrap text-xs text-accent hover:underline"
+                        >
+                          {tCommon("sourceLink")} ↗
+                        </a>
+                      ) : null}
+                      {saved ? (
                         <span className="rounded bg-surface px-2 py-0.5 text-xs text-muted">
                           {tHome("savedBadge")}
                         </span>
-                        <ReadingStateChips
-                          paperId={paper.id}
-                          state={isReadingState(readingState) ? readingState : "new"}
-                        />
-                      </>
-                    ) : (
-                      <SaveToLibraryButton paperId={paper.id} />
-                    )}
-                    {paper.arxivId ? (
-                      <span className="text-xs text-muted">arXiv:{paper.arxivId}</span>
-                    ) : null}
+                      ) : (
+                        <SaveToLibraryButton paperId={paper.id} />
+                      )}
+                    </div>
                   </div>
-                </div>
-              </div>
-            );
-          })}
-        </section>
-      ))}
+                );
+              })}
+            </section>
+          )}
+        </>
+      )}
     </div>
   );
 }

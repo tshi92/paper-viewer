@@ -105,6 +105,9 @@ model Paper {
   doi             String?
   arxivId         String?
   pdfUrl          String?
+  /// Canonical non-PDF home of the paper (publisher page, USENIX presentation,
+  /// DOI landing page) — shown as the "source" link, never downloaded.
+  externalUrl     String?
   blobUrl         String?
   publishedAt     DateTime?
   createdAt       DateTime         @default(now())

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { BackButton } from "./back-button";
 import { CommentPanel } from "./comment-panel";
 import { PaperChat } from "./paper-chat";
 import { AnalysisPanel, type AnalysisView } from "./analysis-panel";
@@ -28,6 +29,7 @@ type PaperData = {
   authors: string[];
   arxivId: string | null;
   pdfUrl: string | null;
+  externalUrl: string | null;
   abstract: string | null;
   hasPdf: boolean;
   analysis: AnalysisView | null;
@@ -64,6 +66,7 @@ const SIDEBAR_TABS = ["analysis", "chat", "annotations", "comments"] as const;
 
 export function PaperWorkspace({ paper }: { paper: PaperData }) {
   const t = useTranslations("workspace");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SidebarTab>("analysis");
   const [annotations, setAnnotations] = useState<AnnotationView[]>([]);
@@ -244,7 +247,10 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         <div className="mb-3 rounded border border-border bg-white shadow-card px-4 py-3">
           {/* Prev/next stays keyboard-only (j/k): the header links duplicated
               it and competed with the title for attention. */}
-          <h1 className="text-lg font-semibold leading-snug">{paper.title}</h1>
+          <div className="flex items-start gap-3">
+            <BackButton fallbackHref="/library" />
+            <h1 className="text-lg font-semibold leading-snug">{paper.title}</h1>
+          </div>
           <p className="mt-1 text-xs text-muted">
             {paper.authors.join(", ")}
             {paper.arxivId ? (
@@ -257,6 +263,19 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
                   className="whitespace-nowrap text-accent hover:underline"
                 >
                   arXiv:{paper.arxivId} ↗
+                </a>
+              </>
+            ) : null}
+            {paper.externalUrl ? (
+              <>
+                {" · "}
+                <a
+                  href={paper.externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="whitespace-nowrap text-accent hover:underline"
+                >
+                  {tCommon("sourceLink")} ↗
                 </a>
               </>
             ) : null}

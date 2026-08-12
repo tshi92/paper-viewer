@@ -44,22 +44,29 @@ describe("parseConferenceFeed", () => {
         authors: ["A", "B", "C"],
         abstract: null,
         pdfUrl: null,
+        externalUrl: null,
         doi: null,
         arxivId: null
       }
     ]);
   });
 
-  it("only keeps urls that plainly serve a PDF", () => {
+  it("only PDF-serving urls become pdfUrl; every url becomes the source link", () => {
     const { entries } = parseConferenceFeed([
       { venue: "NSDI", year: 2025, title: "P1", url: "https://www.usenix.org/paper.pdf" },
-      { venue: "NSDI", year: 2025, title: "P2", url: "https://doi.org/10.1145/nope" },
-      { venue: "NSDI", year: 2025, title: "P3", url: "https://x.org/a.pdf?dl=1" }
+      { venue: "NSDI", year: 2025, title: "P2", url: "https://usenix.org/presentation/du" },
+      { venue: "NSDI", year: 2025, title: "P3", doi: "10.1145/abc" }
     ]);
     expect(entries.map((entry) => entry.pdfUrl)).toEqual([
       "https://www.usenix.org/paper.pdf",
       null,
-      "https://x.org/a.pdf?dl=1"
+      null
+    ]);
+    expect(entries.map((entry) => entry.externalUrl)).toEqual([
+      "https://www.usenix.org/paper.pdf",
+      "https://usenix.org/presentation/du",
+      // DOI-only entries still get a canonical home via doi.org.
+      "https://doi.org/10.1145/abc"
     ]);
   });
 

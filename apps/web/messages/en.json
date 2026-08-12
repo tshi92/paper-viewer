@@ -325,7 +325,9 @@
     "confirm": "Confirm",
     "cancel": "Cancel",
     "dismiss": "Dismiss",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "back": "Back",
+    "sourceLink": "Source"
   },
   "preview": {
     "readOnlyNotice": "Preview: save to library to annotate, comment and discuss.",
@@ -335,14 +337,12 @@
     "noPdf": "No PDF available.",
     "duplicateInLibrary": "Already in the library",
     "duplicateView": "View",
-    "saveDone": "Saved to library"
+    "saveDone": "Saved to library",
+    "introAfterSave": "The AI intro is generated automatically after this paper is saved to the library.",
+    "searchScholar": "Search on Google Scholar"
   },
   "conferences": {
     "title": "Conferences",
-    "venueFilterAria": "Filter by venue",
-    "yearFilterAria": "Filter by year",
-    "allVenues": "All venues",
-    "allYears": "All years",
     "count": "{count} papers",
     "emptyTitle": "No conference papers yet",
     "emptyBody": "Once an admin syncs the data source, recent systems-conference papers will appear here.",

@@ -48,6 +48,11 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
           where: { workspaceId: user.workspaceId },
           orderBy: { createdAt: "desc" },
           take: 1
+        },
+        conferenceEntries: {
+          orderBy: [{ year: "desc" }],
+          take: 1,
+          select: { venue: true, year: true }
         }
       }
     });
@@ -73,8 +78,11 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
           authors: Array.isArray(previewPaper.authors) ? (previewPaper.authors as string[]) : [],
           arxivId: previewPaper.arxivId,
           pdfUrl: previewPaper.pdfUrl,
+          externalUrl: previewPaper.externalUrl,
+          doi: previewPaper.doi,
           abstract: previewPaper.abstract,
           hasPdf: previewHasPdf,
+          conference: previewPaper.conferenceEntries[0] ?? null,
           analysis: previewAnalysis
             ? {
                 summary: previewAnalysis.summary,
@@ -165,6 +173,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
         authors: Array.isArray(paper.authors) ? paper.authors as string[] : [],
         arxivId: paper.arxivId,
         pdfUrl: paper.pdfUrl,
+        externalUrl: paper.externalUrl,
         abstract: paper.abstract,
         hasPdf,
         analysis: analysis
