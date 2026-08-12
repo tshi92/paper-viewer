@@ -170,6 +170,7 @@
     "inputPlaceholder": "Ask about this paper… (Enter to send)",
     "send": "Send",
     "errorResponse": "Failed to get a reply. Please try again.",
+    "errorBusy": "The AI is busy (today's digest or another analysis may be running). Please try again in a moment.",
     "errorNetwork": "Error: Network error",
     "saveToComments": "Save to comments",
     "savedToComments": "Saved to comments",

@@ -170,6 +170,7 @@
     "inputPlaceholder": "问点关于这篇论文的问题…（回车发送）",
     "send": "发送",
     "errorResponse": "获取回复失败，请重试。",
+    "errorBusy": "AI 正忙（可能正在生成今日推送或其他分析），请稍等片刻再试。",
     "errorNetwork": "错误：网络异常",
     "saveToComments": "存入评论",
     "savedToComments": "已存入评论",
