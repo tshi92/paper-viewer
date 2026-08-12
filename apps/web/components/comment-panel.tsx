@@ -54,11 +54,11 @@ export function CommentPanel({
   }
 
   return (
-    <section className="min-w-0 rounded border border-border bg-white">
-      <div className="border-b border-border px-4 py-3">
+    <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white">
+      <div className="shrink-0 border-b border-border px-4 py-3">
         <h2 className="font-semibold">{t("heading")}</h2>
       </div>
-      <div className="max-h-[calc(100vh-320px)] divide-y divide-border overflow-auto">
+      <div className="min-h-0 flex-1 divide-y divide-border overflow-auto">
         {comments.map((comment) => (
           <article className="px-4 py-3" key={comment.id}>
             <div className="flex items-center gap-2 text-xs text-muted">
@@ -95,7 +95,7 @@ export function CommentPanel({
       </div>
       <form
         ref={formRef}
-        className="grid gap-2 border-t border-border p-4"
+        className="grid shrink-0 gap-2 border-t border-border p-4"
         onSubmit={handleSubmit}
       >
         <textarea

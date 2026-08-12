@@ -57,8 +57,8 @@ export function AnnotationSidebar({
   );
 
   return (
-    <section className="min-w-0 rounded border border-border bg-white">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
+    <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <select
           className="rounded border border-border px-1.5 py-1 text-xs"
           value={labelFilter}
@@ -85,7 +85,7 @@ export function AnnotationSidebar({
         </select>
         <span className="ml-auto text-xs text-muted">{t("count", { count: filtered.length })}</span>
       </div>
-      <div className="max-h-[calc(100vh-240px)] divide-y divide-border overflow-auto">
+      <div className="min-h-0 flex-1 divide-y divide-border overflow-auto">
         {filtered.map(({ annotation, color }) => (
           <article
             key={annotation.id}

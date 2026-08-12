@@ -271,6 +271,8 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           })}
         </div>
 
+        {/* Fixed shared height so all four tab panels line up exactly. */}
+        <div className="h-[calc(100vh-240px)] min-h-0">
         {activeTab === "annotations" ? (
           <AnnotationSidebar
             annotations={annotations}
@@ -300,6 +302,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             currentUserId={paper.currentUserId}
           />
         )}
+        </div>
       </aside>
     </div>
   );

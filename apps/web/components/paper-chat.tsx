@@ -146,7 +146,7 @@ export function PaperChat({ paperId }: { paperId: string }) {
   }
 
   return (
-    <section className="flex min-w-0 flex-col rounded border border-border bg-white" style={{ height: "calc(100vh - 240px)" }}>
+    <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white">
       <div className="border-b border-border px-4 py-3">
         <h2 className="font-semibold">{t("heading")}</h2>
       </div>

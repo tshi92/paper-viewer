@@ -26,14 +26,14 @@ export function AnalysisPanel({ analysis }: { analysis: AnalysisView | null }) {
 
   if (!analysis) {
     return (
-      <section className="rounded border border-border bg-white px-4 py-8 text-center text-sm text-muted">
+      <section className="flex h-full items-center justify-center rounded border border-border bg-white px-4 py-8 text-center text-sm text-muted">
         {t("analysisEmpty")}
       </section>
     );
   }
 
   return (
-    <section className="max-h-[calc(100vh-240px)] overflow-auto rounded border border-border bg-white p-4">
+    <section className="h-full overflow-auto rounded border border-border bg-white p-4">
       <h2 className="text-sm font-semibold uppercase text-muted">{t("analysisHeading")}</h2>
       <div className="mt-3 space-y-3 text-sm leading-relaxed">
         <p>{analysis.summary}</p>
