@@ -40,8 +40,6 @@
   "home": {
     "title": "Today",
     "digestMeta": "{date} · {count, plural, =1 {# paper} other {# papers}}",
-    "emptyWithPreferences": "No papers yet. Click Discover to fetch today's recommendations.",
-    "emptyWithoutPreferences": "Set up your research preferences first, then discover papers.",
     "preferencesLink": "Preferences",
     "dailyOverview": "Daily Overview",
     "analysisProblem": "Problem:",
@@ -51,7 +49,11 @@
     "discovering": "Discovering...",
     "discoverFailed": "Discovery failed",
     "discoverServerError": "The service is temporarily unavailable. Please try again later.",
-    "discoverNetworkError": "Network error"
+    "discoverNetworkError": "Network error",
+    "emptyGuideTitle": "Daily paper digest",
+    "emptyGuideBody": "Once research preferences are set, relevant papers are picked every weekday, listed here and pushed to the Feishu group.",
+    "emptyGuideBodyReady": "Research preferences are set. This page updates automatically at push time, or click “Discover papers” to try right now.",
+    "emptyGuideCta": "Set research preferences"
   },
   "library": {
     "title": "Library",
@@ -78,7 +80,8 @@
     "emptySearch": "No matching papers.",
     "remove": "Remove",
     "removeConfirm": "Confirm",
-    "removeCancel": "Cancel"
+    "removeCancel": "Cancel",
+    "clearFilters": "Clear filters"
   },
   "upload": {
     "uploadPdf": "Upload PDF",

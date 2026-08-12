@@ -67,11 +67,7 @@ export default async function TodayPage() {
           <h1 className="text-2xl font-semibold">{t("title")}</h1>
           {digestDate ? (
             <p className="mt-1 text-sm text-muted">{t("digestMeta", { date: digestDate, count: sortedPapers.length })}</p>
-          ) : (
-            <p className="mt-1 text-sm text-muted">
-              {hasPrefs ? t("emptyWithPreferences") : t("emptyWithoutPreferences")}
-            </p>
-          )}
+          ) : null}
         </div>
         <div className="flex gap-2">
           <Link href="/settings/preferences" className="rounded border border-border px-3 py-2 text-sm">
@@ -86,7 +82,24 @@ export default async function TodayPage() {
           <h2 className="text-sm font-semibold uppercase text-muted">{t("dailyOverview")}</h2>
           <div className="mt-3 whitespace-pre-line text-sm leading-relaxed">{digest.overviewSummary}</div>
         </div>
-      ) : null}
+      ) : (
+        // First-run guidance instead of a blank viewport: what this page is,
+        // when it fills itself, and the one thing to do next.
+        <div className="flex flex-col items-center gap-3 rounded border border-border bg-white px-6 py-16 text-center">
+          <h2 className="text-lg font-semibold">{t("emptyGuideTitle")}</h2>
+          <p className="max-w-md text-sm leading-relaxed text-muted">
+            {hasPrefs ? t("emptyGuideBodyReady") : t("emptyGuideBody")}
+          </p>
+          {!hasPrefs ? (
+            <Link
+              href="/settings/preferences"
+              className="rounded bg-accent px-4 py-2 text-sm font-medium text-white"
+            >
+              {t("emptyGuideCta")}
+            </Link>
+          ) : null}
+        </div>
+      )}
 
       <div className="space-y-3">
         {sortedPapers.map((paper, index) => {

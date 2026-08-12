@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
 import { isReadingState, readingStates, type ReadingState } from "@paper-viewer/core/paper-status";
 import { PaperUploadForm } from "@/components/paper-upload-form";
@@ -32,6 +32,9 @@ export default async function LibraryPage({
   const user = await requireCurrentUser();
   const t = await getTranslations("library");
   const tReadingState = await getTranslations("readingState");
+  const locale = await getLocale();
+  // The row date answers "does this match my time filter?" at a glance.
+  const dateFormat = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" });
   const { time = "all", tag, q, label, state } = await searchParams;
   const query = (q ?? "").trim().toLowerCase();
   // An unknown `?state=` behaves like no reading-state filter at all.
@@ -241,13 +244,15 @@ export default async function LibraryPage({
       </div>
 
       <div className="divide-y divide-border">
-        {workspacePapers.map(({ paper, tags, labelLinks, readingStates: rowStates, id: wpId }) => (
+        {workspacePapers.map(({ paper, tags, labelLinks, readingStates: rowStates, createdAt, id: wpId }) => (
           <div className="flex items-center justify-between px-4 py-4 hover:bg-surface group" key={paper.id}>
             <Link className="min-w-0 flex-1" href={`/papers/${paper.id}`}>
               <h2 className="font-medium">{paper.title}</h2>
               <p className="mt-1 text-sm text-muted">{Array.isArray(paper.authors) ? paper.authors.join(", ") : ""}</p>
               <div className="mt-1 flex items-center gap-2">
                 <span className="text-xs text-muted">
+                  {dateFormat.format(createdAt)}
+                  {" · "}
                   {paper.source === "arxiv" || paper.source === "hermes" ? `arXiv:${paper.arxivId ?? ""}` : sourceLabel(paper.source)}
                   {/* 与论文详情页的 hasPdf 判定保持一致：Blob 快照也算有 PDF */}
                   {paper.files.length > 0 || paper.blobUrl ? ` · ${t("pdfBadge")}` : ""}
@@ -295,9 +300,16 @@ export default async function LibraryPage({
           </div>
         ))}
         {workspacePapers.length === 0 ? (
-          <p className="px-4 py-8 text-sm text-muted">
-            {query ? t("emptySearch") : time !== "all" || tag || label || stateFilter ? t("emptyFiltered") : t("empty")}
-          </p>
+          <div className="px-4 py-8 text-sm text-muted">
+            <p>
+              {query ? t("emptySearch") : time !== "all" || tag || label || stateFilter ? t("emptyFiltered") : t("empty")}
+            </p>
+            {query || time !== "all" || tag || label || stateFilter ? (
+              <Link className="mt-2 inline-block text-accent hover:underline" href="/library">
+                {t("clearFilters")}
+              </Link>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </section>

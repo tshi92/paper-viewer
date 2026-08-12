@@ -40,8 +40,6 @@
   "home": {
     "title": "今日",
     "digestMeta": "{date} · {count, plural, other {# 篇论文}}",
-    "emptyWithPreferences": "还没有论文。点击「发现论文」获取今天的推荐。",
-    "emptyWithoutPreferences": "请先设置研究偏好，再来发现论文。",
     "preferencesLink": "研究偏好",
     "dailyOverview": "每日概览",
     "analysisProblem": "问题：",
@@ -51,7 +49,11 @@
     "discovering": "发现中…",
     "discoverFailed": "发现失败",
     "discoverServerError": "服务暂时不可用，请稍后重试。",
-    "discoverNetworkError": "网络错误"
+    "discoverNetworkError": "网络错误",
+    "emptyGuideTitle": "每日论文推送",
+    "emptyGuideBody": "设置研究偏好后，每个工作日会自动挑选相关论文，更新在这里并推送到飞书群。",
+    "emptyGuideBodyReady": "研究偏好已设置。到推送时间这里会自动更新，也可以点击「发现论文」立即试一次。",
+    "emptyGuideCta": "设置研究偏好"
   },
   "library": {
     "title": "文库",
@@ -78,7 +80,8 @@
     "emptySearch": "没有匹配的论文。",
     "remove": "移除",
     "removeConfirm": "确认",
-    "removeCancel": "取消"
+    "removeCancel": "取消",
+    "clearFilters": "清除筛选"
   },
   "upload": {
     "uploadPdf": "上传 PDF",
@@ -95,7 +98,7 @@
     "viewOnArxiv": "在 arXiv 查看",
     "downloadPdf": "下载 PDF 到服务器",
     "downloadingPdf": "下载中…",
-    "analysisHeading": "AI 解读",
+    "analysisHeading": "AI 分析",
     "analysisEmpty": "暂无 AI 分析",
     "analysisMotivation": "1. 动机：",
     "analysisProblem": "2. 问题：",
@@ -124,7 +127,7 @@
     "saveFailed": "标签保存失败，请重试"
   },
   "annotations": {
-    "filterAllLabels": "全部 label",
+    "filterAllLabels": "全部标签",
     "filterAllMembers": "全部成员",
     "count": "{count, plural, other {# 条}}",
     "pageBadge": "第 {page} 页",
@@ -273,9 +276,9 @@
     "description": "标签由整个工作区共享，所有成员都可以新增、重命名、改色和删除。",
     "loading": "加载中…",
     "loadFailed": "加载标签失败",
-    "annotationHeading": "标注 label",
+    "annotationHeading": "标注标签",
     "annotationHint": "用于给论文里的高亮和区域标注打标签。",
-    "paperHeading": "论文 label",
+    "paperHeading": "论文标签",
     "paperHint": "用于给论文库里的论文打标签。",
     "empty": "还没有标签。",
     "usage": "{count, plural, =0 {未使用} other {# 处使用}}",
@@ -289,8 +292,8 @@
     "cancel": "取消",
     "delete": "删除",
     "deleting": "删除中…",
-    "deleteConfirm": "删除 label「{name}」？它正被 {count} 处使用，删除后将从这些标注/论文上移除。",
-    "deleteConfirmUnused": "删除 label「{name}」？",
+    "deleteConfirm": "删除标签「{name}」？它正被 {count} 处使用，删除后将从这些标注/论文上移除。",
+    "deleteConfirmUnused": "删除标签「{name}」？",
     "actionFailed": "操作失败，请重试"
   },
   "common": {

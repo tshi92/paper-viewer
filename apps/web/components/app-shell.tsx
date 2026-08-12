@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
+import { TopNav } from "@/components/top-nav";
 import type { CurrentUser } from "@/lib/auth";
 
 export async function AppShell({ user, children }: { user: CurrentUser; children: ReactNode }) {
@@ -12,9 +13,13 @@ export async function AppShell({ user, children }: { user: CurrentUser; children
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3">
           <nav className="flex items-center gap-5 text-sm">
             <Link className="font-semibold" href="/today">{t("brand")}</Link>
-            <Link href="/today">{t("today")}</Link>
-            <Link href="/library">{t("library")}</Link>
-            <Link href="/settings">{t("settings")}</Link>
+            <TopNav
+              items={[
+                { href: "/today", label: t("today") },
+                { href: "/library", label: t("library"), also: ["/papers"] },
+                { href: "/settings", label: t("settings") }
+              ]}
+            />
           </nav>
           <div className="flex items-center gap-3 text-sm text-muted">
             <span>{user.email}</span>
