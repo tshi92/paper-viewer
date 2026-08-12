@@ -113,7 +113,8 @@
     "pdfFallbackNotice": "PDF 快照暂不可用，当前显示 arXiv 实时版本；刷新页面可重试固化。",
     "analysisGenerate": "生成简介",
     "analysisGenerating": "生成中…",
-    "analysisGenerateFailed": "生成失败，请重试。"
+    "analysisGenerateFailed": "生成失败，请重试。",
+    "outlineHeading": "目录"
   },
   "paperLabels": {
     "label": "标签：",

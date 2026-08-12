@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { PdfOutlineEntry } from "@/lib/pdf-outline";
 
 export type AnalysisView = {
   summary: string;
@@ -23,17 +24,78 @@ const SECTIONS = [
   { field: "whyItMatters", labelKey: "analysisWhyItMatters" }
 ] as const;
 
+/**
+ * The document's embedded table of contents, collapsible above the intro.
+ * Clicking a heading jumps the PDF beside the panel to that page.
+ */
+function OutlineBlock({
+  outline,
+  onJumpToPage
+}: {
+  outline: PdfOutlineEntry[];
+  onJumpToPage: (page: number) => void;
+}) {
+  const t = useTranslations("workspace");
+  const [open, setOpen] = useState(true);
+
+  return (
+    <section
+      className={`flex min-h-0 shrink-0 flex-col rounded border border-border bg-white shadow-card p-4 ${
+        open ? "max-h-[45%]" : ""
+      }`}
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        className="flex w-full shrink-0 items-center justify-between text-sm font-semibold uppercase text-muted transition-colors duration-150 hover:text-ink"
+        onClick={() => setOpen((current) => !current)}
+      >
+        {t("outlineHeading")}
+        <span aria-hidden className={`transition-transform duration-200 ${open ? "rotate-90" : ""}`}>
+          ›
+        </span>
+      </button>
+      {open ? (
+        <nav className="mt-2 min-h-0 space-y-0.5 overflow-auto">
+          {outline.map((entry, index) => (
+            <button
+              key={`${entry.page}-${index}`}
+              type="button"
+              className={`flex w-full items-baseline justify-between gap-2 rounded px-1.5 py-1 text-left text-sm transition-colors duration-150 hover:bg-surface ${
+                entry.level > 0 ? "pl-5 text-muted" : ""
+              }`}
+              onClick={() => onJumpToPage(entry.page)}
+            >
+              <span className="min-w-0 flex-1 truncate">{entry.title}</span>
+              <span className="shrink-0 text-xs tabular-nums text-muted">{entry.page}</span>
+            </button>
+          ))}
+        </nav>
+      ) : null}
+    </section>
+  );
+}
+
 export function AnalysisPanel({
   analysis,
-  paperId
+  paperId,
+  outline,
+  onJumpToPage
 }: {
   analysis: AnalysisView | null;
   paperId: string;
+  /** Embedded PDF bookmarks; null while loading, [] when the PDF has none. */
+  outline?: PdfOutlineEntry[] | null;
+  onJumpToPage?: (page: number) => void;
 }) {
   const t = useTranslations("workspace");
   const router = useRouter();
   const [generating, setGenerating] = useState(false);
   const [failed, setFailed] = useState(false);
+  const outlineBlock =
+    outline && outline.length > 0 && onJumpToPage ? (
+      <OutlineBlock outline={outline} onJumpToPage={onJumpToPage} />
+    ) : null;
 
   async function generate() {
     if (generating) return;
@@ -53,7 +115,9 @@ export function AnalysisPanel({
 
   if (!analysis) {
     return (
-      <section className="flex h-full flex-col items-center justify-center gap-3 rounded border border-border bg-white shadow-card px-4 py-8 text-center text-sm text-muted">
+      <div className="flex h-full min-h-0 flex-col gap-3">
+        {outlineBlock}
+        <section className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto rounded border border-border bg-white shadow-card p-4 text-center text-sm text-muted">
         <p>{t("analysisEmpty")}</p>
         <button
           type="button"
@@ -64,12 +128,17 @@ export function AnalysisPanel({
           {generating ? t("analysisGenerating") : t("analysisGenerate")}
         </button>
         {failed ? <p role="alert" className="text-xs text-danger">{t("analysisGenerateFailed")}</p> : null}
-      </section>
+        </section>
+      </div>
     );
   }
 
   return (
-    <section className="h-full overflow-auto rounded border border-border bg-white shadow-card p-4">
+    // Contents and Intro are two separate cards, each with its own scroll:
+    // a long outline must not push the intro out of reach, and vice versa.
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      {outlineBlock}
+      <section className="min-h-0 flex-1 overflow-auto rounded border border-border bg-white shadow-card p-4">
       <h2 className="text-sm font-semibold uppercase text-muted">{t("analysisHeading")}</h2>
       <div className="mt-3 space-y-3 text-sm leading-relaxed">
         <p>{analysis.summary}</p>
@@ -93,6 +162,7 @@ export function AnalysisPanel({
           </div>
         ) : null}
       </div>
-    </section>
+      </section>
+    </div>
   );
 }
