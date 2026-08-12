@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { conferenceSourceId, parseConferenceFeed, parseGithubRepo } from "./conference-sync";
+import {
+  conferenceSourceId,
+  parseConferenceFeed,
+  parseGithubRepo,
+  surplusCatalogEntries,
+  type CatalogEntryRow
+} from "./conference-sync";
 import { normalizeTitle } from "./paper-identity";
 
 describe("parseConferenceFeed", () => {
@@ -111,5 +117,52 @@ describe("normalizeTitle", () => {
     expect(normalizeTitle("Nereus: Fast RDMA-based Storage")).toBe(
       normalizeTitle("  nereus — fast RDMA based storage ")
     );
+  });
+});
+
+describe("surplusCatalogEntries", () => {
+  function entry(
+    id: string,
+    title: string,
+    paper: Partial<CatalogEntryRow["paper"]> = {}
+  ): CatalogEntryRow {
+    return {
+      id,
+      paper: { title, arxivId: null, pdfUrl: null, blobUrl: null, externalUrl: null, ...paper }
+    };
+  }
+
+  it("keeps distinct articles untouched", () => {
+    const rows = [entry("e1", "Paper One"), entry("e2", "Paper Two")];
+    expect(surplusCatalogEntries(rows)).toEqual([]);
+  });
+
+  it("collapses same-title twins, preferring the PDF-capable row", () => {
+    // The shape production actually hit: a bare conference shell next to a
+    // manually uploaded twin holding the PDF.
+    const rows = [
+      entry("bare", "ECHO: Efficient KV Cache Offloading"),
+      entry("pdf", "ECHO: Efficient KV Cache Offloading", { blobUrl: "https://blob/x.pdf" })
+    ];
+    expect(surplusCatalogEntries(rows)).toEqual(["bare"]);
+  });
+
+  it("matches titles across case and punctuation", () => {
+    const rows = [
+      entry("a", "Strata: Hierarchical Context Caching"),
+      entry("b", "strata — hierarchical context caching", { arxivId: "2609.00001" })
+    ];
+    expect(surplusCatalogEntries(rows)).toEqual(["a"]);
+  });
+
+  it("breaks ties by source link, then keeps the first row", () => {
+    const rows = [
+      entry("plain", "Same Title"),
+      entry("linked", "Same Title", { externalUrl: "https://doi.org/10.1/x" })
+    ];
+    expect(surplusCatalogEntries(rows)).toEqual(["plain"]);
+
+    const stable = [entry("first", "Same Title"), entry("second", "Same Title")];
+    expect(surplusCatalogEntries(stable)).toEqual(["second"]);
   });
 });
