@@ -120,7 +120,11 @@ export function AnnotationSidebar({
           {t("count", { count: filtered.length })}
         </span>
       </div>
-      <div className="min-h-0 flex-1 divide-y divide-border overflow-auto">
+      {/* Separators live on each card (border-t only) instead of divide-*:
+          .divide-border's child selector outranks the cards' own
+          border-l-accent/transparent and painted every non-first left edge
+          gray, so selection was only ever visible on the first card. */}
+      <div className="min-h-0 flex-1 overflow-auto">
         {filtered.map(({ annotation, color }) => (
           <article
             key={annotation.id}
@@ -129,7 +133,7 @@ export function AnnotationSidebar({
             // the quote/image jump button. The annotator's selection effect
             // then brings the annotation into view once per selection.
             onClick={() => onSelect(annotation.id)}
-            className={`border-l-2 px-3 py-2.5 transition-colors duration-150 ${
+            className={`border-l-2 border-t border-t-border px-3 py-2.5 transition-colors duration-150 first:border-t-0 ${
               selectedId === annotation.id
                 ? "border-l-accent bg-accent/5"
                 : "border-l-transparent hover:bg-surface"
