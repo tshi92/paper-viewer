@@ -46,7 +46,7 @@ export function LibrarySearch() {
         onChange={(event) => setValue(event.target.value)}
         placeholder={t("searchPlaceholder")}
         aria-label={t("searchPlaceholder")}
-        className="w-56 rounded border border-border bg-white px-2 py-1 pr-6 text-xs placeholder:text-muted focus:border-accent focus:outline-none"
+        className="w-56 rounded border border-control bg-white px-2 py-1 pr-6 text-xs placeholder:text-muted focus:border-accent focus:outline-none"
       />
       {value ? (
         <button

@@ -18,7 +18,7 @@ export function RemovePaperButton({ workspacePaperId }: { workspacePaperId: stri
     return (
       <div className="flex items-center gap-1">
         <button
-          className="rounded bg-red-600 px-2 py-1 text-xs text-white"
+          className="rounded bg-danger px-2 py-1 text-xs text-white"
           onClick={handleRemove}
         >
           {t("removeConfirm")}
@@ -35,7 +35,7 @@ export function RemovePaperButton({ workspacePaperId }: { workspacePaperId: stri
 
   return (
     <button
-      className="shrink-0 rounded border border-border px-2 py-1 text-xs text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:border-red-300 hover:text-red-600"
+      className="shrink-0 rounded border border-border px-2 py-1 text-xs text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:border-danger-border hover:text-danger"
       onClick={() => setConfirming(true)}
     >
       {t("remove")}

@@ -79,7 +79,7 @@ export function ConfirmDialog({
             ref={confirmRef}
             type="button"
             className={`rounded px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 ${
-              destructive ? "bg-red-600" : "bg-accent"
+              destructive ? "bg-danger" : "bg-accent"
             }`}
             onClick={onConfirm}
             disabled={busy}

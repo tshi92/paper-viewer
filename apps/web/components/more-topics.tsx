@@ -38,7 +38,7 @@ export function MoreTopics({
   if (!open) {
     return (
       <button
-        className="rounded bg-surface px-2 py-0.5 text-xs text-muted hover:bg-border"
+        className="rounded bg-surface px-2 py-0.5 text-xs text-muted hover:bg-border hover:text-ink"
         onClick={() => setOpen(true)}
       >
         {t("moreTopics", { count: topics.length })}
@@ -49,7 +49,7 @@ export function MoreTopics({
   return (
     <>
       <button
-        className="rounded bg-border px-2 py-0.5 text-xs text-muted"
+        className="rounded bg-border px-2 py-0.5 text-xs text-ink"
         onClick={() => setOpen(false)}
       >
         {t("lessTopics")}
@@ -61,7 +61,7 @@ export function MoreTopics({
           <Link
             key={topic}
             href={buildUrl(isActive ? null : topic)}
-            className={`rounded px-2 py-0.5 text-xs ${isActive ? "bg-accent text-white" : "bg-surface/50 text-muted hover:bg-border"}`}
+            className={`rounded px-2 py-0.5 text-xs ${isActive ? "bg-accent text-white" : "bg-surface/50 text-muted hover:bg-border hover:text-ink"}`}
           >
             {topic} ({count}){isActive ? " ×" : ""}
           </Link>

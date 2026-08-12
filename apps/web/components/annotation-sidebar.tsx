@@ -64,7 +64,7 @@ export function AnnotationSidebar({
     <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <select
-          className="rounded border border-border px-1.5 py-1 text-xs"
+          className="rounded border border-control px-1.5 py-1 text-xs"
           value={labelFilter}
           onChange={(event) => setLabelFilter(event.target.value)}
         >
@@ -76,7 +76,7 @@ export function AnnotationSidebar({
           ))}
         </select>
         <select
-          className="rounded border border-border px-1.5 py-1 text-xs"
+          className="rounded border border-control px-1.5 py-1 text-xs"
           value={authorFilter}
           onChange={(event) => setAuthorFilter(event.target.value)}
         >
@@ -158,7 +158,7 @@ export function AnnotationSidebar({
 
             <div className="mt-1.5 flex items-center gap-2">
               <input
-                className="min-w-0 flex-1 rounded border border-border px-2 py-1 text-xs"
+                className="min-w-0 flex-1 rounded border border-control px-2 py-1 text-xs"
                 placeholder={t("replyPlaceholder")}
                 value={replyDrafts[annotation.id] ?? ""}
                 onChange={(event) =>
@@ -182,7 +182,7 @@ export function AnnotationSidebar({
               {annotation.author.id === currentUserId ? (
                 <button
                   type="button"
-                  className="text-xs text-red-500"
+                  className="text-xs text-danger"
                   onClick={() => setPendingDelete(annotation)}
                 >
                   {t("delete")}

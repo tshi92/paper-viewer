@@ -141,7 +141,7 @@ export function NotificationSettingsForm() {
   }
 
   if (loadError) {
-    return <p className="mt-6 text-sm text-red-600">{loadError}</p>;
+    return <p className="mt-6 text-sm text-danger">{loadError}</p>;
   }
 
   if (!config) {
@@ -168,7 +168,7 @@ export function NotificationSettingsForm() {
         <label className="text-sm font-medium" htmlFor="feishuWebhookUrl">{t("webhookLabel")}</label>
         <p className="text-xs text-muted">{t("webhookHint")}</p>
         <input
-          className="mt-1 w-full rounded border border-border px-3 py-2"
+          className="mt-1 w-full rounded border border-control px-3 py-2"
           id="feishuWebhookUrl"
           value={webhookUrl}
           onChange={(event) => setWebhookUrl(event.target.value)}
@@ -180,7 +180,7 @@ export function NotificationSettingsForm() {
         <label className="text-sm font-medium" htmlFor="pushHour">{t("pushHourLabel")}</label>
         <p className="text-xs text-muted">{t("pushHourHint")}</p>
         <select
-          className="mt-1 rounded border border-border px-3 py-2"
+          className="mt-1 rounded border border-control px-3 py-2"
           id="pushHour"
           data-testid="push-hour-select"
           value={pushHour}
@@ -212,7 +212,7 @@ export function NotificationSettingsForm() {
           {saving ? t("saving") : t("save")}
         </button>
         <button
-          className="rounded border border-border px-4 py-2 font-medium text-red-600 disabled:opacity-50"
+          className="rounded border border-border px-4 py-2 font-medium text-danger disabled:opacity-50"
           type="button"
           onClick={() => setPendingAction("clear")}
           disabled={busy || !config.configured}
@@ -237,11 +237,11 @@ export function NotificationSettingsForm() {
 
       {testResult ? (
         testResult.ok ? (
-          <p className="text-sm text-green-700" data-testid="notification-test-result">
+          <p className="text-sm text-success" data-testid="notification-test-result">
             {t("testSuccess")}
           </p>
         ) : (
-          <p className="text-sm text-red-600" data-testid="notification-test-result">
+          <p className="text-sm text-danger" data-testid="notification-test-result">
             {/* 服务端只在「没有可用地址」时带 message，其余失败原因统一提示。 */}
             ✗ {testResult.message ? t("testNotConfigured") : t("testFailed")}
           </p>
@@ -249,10 +249,10 @@ export function NotificationSettingsForm() {
       ) : null}
 
       {saveMessage ? (
-        <p className="text-sm text-green-700" data-testid="notification-save-result">{saveMessage}</p>
+        <p className="text-sm text-success" data-testid="notification-save-result">{saveMessage}</p>
       ) : null}
       {saveError ? (
-        <p className="text-sm text-red-600" data-testid="notification-save-result">{saveError}</p>
+        <p className="text-sm text-danger" data-testid="notification-save-result">{saveError}</p>
       ) : null}
     </div>
   );

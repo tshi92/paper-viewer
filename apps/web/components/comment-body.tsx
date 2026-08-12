@@ -68,7 +68,7 @@ export function CommentBody({
     return (
       <div className="grid gap-1.5">
         <textarea
-          className={`min-h-16 w-full rounded border border-border px-2 py-1.5 ${textClassName}`}
+          className={`min-h-16 w-full rounded border border-control px-2 py-1.5 ${textClassName}`}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           disabled={busy}
@@ -93,7 +93,7 @@ export function CommentBody({
           >
             {t("cancel")}
           </button>
-          {failed ? <span className="text-xs text-red-600">{t("actionFailed")}</span> : null}
+          {failed ? <span className="text-xs text-danger">{t("actionFailed")}</span> : null}
         </div>
       </div>
     );
@@ -136,7 +136,7 @@ export function CommentBody({
             />
           </>
         ) : null}
-        {failed ? <span className="text-xs text-red-600">{t("actionFailed")}</span> : null}
+        {failed ? <span className="text-xs text-danger">{t("actionFailed")}</span> : null}
       </div>
     </div>
   );

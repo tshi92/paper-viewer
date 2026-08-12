@@ -156,7 +156,7 @@ export function PaperChat({ paperId }: { paperId: string }) {
           <div className="text-center text-sm text-muted py-8">
             <p>{t("emptyTitle")}</p>
             <div className="mt-3 space-y-1 text-xs">
-              <p className="text-muted/70">{t("emptyTryLabel")}</p>
+              <p className="text-muted">{t("emptyTryLabel")}</p>
               <p>&ldquo;{t("emptySuggestionContribution")}&rdquo;</p>
               <p>&ldquo;{t("emptySuggestionMethod")}&rdquo;</p>
               <p>&ldquo;{t("emptySuggestionLimitations")}&rdquo;</p>
@@ -185,7 +185,7 @@ export function PaperChat({ paperId }: { paperId: string }) {
                   {msg.role === "assistant" ? (
                     <button
                       type="button"
-                      className={`text-xs ${saveState === "saved" ? "text-green-600" : "text-accent"} ${
+                      className={`text-xs ${saveState === "saved" ? "text-success" : "text-accent"} ${
                         saveState ? "" : "hover:underline"
                       }`}
                       onClick={() => void saveToComments(msg.id, msg.content)}
@@ -198,12 +198,12 @@ export function PaperChat({ paperId }: { paperId: string }) {
                     text={msg.content}
                     className={
                       msg.role === "user"
-                        ? "text-xs text-white/80 hover:underline"
+                        ? "text-xs text-white/85 hover:underline"
                         : "text-xs text-muted hover:underline"
                     }
                   />
                   {saveState === "failed" ? (
-                    <span className="text-xs text-red-600">{t("saveToCommentsFailed")}</span>
+                    <span className="text-xs text-danger">{t("saveToCommentsFailed")}</span>
                   ) : null}
                 </div>
               </div>
@@ -227,7 +227,7 @@ export function PaperChat({ paperId }: { paperId: string }) {
         <div className="flex gap-2">
           <textarea
             ref={inputRef}
-            className="flex-1 resize-none rounded border border-border px-3 py-2 text-sm"
+            className="flex-1 resize-none rounded border border-control px-3 py-2 text-sm"
             rows={2}
             placeholder={t("inputPlaceholder")}
             value={input}

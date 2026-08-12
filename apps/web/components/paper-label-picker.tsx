@@ -105,7 +105,7 @@ export function PaperLabelPicker({
       ) : null}
 
       {failed ? (
-        <span role="alert" className="text-xs text-red-600">
+        <span role="alert" className="text-xs text-danger">
           {t("saveFailed")}
         </span>
       ) : null}

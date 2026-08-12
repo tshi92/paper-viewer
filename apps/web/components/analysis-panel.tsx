@@ -63,7 +63,7 @@ export function AnalysisPanel({
         >
           {generating ? t("analysisGenerating") : t("analysisGenerate")}
         </button>
-        {failed ? <p className="text-xs text-red-600">{t("analysisGenerateFailed")}</p> : null}
+        {failed ? <p className="text-xs text-danger">{t("analysisGenerateFailed")}</p> : null}
       </section>
     );
   }

@@ -206,7 +206,7 @@ export default async function LibraryPage({
                 <Link
                   key={topic}
                   href={buildUrl({ tag: isActive ? null : topic })}
-                  className={`rounded px-2 py-0.5 text-xs ${isActive ? "bg-accent text-white" : "bg-surface text-muted hover:bg-border"}`}
+                  className={`rounded px-2 py-0.5 text-xs ${isActive ? "bg-accent text-white" : "bg-surface text-muted hover:bg-border hover:text-ink"}`}
                 >
                   {topic} ({count}){isActive ? " ×" : ""}
                 </Link>

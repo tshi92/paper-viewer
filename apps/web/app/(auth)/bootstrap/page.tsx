@@ -14,15 +14,15 @@ export default async function BootstrapPage({
       {error ? (
         <p
           role="alert"
-          className="mt-4 rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-600"
+          className="mt-4 rounded border border-danger-border bg-danger-surface px-3 py-2 text-sm text-danger-deep"
         >
           {t("bootstrapError")}
         </p>
       ) : null}
       <form className="mt-6 grid gap-4" method="post" action="/api/bootstrap">
-        <input className="rounded border border-border px-3 py-2" name="name" placeholder={t("namePlaceholder")} required />
-        <input className="rounded border border-border px-3 py-2" name="email" placeholder={t("emailPlaceholder")} type="email" required />
-        <input className="rounded border border-border px-3 py-2" name="password" placeholder={t("passwordPlaceholder")} type="password" required minLength={12} />
+        <input className="rounded border border-control px-3 py-2" name="name" placeholder={t("namePlaceholder")} required />
+        <input className="rounded border border-control px-3 py-2" name="email" placeholder={t("emailPlaceholder")} type="email" required />
+        <input className="rounded border border-control px-3 py-2" name="password" placeholder={t("passwordPlaceholder")} type="password" required minLength={12} />
         <button className="rounded bg-accent px-3 py-2 font-medium text-white" type="submit">{t("bootstrapSubmit")}</button>
       </form>
     </main>

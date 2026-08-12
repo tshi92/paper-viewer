@@ -50,7 +50,7 @@ export default async function PreferencesPage() {
             <label className="text-sm font-medium" htmlFor="topics">{t("topicsLabel")}</label>
             <p className="text-xs text-muted">{t("topicsHint")}</p>
             <textarea
-              className="mt-1 w-full rounded border border-border px-3 py-2"
+              className="mt-1 w-full rounded border border-control px-3 py-2"
               id="topics"
               name="topics"
               rows={4}
@@ -63,7 +63,7 @@ export default async function PreferencesPage() {
             <label className="text-sm font-medium" htmlFor="keywords">{t("keywordsLabel")}</label>
             <p className="text-xs text-muted">{t("keywordsHint")}</p>
             <input
-              className="mt-1 w-full rounded border border-border px-3 py-2"
+              className="mt-1 w-full rounded border border-control px-3 py-2"
               id="keywords"
               name="keywords"
               placeholder={t("keywordsPlaceholder")}
@@ -75,7 +75,7 @@ export default async function PreferencesPage() {
             <label className="text-sm font-medium" htmlFor="arxivCategories">{t("categoriesLabel")}</label>
             <p className="text-xs text-muted">{t("categoriesHint")}</p>
             <input
-              className="mt-1 w-full rounded border border-border px-3 py-2"
+              className="mt-1 w-full rounded border border-control px-3 py-2"
               id="arxivCategories"
               name="arxivCategories"
               placeholder={t("categoriesPlaceholder")}
@@ -87,7 +87,7 @@ export default async function PreferencesPage() {
             <label className="text-sm font-medium" htmlFor="excludedTopics">{t("excludedLabel")}</label>
             <p className="text-xs text-muted">{t("excludedHint")}</p>
             <textarea
-              className="mt-1 w-full rounded border border-border px-3 py-2"
+              className="mt-1 w-full rounded border border-control px-3 py-2"
               id="excludedTopics"
               name="excludedTopics"
               rows={2}
@@ -99,7 +99,7 @@ export default async function PreferencesPage() {
           <div>
             <label className="text-sm font-medium" htmlFor="papersPerDay">{t("papersPerDayLabel")}</label>
             <input
-              className="mt-1 w-32 rounded border border-border px-3 py-2"
+              className="mt-1 w-32 rounded border border-control px-3 py-2"
               id="papersPerDay"
               name="papersPerDay"
               type="number"

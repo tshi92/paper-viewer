@@ -48,7 +48,7 @@ export function DiscoverButton() {
       >
         {loading ? t("discovering") : t("discover")}
       </button>
-      {error ? <p className="text-xs text-red-600">{error}</p> : null}
+      {error ? <p className="text-xs text-danger">{error}</p> : null}
     </div>
   );
 }

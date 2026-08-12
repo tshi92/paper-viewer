@@ -99,7 +99,7 @@ export function CommentPanel({
         onSubmit={handleSubmit}
       >
         <textarea
-          className="min-h-20 rounded border border-border px-3 py-2 text-sm"
+          className="min-h-20 rounded border border-control px-3 py-2 text-sm"
           name="body"
           placeholder={t("placeholder")}
           required

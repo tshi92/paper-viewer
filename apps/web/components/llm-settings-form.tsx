@@ -132,7 +132,7 @@ export function LlmSettingsForm() {
   }
 
   if (loadError) {
-    return <p className="mt-6 text-sm text-red-600">{loadError}</p>;
+    return <p className="mt-6 text-sm text-danger">{loadError}</p>;
   }
 
   if (!config) {
@@ -157,7 +157,7 @@ export function LlmSettingsForm() {
         <label className="text-sm font-medium" htmlFor="baseUrl">{t("baseUrlLabel")}</label>
         <p className="text-xs text-muted">{t("baseUrlHint")}</p>
         <input
-          className="mt-1 w-full rounded border border-border px-3 py-2"
+          className="mt-1 w-full rounded border border-control px-3 py-2"
           id="baseUrl"
           value={baseUrl}
           onChange={(event) => setBaseUrl(event.target.value)}
@@ -169,7 +169,7 @@ export function LlmSettingsForm() {
         <label className="text-sm font-medium" htmlFor="model">{t("modelLabel")}</label>
         <p className="text-xs text-muted">{t("modelHint")}</p>
         <input
-          className="mt-1 w-full rounded border border-border px-3 py-2"
+          className="mt-1 w-full rounded border border-control px-3 py-2"
           id="model"
           value={model}
           onChange={(event) => setModel(event.target.value)}
@@ -181,7 +181,7 @@ export function LlmSettingsForm() {
         <label className="text-sm font-medium" htmlFor="apiKey">{t("apiKeyLabel")}</label>
         <p className="text-xs text-muted">{t("apiKeyHint")}</p>
         <input
-          className="mt-1 w-full rounded border border-border px-3 py-2"
+          className="mt-1 w-full rounded border border-control px-3 py-2"
           id="apiKey"
           type="password"
           value={apiKey}
@@ -211,23 +211,23 @@ export function LlmSettingsForm() {
 
       {testResult ? (
         testResult.ok ? (
-          <p className="text-sm text-green-700" data-testid="llm-test-result">
+          <p className="text-sm text-success" data-testid="llm-test-result">
             {testResult.modelFound
               ? t("testSuccessWithModel", { count: testResult.total })
               : t("testSuccessWithoutModel", { count: testResult.total, model: model.trim() })}
           </p>
         ) : (
-          <p className="text-sm text-red-600" data-testid="llm-test-result">
+          <p className="text-sm text-danger" data-testid="llm-test-result">
             ✗ {testResult.status || t("connectionError")} {testResult.message}
           </p>
         )
       ) : null}
 
       {saveMessage ? (
-        <p className="text-sm text-green-700" data-testid="llm-save-result">{saveMessage}</p>
+        <p className="text-sm text-success" data-testid="llm-save-result">{saveMessage}</p>
       ) : null}
       {saveError ? (
-        <p className="text-sm text-red-600" data-testid="llm-save-result">{saveError}</p>
+        <p className="text-sm text-danger" data-testid="llm-save-result">{saveError}</p>
       ) : null}
     </div>
   );

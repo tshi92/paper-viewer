@@ -123,7 +123,7 @@ export function LabelSettings() {
   );
 
   if (loadError) {
-    return <p className="mt-6 text-sm text-red-600">{loadError}</p>;
+    return <p className="mt-6 text-sm text-danger">{loadError}</p>;
   }
 
   if (!labels) {
@@ -133,7 +133,7 @@ export function LabelSettings() {
   return (
     <div className="mt-6 grid gap-8">
       {actionError ? (
-        <p className="text-sm text-red-600" data-testid="label-error">
+        <p className="text-sm text-danger" data-testid="label-error">
           {actionError}
         </p>
       ) : null}
@@ -204,7 +204,7 @@ function LabelRow({
           <SwatchPicker value={color} onChange={setColor} ariaLabel={t("colorLabel")} />
           <input
             aria-label={t("namePlaceholder")}
-            className="min-w-0 flex-1 rounded border border-border px-2 py-1 text-sm"
+            className="min-w-0 flex-1 rounded border border-control px-2 py-1 text-sm"
             value={name}
             onChange={(event) => setName(event.target.value)}
             onKeyDown={(event) => {
@@ -251,7 +251,7 @@ function LabelRow({
             {t("edit")}
           </button>
           <button
-            className="text-xs text-red-500 disabled:opacity-50"
+            className="text-xs text-danger disabled:opacity-50"
             type="button"
             data-testid="label-delete"
             disabled={busy}
@@ -314,7 +314,7 @@ function AddLabelRow({
       <SwatchPicker value={color} onChange={setColor} ariaLabel={t("colorLabel")} />
       <input
         aria-label={t("namePlaceholder")}
-        className="min-w-0 flex-1 rounded border border-border px-2 py-1 text-sm"
+        className="min-w-0 flex-1 rounded border border-control px-2 py-1 text-sm"
         data-testid={`label-add-name-${scope}`}
         maxLength={50}
         placeholder={t("namePlaceholder")}

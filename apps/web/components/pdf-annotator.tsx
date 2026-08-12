@@ -311,7 +311,7 @@ function SelectionTip({
         </div>
       ) : null}
       <textarea
-        className="mt-2 w-full rounded border border-border px-2 py-1 text-xs"
+        className="mt-2 w-full rounded border border-control px-2 py-1 text-xs"
         rows={2}
         placeholder={t("tipCommentPlaceholder")}
         value={comment}

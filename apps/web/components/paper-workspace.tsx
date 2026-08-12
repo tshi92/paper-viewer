@@ -311,7 +311,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         {actionError ? (
           <p
             role="alert"
-            className="rounded border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-600"
+            className="rounded border border-danger-border bg-danger-surface px-3 py-2 text-xs text-danger-deep"
           >
             {t(actionError)}
           </p>

@@ -82,7 +82,7 @@ export function PaperUploadForm() {
       <div className="flex items-center gap-1">
         <input
           type="text"
-          className="w-56 rounded border border-border px-2 py-1.5 text-sm placeholder:text-muted/60"
+          className="w-56 rounded border border-control px-2 py-1.5 text-sm placeholder:text-muted"
           placeholder={t("urlPlaceholder")}
           value={url}
           onChange={(e) => { setUrl(e.target.value); setError(""); }}
@@ -97,7 +97,7 @@ export function PaperUploadForm() {
           {t("add")}
         </button>
       </div>
-      {error ? <span className="text-xs text-red-500">{error}</span> : null}
+      {error ? <span className="text-xs text-danger">{error}</span> : null}
     </div>
   );
 }

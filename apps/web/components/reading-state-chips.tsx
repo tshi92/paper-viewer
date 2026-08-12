@@ -71,7 +71,7 @@ export function ReadingStateChips({
           </button>
         ))}
       </div>
-      {failed ? <span className="text-xs text-red-600">{t("saveFailed")}</span> : null}
+      {failed ? <span className="text-xs text-danger">{t("saveFailed")}</span> : null}
     </div>
   );
 }

@@ -150,7 +150,7 @@ export function FilterDropdown({
         onClick={() => (open ? closeMenu(false) : openMenu())}
         onKeyDown={handleTriggerKeyDown}
         className={`flex h-[26px] items-center gap-1.5 rounded border px-2 text-xs ${
-          isFiltering ? "border-accent text-accent font-medium" : "border-border text-muted hover:bg-surface"
+          isFiltering ? "border-accent text-accent font-medium" : "border-control text-muted hover:bg-surface"
         }`}
       >
         <span className="text-muted">{prefix}</span>
