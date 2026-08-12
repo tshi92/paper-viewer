@@ -171,15 +171,17 @@ export default async function ConferencesPage({
                 return (
                   <div
                     key={entry.id}
-                    className="flex items-center justify-between gap-4 border-t border-t-border px-4 py-3 transition-colors duration-150 first:border-t-0 hover:bg-surface"
+                    className="flex items-center justify-between gap-4 border-t border-t-border px-4 py-3 first:border-t-0"
                   >
-                    <Link className="min-w-0 flex-1" href={`/papers/${paper.id}`}>
+                    {/* Deliberately static: the row is a catalog line, not a
+                        link — only the actions on the right navigate. */}
+                    <div className="min-w-0 flex-1">
                       <h3 className="font-medium leading-snug">{paper.title}</h3>
                       <p className="mt-0.5 line-clamp-1 text-sm text-muted">
                         {query ? `${entry.venue} ${entry.year} · ` : ""}
                         {Array.isArray(paper.authors) ? (paper.authors as string[]).join(", ") : ""}
                       </p>
-                    </Link>
+                    </div>
                     <div className="flex shrink-0 items-center gap-3">
                       {/* Signals before the click that the paper page will show
                           the full text inline; absent when it can't. */}
@@ -192,16 +194,18 @@ export default async function ConferencesPage({
                           {t("pdfBadge")}
                         </Link>
                       ) : null}
-                      {paper.externalUrl ? (
-                        <a
-                          href={paper.externalUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="whitespace-nowrap text-xs text-accent hover:underline"
-                        >
-                          {tCommon("sourceLink")} ↗
-                        </a>
-                      ) : null}
+                      <a
+                        href={
+                          paper.externalUrl ??
+                          `https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={paper.externalUrl ? undefined : t("scholarLinkTitle")}
+                        className="whitespace-nowrap text-xs text-accent hover:underline"
+                      >
+                        {paper.externalUrl ? tCommon("sourceLink") : t("scholarLink")} ↗
+                      </a>
                       {saved ? (
                         <span className="rounded bg-surface px-2 py-0.5 text-xs text-muted">
                           {tHome("savedBadge")}

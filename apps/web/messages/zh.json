@@ -357,6 +357,8 @@
     "emptyFiltered": "当前筛选下没有匹配的论文。",
     "clearFilters": "清除筛选",
     "pdfBadge": "PDF",
-    "pdfBadgeTitle": "点击可在线预览 PDF 全文"
+    "pdfBadgeTitle": "点击可在线预览 PDF 全文",
+    "scholarLink": "Scholar",
+    "scholarLinkTitle": "在 Google Scholar 中查找这篇论文"
   }
 }
