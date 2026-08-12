@@ -115,7 +115,8 @@
     "analysisGenerate": "Generate intro",
     "analysisGenerating": "Generating…",
     "analysisGenerateFailed": "Generation failed. Please try again.",
-    "outlineHeading": "Contents"
+    "outlineHeading": "Contents",
+    "downloadFailed": "Download failed"
   },
   "paperLabels": {
     "label": "Labels:",
