@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { BackButton } from "./back-button";
 import { CommentPanel } from "./comment-panel";
 import { PaperChat } from "./paper-chat";
 import { AnalysisPanel, type AnalysisView } from "./analysis-panel";
@@ -28,6 +29,7 @@ type PaperData = {
   authors: string[];
   arxivId: string | null;
   pdfUrl: string | null;
+  externalUrl: string | null;
   abstract: string | null;
   hasPdf: boolean;
   analysis: AnalysisView | null;
@@ -64,6 +66,7 @@ const SIDEBAR_TABS = ["analysis", "chat", "annotations", "comments"] as const;
 
 export function PaperWorkspace({ paper }: { paper: PaperData }) {
   const t = useTranslations("workspace");
+  const tCommon = useTranslations("common");
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<SidebarTab>("analysis");
   const [annotations, setAnnotations] = useState<AnnotationView[]>([]);
@@ -234,9 +237,13 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         : null;
 
   return (
-    // Below lg the sidebar stacks under the PDF instead of squeezing the
-    // reading column below a usable width.
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="space-y-3">
+      {/* Standalone back affordance at the page's top-left, outside the
+          title card — it navigates the app, not the paper. */}
+      <BackButton fallbackHref="/library" />
+      {/* Below lg the sidebar stacks under the PDF instead of squeezing the
+          reading column below a usable width. */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <section>
         {/* Compact header: the PDF below is the page's protagonist, so the
             card spends as little vertical space as possible. The arXiv link is
@@ -257,6 +264,19 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
                   className="whitespace-nowrap text-accent hover:underline"
                 >
                   arXiv:{paper.arxivId} ↗
+                </a>
+              </>
+            ) : null}
+            {paper.externalUrl ? (
+              <>
+                {" · "}
+                <a
+                  href={paper.externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="whitespace-nowrap text-accent hover:underline"
+                >
+                  {tCommon("sourceLink")} ↗
                 </a>
               </>
             ) : null}
@@ -385,6 +405,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         )}
         </div>
       </aside>
+      </div>
     </div>
   );
 }

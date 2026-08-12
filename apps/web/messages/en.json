@@ -325,7 +325,9 @@
     "confirm": "Confirm",
     "cancel": "Cancel",
     "dismiss": "Dismiss",
-    "loading": "Loading…"
+    "loading": "Loading…",
+    "back": "Back",
+    "sourceLink": "Source"
   },
   "preview": {
     "readOnlyNotice": "Preview: save to library to annotate, comment and discuss.",
@@ -335,22 +337,20 @@
     "noPdf": "No PDF available.",
     "duplicateInLibrary": "Already in the library",
     "duplicateView": "View",
-    "saveDone": "Saved to library"
+    "saveDone": "Saved to library",
+    "introAfterSave": "The AI intro is generated automatically after this paper is saved to the library.",
+    "searchScholar": "Search on Google Scholar"
   },
   "conferences": {
     "title": "Conferences",
-    "venueFilterAria": "Filter by venue",
-    "yearFilterAria": "Filter by year",
-    "allVenues": "All venues",
-    "allYears": "All years",
     "count": "{count} papers",
     "emptyTitle": "No conference papers yet",
     "emptyBody": "Once an admin syncs the data source, recent systems-conference papers will appear here.",
-    "emptyBodyAdmin": "Configure the data source (CONFERENCE_SOURCE_URL), then click \"Sync catalog\" to import the conference list.",
+    "emptyBodyAdmin": "Click \"Sync catalog\" to import recent systems-conference paper lists from the GitHub catalog repo.",
     "sync": "Sync catalog",
     "syncing": "Syncing…",
     "syncFailed": "Sync failed. Please try again.",
-    "syncNotConfigured": "Data source not configured yet (waiting for the repo link)",
+    "syncNotConfigured": "Invalid source: expected a github.com repository URL",
     "syncDone": "Synced: {entries} entries, {created} new papers",
     "truncatedNotice": "Too many results; showing the first {max}. Narrow with the filters.",
     "emptyFiltered": "No papers match the current filters.",

@@ -7,12 +7,12 @@ import { useEffect, useState } from "react";
 const DEBOUNCE_MS = 300;
 
 /**
- * Library search box: a controlled input with a 300ms debounce that writes the
- * keyword back into `?q=`.
- * The remaining query parameters (time / tag) are preserved as they are, so search
- * stacks with the time and topic filters.
+ * Keyword search box: a controlled input with a 300ms debounce that writes
+ * the keyword back into `?q=` on `basePath` (Library by default; the
+ * conference catalog reuses it). All other query parameters are preserved,
+ * so search stacks with the page's filters.
  */
-export function LibrarySearch() {
+export function LibrarySearch({ basePath = "/library" }: { basePath?: string }) {
   const t = useTranslations("library");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -35,7 +35,7 @@ export function LibrarySearch() {
         params.delete("q");
       }
       const qs = params.toString();
-      router.replace(`/library${qs ? `?${qs}` : ""}`, { scroll: false });
+      router.replace(`${basePath}${qs ? `?${qs}` : ""}`, { scroll: false });
     }, DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [value, queryParam, searchParams, router]);
