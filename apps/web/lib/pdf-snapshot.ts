@@ -12,7 +12,8 @@ function looksLikePdf(bytes: Uint8Array, contentType: string | null): boolean {
   if (hasMagic) {
     return true;
   }
-  // 没有魔数时只信任明确声明 pdf 的响应头（有些镜像站会漏发 header）
+  // Without the magic number, only trust a response header that explicitly says
+  // pdf (some mirror sites forget to send the header)
   return contentType ? contentType.toLowerCase().includes("pdf") : false;
 }
 
@@ -38,15 +39,16 @@ async function downloadPdf(sourceUrl: string): Promise<Uint8Array | null> {
   const res = await fetch(sourceUrl, {
     headers: { "User-Agent": "PaperViewer/1.0" },
     redirect: "follow",
-    // 数 MB 的 PDF 不该进 Next 的 fetch 数据缓存
+    // A PDF of several MB has no business in Next's fetch data cache
     cache: "no-store"
   });
   if (!res.ok) {
     return null;
   }
 
-  // 逐块读取而不是 res.arrayBuffer()：后者在 Next dev 的 RSC 渲染里对几 MB 的响应
-  // 会触发 "Maximum call stack size exceeded" 并打断 HTML 流。
+  // Read chunk by chunk rather than via res.arrayBuffer(): the latter triggers
+  // "Maximum call stack size exceeded" on responses of a few MB during Next dev's
+  // RSC rendering and breaks the HTML stream.
   const bytes = await readAllBytes(res.body);
   if (bytes.byteLength < MIN_PDF_BYTES) {
     return null;
@@ -58,11 +60,14 @@ async function downloadPdf(sourceUrl: string): Promise<Uint8Array | null> {
 }
 
 /**
- * 确保论文有固化 PDF 快照（标注锚定不随 arXiv 更新漂移）。
- * 优先级：已有快照(PaperFile 或 blobUrl) → Blob(生产) → S3/MinIO(本地) → 放弃(降级 arXiv 代理)。
- * 幂等，可在页面打开时安全调用。
- * 调用方必须先校验 paper 属于当前 workspace——本函数只按 paperId 取数据。
- * 返回值表示调用结束后论文是否已有可用快照。
+ * Ensure the paper has a pinned PDF snapshot (so annotation anchors do not drift
+ * when arXiv publishes an update).
+ * Priority: existing snapshot (PaperFile or blobUrl) → Blob (production) →
+ * S3/MinIO (local) → give up (fall back to the arXiv proxy).
+ * Idempotent, so it is safe to call when the page opens.
+ * The caller must first verify the paper belongs to the current workspace — this
+ * function only looks data up by paperId.
+ * The return value says whether the paper has a usable snapshot once the call ends.
  */
 export async function ensurePdfSnapshot(paperId: string, workspaceId: string): Promise<boolean> {
   const paper = await prisma.paper.findUnique({
@@ -83,7 +88,7 @@ export async function ensurePdfSnapshot(paperId: string, workspaceId: string): P
 
   const env = getEnv();
   const s3 = getS3Config();
-  // 两种后端都没配置时不必浪费一次下载
+  // With neither backend configured there is no point wasting a download
   if (!env.BLOB_READ_WRITE_TOKEN && !s3) {
     return false;
   }

@@ -34,7 +34,7 @@ describe("buildDigestCard", () => {
 
   it("renders one lark_md element per paper, numbered and linked", () => {
     const card = buildCard();
-    // 1 个总览 + 2 篇
+    // 1 overview + 2 papers
     expect(card.elements).toHaveLength(3);
     const [, first, second] = card.elements as [CardElement, CardElement, CardElement];
 
@@ -86,7 +86,7 @@ describe("buildDigestCard", () => {
 });
 
 const WEBHOOK = "https://open.feishu.cn/open-apis/bot/v2/hook/test-token";
-/** 注入零延迟，测试不真的等退避的 1s/2s */
+/** Inject a zero delay so the tests do not actually wait out the 1s/2s backoff */
 const noDelay = { delay: async () => {} };
 
 function jsonResponse(status: number, body: unknown): Response {

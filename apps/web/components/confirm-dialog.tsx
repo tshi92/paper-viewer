@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef } from "react";
+import { createPortal } from "react-dom";
 
 /**
  * In-app replacement for window.confirm so every destructive flow shares one
@@ -40,7 +41,10 @@ export function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
+  // Portalled to <body>: rendered in place, the sticky sidebar's stacking
+  // context would flatten the overlay's z-index and let the PDF's own layers
+  // (textLayer z-2 in the root context) paint straight over the dialog.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 p-4"
       onClick={onCancel}
@@ -92,6 +96,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

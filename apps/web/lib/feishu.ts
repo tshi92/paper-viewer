@@ -1,9 +1,10 @@
 /**
- * 飞书（Lark）自定义机器人 webhook：每日 digest 卡片的构建与投递。
+ * Feishu (Lark) custom bot webhook: building and delivering the daily digest card.
  *
- * 卡片格式为「消息卡片 v1」的 interactive 结构，请求体形如
- * `{"msg_type":"interactive","card":{...}}`。成功响应是 `{"code":0,...}`
- * （旧版网关返回 `{"StatusCode":0}`），失败时 code 为非零业务错误码。
+ * The card uses the interactive structure of "message card v1", with a request
+ * body shaped like `{"msg_type":"interactive","card":{...}}`. A success response
+ * is `{"code":0,...}` (older gateways return `{"StatusCode":0}`); on failure the
+ * code is a non-zero business error code.
  */
 
 export type DigestPaper = {
@@ -15,16 +16,16 @@ export type DigestPaper = {
 export type DigestCardInput = {
   /** YYYY-MM-DD */
   date: string;
-  /** 中文总览，可为空串（空串时不生成空白段落） */
+  /** Chinese overview; may be an empty string (in which case no blank paragraph is generated) */
   overview: string;
   papers: DigestPaper[];
-  /** 站点根地址，带不带尾斜杠都可以 */
+  /** Site root address, with or without a trailing slash */
   appUrl: string;
 };
 
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_ATTEMPTS = 3;
-/** 指数退避：第 1 次失败等 1s，第 2 次等 2s，第 3 次失败直接放弃 */
+/** Exponential backoff: wait 1s after the first failure, 2s after the second, and give up outright after the third */
 const RETRY_DELAY_MS = [1_000, 2_000];
 
 function stripTrailingSlashes(appUrl: string): string {
@@ -32,8 +33,9 @@ function stripTrailingSlashes(appUrl: string): string {
 }
 
 /**
- * 论文标题里的 `[` / `]` 会把 lark_md 链接语法从中间截断
- * （`[SAM [v2] model](url)` 渲染成裸文本），因此转义成 `\[` / `\]`。
+ * A `[` / `]` inside a paper title cuts the lark_md link syntax in half
+ * (`[SAM [v2] model](url)` renders as bare text), so they are escaped to
+ * `\[` / `\]`.
  */
 function escapeLinkText(title: string): string {
   return title.replace(/[[\]]/g, "\\$&");
@@ -72,7 +74,7 @@ export function buildDigestCard(input: DigestCardInput): object {
   };
 }
 
-/** 设置页「发送测试」用的最小卡片，不含论文数据。 */
+/** Minimal card used by the settings page's "send test" button; contains no paper data. */
 export function buildTestCard(): object {
   return {
     config: { wide_screen_mode: true },
@@ -89,7 +91,7 @@ export function buildTestCard(): object {
   };
 }
 
-/** 非 JSON 响应体不算失败——只要 HTTP 200，就当作网关接受了卡片。 */
+/** A non-JSON response body is not a failure — as long as the HTTP status is 200, treat the gateway as having accepted the card. */
 async function readPayload(response: Response): Promise<Record<string, unknown> | null> {
   try {
     const parsed: unknown = await response.json();
@@ -102,7 +104,8 @@ async function readPayload(response: Response): Promise<Record<string, unknown> 
 function assertAccepted(payload: Record<string, unknown> | null): void {
   if (!payload) return;
   const code = payload["code"] ?? payload["StatusCode"];
-  // 两个字段都没有：老网关的精简成功响应，视为成功。
+  // Neither field present: the trimmed-down success response of an old gateway,
+  // treated as success.
   if (code === undefined || code === 0) return;
   throw new Error(`feishu rejected the card: code=${String(code)} msg=${String(payload["msg"] ?? "")}`);
 }
@@ -114,13 +117,14 @@ function sleep(ms: number): Promise<void> {
 }
 
 export type SendFeishuCardOptions = {
-  /** 退避实现，测试注入零延迟以免真的等待。 */
+  /** Backoff implementation; tests inject a zero delay so they do not actually wait. */
   delay?: (ms: number) => Promise<void>;
 };
 
 /**
- * 投递卡片，最多尝试 3 次。任何异常都被吞掉并记 `[feishu]` 日志——
- * 推送失败不应该让 digest 管道整体失败，所以本函数永不抛出。
+ * Deliver the card, with at most 3 attempts. Any exception is swallowed and
+ * logged under `[feishu]` — a failed push should not fail the digest pipeline as
+ * a whole, so this function never throws.
  */
 export async function sendFeishuCard(
   webhookUrl: string,

@@ -10,21 +10,25 @@ const envSchema = z.object({
   S3_SECRET_ACCESS_KEY: z.string().min(1).optional(),
   S3_BUCKET: z.string().min(1).default("paper-pdfs"),
   S3_FORCE_PATH_STYLE: z.enum(["true", "false"]).default("true"),
-  // 空字符串视作未配置，方便 .env.example 里留空占位
+  // An empty string counts as unconfigured, which makes it easy to leave a blank
+  // placeholder in .env.example
   BLOB_READ_WRITE_TOKEN: z.preprocess(
     (value) => (value === "" ? undefined : value),
     z.string().min(1).optional()
   ),
   MAX_PDF_UPLOAD_MB: z.coerce.number().int().positive().default(50),
   INGEST_API_KEY: z.string().min(16),
-  // Vercel Cron 鉴权。未配置时 /api/cron/* 直接 404，本地默认关闭避免裸奔。
-  // 空字符串按未配置处理，这样 .env.example 里可以留空占位（同 BLOB_READ_WRITE_TOKEN）
+  // Vercel Cron authentication. When unconfigured, /api/cron/* simply 404s; it is
+  // off by default locally so the endpoint is never left exposed.
+  // An empty string is treated as unconfigured, so .env.example can leave a blank
+  // placeholder (same as BLOB_READ_WRITE_TOKEN)
   CRON_SECRET: z.preprocess(
     (value) => (value === "" ? undefined : value),
     z.string().min(16).optional()
   ),
   RESEND_API_KEY: z.string().min(1).optional(),
-  // 空字符串按未配置处理，这样 .env.example 里可以留空占位（同 BLOB_READ_WRITE_TOKEN）
+  // An empty string is treated as unconfigured, so .env.example can leave a blank
+  // placeholder (same as BLOB_READ_WRITE_TOKEN)
   LLM_API_KEY: z.preprocess(
     (value) => (value === "" ? undefined : value),
     z.string().min(1).optional()

@@ -21,9 +21,11 @@ export type DiscoveryResult = {
 };
 
 /**
- * 术语规范：中文分析里每个术语只用一种语言。
- * 用户明确反对「英文（中文）」这类括号并列写法——读起来像机翻，且同一个概念
- * 在正文里出现两次。写英文还是写中文交给模型按领域习惯判断。
+ * Terminology convention: within a Chinese analysis each term uses one language
+ * only. The user explicitly objects to the parenthesized side-by-side style
+ * "English (Chinese)" — it reads like machine translation, and the same concept
+ * then appears twice in the body text. Whether a term is written in English or in
+ * Chinese is left to the model, based on what is customary in the field.
  */
 const TERMINOLOGY_RULES = `- 术语只用一种语言，绝不使用「英文（中文）」或「中文（英文）」括号并列的写法
 - 由你判断：领域内约定俗成、研究者日常直接说英文的术语（如 transformer、KV cache、test-time scaling、reflection、agent）直接写英文原词，不加翻译
@@ -134,9 +136,10 @@ export async function analyzeSinglePaper(
   paper: ArxivPaper,
   topics: string[]
 ): Promise<PaperAnalysisResult> {
-  // LLM 偶发返回非法 JSON（如中文串里未转义引号）；重试一次基本可消除。
-  // 只对 JSON.parse 抛的 SyntaxError 重试：401 / 429 / 网络错误重试没有意义，
-  // 只会再烧一次全额调用。
+  // The LLM occasionally returns invalid JSON (for example an unescaped quote
+  // inside a Chinese string); a single retry all but eliminates it.
+  // Only retry on the SyntaxError thrown by JSON.parse: retrying a 401 / 429 /
+  // network error is pointless and would just burn another full call.
   try {
     return await analyzeSinglePaperOnce(config, paper, topics);
   } catch (error) {

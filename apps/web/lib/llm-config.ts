@@ -3,7 +3,7 @@ import { getEnv } from "@/lib/env";
 
 export type LlmRuntimeConfig = { baseUrl: string; model: string; apiKey: string };
 
-/** DB 配置优先，env 兜底；两者都没有 key 时抛出明确错误。 */
+/** The DB configuration wins, with env as the fallback; if neither has a key, throw an explicit error. */
 export async function resolveLlmConfig(workspaceId: string): Promise<LlmRuntimeConfig> {
   const row = await prisma.llmConfig.findUnique({ where: { workspaceId } });
   if (row) {

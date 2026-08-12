@@ -63,9 +63,12 @@ export default async function LibraryPage({
     orderBy: { createdAt: "desc" }
   });
 
-  // 关键词匹配放在 JS 里做：authors 是 Json 数组，Prisma 的 array_contains 只能整元素相等，
-  // 做不了作者名的子串匹配；而单个 workspace 的论文量在几十到几百条，全量取回再过滤足够。
-  // 若将来单库论文量上万，应改成 `authors::text ILIKE` 的原生 SQL 或建全文索引。
+  // Keyword matching is done in JS: authors is a Json array and Prisma's
+  // array_contains can only test whole-element equality, so it cannot do substring
+  // matching on an author name; and since a single workspace holds tens to
+  // hundreds of papers, fetching them all and filtering afterwards is good enough.
+  // If a single library ever grows to tens of thousands of papers, this should
+  // become raw SQL using `authors::text ILIKE`, or get a full-text index.
   const searchedPapers = query
     ? matchedPapers.filter(({ paper }) => {
         if (paper.title.toLowerCase().includes(query)) return true;
@@ -74,9 +77,12 @@ export default async function LibraryPage({
       })
     : matchedPapers;
 
-  // 阅读状态同样在 JS 里过滤：`new` 的语义是「没有记录 或 记录写着 new」，
-  // 用 Prisma 表达要写成 `readingStates: { none: {...} } OR { some: { state } }` 的 OR 分支，
-  // 而按上面同样的量级理由，取回后判断更直白。量级变大时应改成一条带 LEFT JOIN 的原生查询。
+  // Reading state is filtered in JS as well: `new` means "no record at all, or a
+  // record that says new", which in Prisma would have to be written as the OR
+  // branches `readingStates: { none: {...} } OR { some: { state } }`, whereas for
+  // the same volume reasons as above, deciding after the fetch is more
+  // straightforward. At larger volumes this should become a single raw query with
+  // a LEFT JOIN.
   const workspacePapers = stateFilter
     ? searchedPapers.filter((workspacePaper) => (workspacePaper.readingStates[0]?.state ?? "new") === stateFilter)
     : searchedPapers;
@@ -255,7 +261,7 @@ export default async function LibraryPage({
                   {dateFormat.format(createdAt)}
                   {" · "}
                   {paper.source === "arxiv" || paper.source === "hermes" ? `arXiv:${paper.arxivId ?? ""}` : sourceLabel(paper.source)}
-                  {/* 与论文详情页的 hasPdf 判定保持一致：Blob 快照也算有 PDF */}
+                  {/* Kept consistent with the hasPdf check on the paper detail page: a Blob snapshot counts as having a PDF */}
                   {paper.files.length > 0 || paper.blobUrl ? ` · ${t("pdfBadge")}` : ""}
                 </span>
                 {labelLinks.length > 0 ? (

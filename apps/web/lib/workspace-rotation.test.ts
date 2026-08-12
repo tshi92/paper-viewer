@@ -25,7 +25,7 @@ describe("rotateForDay", () => {
   });
 
   it("rotates left by dayOfYear % length", () => {
-    // 2026-01-03 是第 3 天，3 % 4 === 3
+    // 2026-01-03 is day 3, and 3 % 4 === 3
     expect(rotateForDay(items, new Date("2026-01-03T00:00:00Z"))).toEqual(["d", "a", "b", "c"]);
   });
 

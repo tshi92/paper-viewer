@@ -37,7 +37,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pap
   const { paper } = workspacePaper;
   const file = paper.files[0];
 
-  // 没有对象存储副本但有 Blob 快照时，服务端代理转发（保持 URL 稳定 + 不暴露 blob 地址）
+  // With no object-storage copy but a Blob snapshot available, proxy it from the
+  // server (keeps the URL stable and does not expose the blob address)
   if (!file && paper.blobUrl) {
     const upstream = await fetch(paper.blobUrl, { redirect: "follow", cache: "no-store" }).catch(
       () => null

@@ -8,7 +8,8 @@ export default async function SettingsLayout({ children }: { children: ReactNode
   const user = await requireCurrentUser();
   const t = await getTranslations("settingsNav");
 
-  // 排序按可编辑范围分组：先是人人可编辑的（通用、标签），再是管理员管理的。
+  // Ordered by who may edit what: first the entries anyone can edit (general,
+  // labels), then the ones administrators manage.
   const items: SettingsNavItem[] = [
     { href: "/settings/general", label: t("general") },
     { href: "/settings/labels", label: t("labels") },

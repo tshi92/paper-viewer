@@ -85,7 +85,8 @@ export function LlmSettingsForm() {
       });
       const data = (await res.json().catch(() => null)) as (TestResult & { error?: string }) | null;
       if (!res.ok) {
-        // 400 走 { error } 形状（如 https 校验），把服务端的原因透出来
+        // A 400 comes back in the { error } shape (https validation, for example);
+        // surface the server's reason
         setTestResult({ ok: false, status: res.status, message: data?.error ?? t("testFailed") });
         return;
       }

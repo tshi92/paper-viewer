@@ -14,7 +14,7 @@ type TestResult = { ok: boolean; message?: string };
 
 type UpdatePayload = { feishuWebhookUrl?: string; pushHour?: number };
 
-/** 0-23 的整点，展示成 "00:00" … "23:00"。 */
+/** Whole hours 0-23, displayed as "00:00" … "23:00". */
 const PUSH_HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 
 function formatHour(hour: number): string {
@@ -94,7 +94,7 @@ export function NotificationSettingsForm() {
     }
   }
 
-  /** 两个字段都是缺省=保持不变；`feishuWebhookUrl` 额外有空串=清除，见 API 路由注释。 */
+  /** For both fields, absent = leave unchanged; `feishuWebhookUrl` additionally has empty string = clear, see the comment in the API route. */
   async function submit(body: UpdatePayload, successMessage: string) {
     if (testing || saving) return;
     setSaving(true);
@@ -130,7 +130,7 @@ export function NotificationSettingsForm() {
     }
   }
 
-  /** 一次保存两件事：推送钟点总是提交，webhook 留空则保持不变。 */
+  /** Saves two things at once: the push hour is always submitted, while leaving the webhook blank leaves it unchanged. */
   async function handleSave() {
     const trimmed = webhookUrl.trim();
     await submit({ pushHour, ...(trimmed ? { feishuWebhookUrl: trimmed } : {}) }, t("saved"));
@@ -242,7 +242,7 @@ export function NotificationSettingsForm() {
           </p>
         ) : (
           <p role="alert" className="text-sm text-danger" data-testid="notification-test-result">
-            {/* 服务端只在「没有可用地址」时带 message，其余失败原因统一提示。 */}
+            {/* The server only includes a message when there is no usable address; every other failure reason gets the same generic notice. */}
             ✗ {testResult.message ? t("testNotConfigured") : t("testFailed")}
           </p>
         )

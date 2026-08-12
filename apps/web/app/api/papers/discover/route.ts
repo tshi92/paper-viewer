@@ -3,7 +3,7 @@ import { runDailyDigest } from "@/lib/daily-digest";
 
 export const maxDuration = 300;
 
-/** 留 50s 余量给总览生成和飞书推送，避免踩到 maxDuration 被硬砍。 */
+/** Leaves 50s of headroom for generating the overview and pushing to Feishu, so the run does not hit maxDuration and get cut off. */
 const RUN_BUDGET_MS = 250_000;
 
 export async function POST() {
@@ -31,7 +31,8 @@ export async function POST() {
       return Response.json({ ok: true, date, discovered: 0, message: "今日无新论文" });
     case "skipped_done":
       return Response.json({ ok: true, date, alreadyDone: true });
-    // 定时任务（或另一个标签页）正在跑今天的 digest，不是错误，让前端刷新即可
+    // The scheduled job (or another browser tab) is running today's digest; this
+    // is not an error, the frontend just needs to refresh
     case "locked":
       return Response.json({ ok: true, date, running: true });
     default:

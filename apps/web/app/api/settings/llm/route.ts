@@ -44,7 +44,7 @@ async function resolveCurrentUser(): Promise<CurrentUser | null> {
   }
 }
 
-/** DB 行优先，其次 env，都没有则 none(仍返回 env 默认的 baseUrl/model 方便前端预填)。 */
+/** The DB row wins, then env; if neither exists the source is none (the env default baseUrl/model is still returned so the frontend can prefill). */
 async function loadEffectiveConfig(workspaceId: string): Promise<EffectiveConfig> {
   const row = await prisma.llmConfig.findUnique({ where: { workspaceId } });
   if (row) {
@@ -160,13 +160,15 @@ export async function POST(request: Request) {
   const baseUrl = trimmedOrEmpty(input.baseUrl) || current.baseUrl;
   const model = trimmedOrEmpty(input.model) || current.model;
 
-  // 测试请求与保存同规则：仅 https，防止 admin 侧的 SSRF 面（同 notifications 路由）
+  // Test requests follow the same rule as saving: https only, to close off an SSRF
+  // surface on the admin side (same as the notifications route)
   if (!z.string().url().safeParse(baseUrl).success || !baseUrl.startsWith("https://")) {
     return Response.json({ error: "Base URL 必须是 https 地址" }, { status: 400 });
   }
 
-  // 存量 key 只在「测的就是它自己那套配置」时才带上。
-  // 否则改个 Base URL 点一下测试，就能把库里的真 key 送到任意主机。
+  // The stored key is only attached when the configuration being tested is its
+  // own. Otherwise, changing the Base URL and clicking test would be enough to
+  // send the real key from the database to an arbitrary host.
   const sameTarget = normalizeBaseUrl(baseUrl) === normalizeBaseUrl(current.baseUrl);
   const apiKey = trimmedOrEmpty(input.apiKey) || (sameTarget ? current.apiKey : "");
   if (!apiKey) {

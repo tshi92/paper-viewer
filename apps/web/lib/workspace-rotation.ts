@@ -1,21 +1,24 @@
 /**
- * cron 一轮的运行预算（RUN_BUDGET_MS）是所有 workspace 共享的，串行跑到预算耗尽为止。
- * 顺序如果固定（比如 workspaceId 升序），排在尾部的 workspace 永远等前面的跑完，
- * 预算一旦不够就天天被 deferred，等于永远收不到 digest。
+ * The run budget for one cron pass (RUN_BUDGET_MS) is shared by all workspaces,
+ * which are processed serially until the budget runs out. With a fixed order (say
+ * ascending workspaceId), the workspaces at the tail always wait for the ones
+ * ahead of them, and once the budget falls short they are deferred day after day —
+ * which means they never receive a digest at all.
  *
- * 所以每天按 dayOfYear 把队列旋转一个偏移量：垫底的位置在 workspace 之间轮流坐。
+ * So the queue is rotated by an offset derived from dayOfYear each day: the spot
+ * at the back of the line is taken by a different workspace in turn.
  */
 
 const MS_PER_DAY = 86_400_000;
 
-/** UTC 口径的 day-of-year，1 月 1 日为 1。 */
+/** Day-of-year on the UTC scale, where January 1 is 1. */
 export function dayOfYearUtc(date: Date): number {
   const yearStart = Date.UTC(date.getUTCFullYear(), 0, 1);
   const today = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
   return Math.floor((today - yearStart) / MS_PER_DAY) + 1;
 }
 
-/** 把队列按当天的偏移量左旋，返回新数组（不改输入）。 */
+/** Rotate the queue left by the day's offset and return a new array (the input is not modified). */
 export function rotateForDay<T>(items: readonly T[], date: Date): T[] {
   if (items.length === 0) {
     return [];

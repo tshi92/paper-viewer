@@ -1,15 +1,22 @@
 /**
- * Vercel Cron 入口：把所有配置了研究偏好的 workspace 串行跑一遍每日 digest。
+ * Vercel Cron entry point: runs the daily digest serially for every workspace that
+ * has research preferences configured.
  *
- * Vercel 在 CRON_SECRET 环境变量存在时会自动带上 `Authorization: Bearer $CRON_SECRET`，
- * 所以这里不需要额外的签名机制；没配 secret 就整个端点 404（本地默认关闭，避免裸奔）。
- * 排程见 vercel.json：工作日北京时间 9:00 / 9:30 各一次，第二次负责续跑上一次的 partial。
+ * When the CRON_SECRET environment variable exists, Vercel automatically attaches
+ * `Authorization: Bearer $CRON_SECRET`, so no extra signing mechanism is needed
+ * here; with no secret configured the whole endpoint 404s (off by default locally,
+ * so it is never left exposed).
+ * See vercel.json for the schedule: twice on weekdays, at 9:00 and 9:30 Beijing
+ * time, with the second run responsible for resuming the previous run's partial.
  *
- * workspace 可以自选推送钟点（ResearchPreferences.pushHour，北京时间），没到点的这轮记
- * not_due 跳过。注意这只是闸门，真正的触发频率取决于排程：照 vercel.json 现在这两班固定
- * cron，只有 pushHour <= 9 的 workspace 会在当天 9:00 那班被放行，更晚的钟点要么上 Vercel
- * Pro 的整点 cron，要么挂一个每小时打这个端点的外部调度（如 GitHub Actions）——属于部署侧
- * 决策，这里只保证到点判定正确。
+ * A workspace can pick its own push hour (ResearchPreferences.pushHour, in Beijing
+ * time); a workspace whose hour has not arrived is recorded as not_due and skipped
+ * for this pass. Note that this is only a gate — the real trigger frequency
+ * depends on the schedule: with the two fixed cron runs currently in vercel.json,
+ * only workspaces with pushHour <= 9 are let through by that day's 9:00 run. Later
+ * hours require either Vercel Pro's hourly cron or an external scheduler (such as
+ * GitHub Actions) hitting this endpoint every hour — that is a deployment-side
+ * decision, and all this code guarantees is that the due check itself is correct.
  */
 
 import { prisma } from "@paper-viewer/db";
@@ -21,14 +28,16 @@ import { rotateForDay } from "@/lib/workspace-rotation";
 
 export const maxDuration = 300;
 
-/** 留 50s 余量给收尾，避免踩到 maxDuration 被硬砍。所有 workspace 共享这份预算。 */
+/** Leaves 50s of headroom for wrap-up so the run does not hit maxDuration and get cut off. All workspaces share this budget. */
 const RUN_BUDGET_MS = 250_000;
 
 type WorkspaceResult = {
   workspaceId: string;
   /**
-   * 预算耗尽后没轮到的 workspace 记 deferred，等下一次排程接着跑；
-   * 北京时间还没到它配置的 pushHour 的记 not_due，本轮完全不消耗额度。
+   * A workspace whose turn never came before the budget ran out is recorded as
+   * deferred and waits for the next scheduled run; one whose configured pushHour
+   * has not yet arrived in Beijing time is recorded as not_due and consumes none
+   * of this pass's budget at all.
    */
   status: DigestRunStatus | "deferred" | "not_due";
   processed: number;
@@ -50,9 +59,12 @@ function isAuthorized(request: Request, secret: string): boolean {
 }
 
 /**
- * 仅非生产环境生效的定向调试参数：`?workspaceId=<id>` 把这一轮限制到单个 workspace。
- * 用于本地对着测试 workspace 验证整条链路，避免顺带跑掉真实 workspace 的当日额度。
- * 生产环境（含 Vercel 上的 preview 以外的部署）一律忽略。
+ * A targeted debugging parameter that only takes effect outside production:
+ * `?workspaceId=<id>` restricts this pass to a single workspace.
+ * It is used locally to verify the whole chain against a test workspace without
+ * incidentally burning a real workspace's quota for the day.
+ * In production (including any deployment on Vercel other than preview) it is
+ * always ignored.
  */
 function devWorkspaceFilter(request: Request): string | null {
   if (process.env.NODE_ENV === "production") {
@@ -70,7 +82,8 @@ export async function GET(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 整轮共用一个时钟：到点判定和当天旋转看到的是同一个「现在」。
+  // One clock for the whole pass: the due check and the day's rotation see the
+  // same "now".
   const now = new Date();
   const deadline = Date.now() + RUN_BUDGET_MS;
   const onlyWorkspaceId = devWorkspaceFilter(request);
@@ -79,8 +92,9 @@ export async function GET(request: Request) {
     select: { workspaceId: true, pushHour: true },
     orderBy: { workspaceId: "asc" }
   });
-  // workspaceId 升序只是稳定基准；真正的执行顺序每天旋转，
-  // 否则预算不够时永远是同几个尾部 workspace 被 deferred。
+  // Ascending workspaceId is only a stable baseline; the actual execution order
+  // is rotated daily, otherwise whenever the budget falls short it would always
+  // be the same few workspaces at the tail that get deferred.
   const workspaces = rotateForDay(allWorkspaces, now);
 
   const results: WorkspaceResult[] = [];

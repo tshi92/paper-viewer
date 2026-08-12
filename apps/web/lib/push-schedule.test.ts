@@ -4,7 +4,7 @@ import { beijingHour, isDueForPush } from "./push-schedule";
 describe("beijingHour", () => {
   it("shifts UTC by +8 without any DST correction", () => {
     expect(beijingHour(new Date("2026-01-06T01:00:00Z"))).toBe(9);
-    // 夏天同样是 +8：中国不用夏令时
+    // Summer is +8 as well: China does not observe daylight saving time
     expect(beijingHour(new Date("2026-07-06T01:00:00Z"))).toBe(9);
   });
 
@@ -24,7 +24,7 @@ describe("isDueForPush", () => {
   const at = (utc: string) => new Date(utc);
 
   it("holds a workspace back until its hour arrives", () => {
-    // 北京 9:00
+    // 9:00 Beijing time
     expect(isDueForPush(14, at("2026-01-06T01:00:00Z"))).toBe(false);
     expect(isDueForPush(10, at("2026-01-06T01:59:59Z"))).toBe(false);
   });

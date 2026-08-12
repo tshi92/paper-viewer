@@ -175,10 +175,12 @@ export async function POST(request: Request) {
     }
   }
 
-  // LLM 配置（DB 优先、env 兜底）解析一次；未配置时为 null，元数据与主题各自软降级。
+  // Resolve the LLM configuration once (DB first, env as fallback); it is null when
+  // unconfigured, and metadata and topics each degrade softly on their own.
   const llm = await resolveLlmConfig(user.workspaceId).catch(() => null);
 
-  // arXiv 论文优先用官方 API 元数据（免费、权威、无需 LLM）；LLM 抽取只服务非 arXiv PDF。
+  // arXiv papers prefer metadata from the official API (free, authoritative, no LLM
+  // needed); LLM extraction only serves non-arXiv PDFs.
   let metadata: PaperMetadata;
   let publishedAt: Date | null = null;
   const arxivMeta = arxivId ? await fetchArxivMetadata(arxivId).catch(() => null) : null;

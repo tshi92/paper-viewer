@@ -148,7 +148,8 @@
     "sortAria": "Sort order",
     "sortPosition": "By position",
     "sortNewest": "Newest first",
-    "sortOldest": "Oldest first"
+    "sortOldest": "Oldest first",
+    "deleteAnnotationAria": "Delete annotation"
   },
   "chat": {
     "heading": "Chat with Paper",

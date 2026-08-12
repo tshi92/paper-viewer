@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
   const body = await request.json();
   const { message } = chatSchema.parse(body);
 
-  // Get paper text content (全文优先，取不到时退回摘要/标题)
+  // Get paper text content (prefer the full text, falling back to the abstract/title when it cannot be fetched)
   const paperContent = (await getPaperText(paperId)) ?? wp.paper.abstract ?? wp.paper.title;
 
   // Save user message

@@ -17,7 +17,7 @@ function request(url: string, init?: { headers?: Record<string, string> }) {
   return new Request(url, init);
 }
 
-/** 默认 pushHour=9，配合下面钉住的「现在」（北京 17:00）一律算作已到点。 */
+/** Defaults to pushHour=9, which together with the pinned "now" below (17:00 Beijing time) always counts as due. */
 function prefsOf(...workspaceIds: string[]) {
   return workspaceIds.map((workspaceId) => ({ workspaceId, pushHour: 9 }));
 }
@@ -28,10 +28,12 @@ function ok(processed: number) {
 
 beforeEach(() => {
   vi.useFakeTimers();
-  // 执行顺序每天轮转，所以把「今天」钉在第 6 天：6 % n === 0（n = 1/2/3），
-  // 偏移量为 0，下面这些用例的顺序期望才有意义。
-  // 同时钉住钟点：09:00Z = 北京 17:00，默认 pushHour=9 早已到点，
-  // 这样到点闸门不会随真实运行时刻改变结果。
+  // The execution order rotates daily, so "today" is pinned to day 6: 6 % n === 0
+  // (n = 1/2/3) gives an offset of 0, which is what makes the order expectations
+  // in the cases below meaningful.
+  // The hour is pinned as well: 09:00Z = 17:00 Beijing time, so the default
+  // pushHour=9 is long past due and the due gate does not change the results
+  // depending on when the tests actually run.
   vi.setSystemTime(new Date("2026-01-06T09:00:00Z"));
   getEnv.mockReturnValue({ CRON_SECRET: SECRET });
   findMany.mockResolvedValue(prefsOf("ws-1"));
@@ -116,19 +118,19 @@ describe("workspace rotation", () => {
   it("starts from a different workspace each day so the tail is not always deferred", async () => {
     findMany.mockResolvedValue(prefsOf("ws-1", "ws-2", "ws-3"));
 
-    vi.setSystemTime(new Date("2026-01-07T09:00:00Z")); // 第 7 天，7 % 3 === 1
+    vi.setSystemTime(new Date("2026-01-07T09:00:00Z")); // day 7, and 7 % 3 === 1
     await GET(request("http://localhost/api/cron/daily-digest", AUTHORIZED));
     expect(runDailyDigest.mock.calls.map((call) => call[0])).toEqual(["ws-2", "ws-3", "ws-1"]);
 
     runDailyDigest.mockClear();
-    vi.setSystemTime(new Date("2026-01-08T09:00:00Z")); // 第 8 天，8 % 3 === 2
+    vi.setSystemTime(new Date("2026-01-08T09:00:00Z")); // day 8, and 8 % 3 === 2
     await GET(request("http://localhost/api/cron/daily-digest", AUTHORIZED));
     expect(runDailyDigest.mock.calls.map((call) => call[0])).toEqual(["ws-3", "ws-1", "ws-2"]);
   });
 });
 
 describe("push hour gating", () => {
-  /** 北京 09:00（= 01:00Z），下面各用例围绕这个钟点选 pushHour。 */
+  /** 09:00 Beijing time (= 01:00Z); the cases below pick their pushHour around this hour. */
   const beijingNine = new Date("2026-01-06T01:00:00Z");
 
   it("skips a workspace whose Beijing push hour has not arrived yet", async () => {
@@ -146,9 +148,9 @@ describe("push hour gating", () => {
 
   it("runs a workspace on its hour and on every later tick of the day", async () => {
     for (const [now, pushHour] of [
-      [beijingNine, 9], // 正好到点
-      [beijingNine, 7], // 早于现在
-      [new Date("2026-01-06T05:00:00Z"), 9] // 北京 13:00，同一天的后续班次
+      [beijingNine, 9], // exactly on the hour
+      [beijingNine, 7], // earlier than now
+      [new Date("2026-01-06T05:00:00Z"), 9] // 13:00 Beijing time, a later run on the same day
     ] as const) {
       runDailyDigest.mockClear();
       vi.setSystemTime(now);
@@ -182,7 +184,7 @@ describe("push hour gating", () => {
   });
 
   it("treats a late-evening Beijing hour as due once UTC has crossed into it", async () => {
-    // 15:00Z = 北京 23:00，pushHour=23 在这一刻刚好放行
+    // 15:00Z = 23:00 Beijing time, so pushHour=23 is let through at exactly this moment
     vi.setSystemTime(new Date("2026-01-06T15:00:00Z"));
     findMany.mockResolvedValue([{ workspaceId: "ws-1", pushHour: 23 }]);
 

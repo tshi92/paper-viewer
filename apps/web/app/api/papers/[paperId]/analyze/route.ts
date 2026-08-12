@@ -2,7 +2,8 @@ import { prisma } from "@paper-viewer/db";
 import { analyzePaperOnDemand } from "@/lib/daily-digest";
 import { requireCurrentUser } from "@/lib/auth";
 
-// LLM 分析一篇要几十秒，默认的函数时限扛不住。
+// An LLM analysis of one paper takes tens of seconds, which the default function
+// time limit cannot accommodate.
 export const maxDuration = 120;
 
 export async function POST(_request: Request, { params }: { params: Promise<{ paperId: string }> }) {

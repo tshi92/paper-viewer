@@ -1,13 +1,18 @@
 /**
- * 每日 digest 管道：arXiv 拉取 → 去重 → LLM 选题 → 逐篇分析 → 总览 → 飞书推送。
+ * Daily digest pipeline: fetch from arXiv → dedupe → LLM selection → per-paper
+ * analysis → overview → Feishu push.
  *
- * 手动触发（/api/papers/discover）和定时扫描共用这一份实现。整条管道是幂等且可续跑的：
- * 每篇论文分析完就立刻把它从 DailyDigest.pendingPaperIds 里摘掉，那就是断点；
- * 超时（deadline）时返回 partial，下一次运行从剩下的 pending 继续。
+ * The manual trigger (/api/papers/discover) and the scheduled scan share this one
+ * implementation. The whole pipeline is idempotent and resumable: each paper is
+ * removed from DailyDigest.pendingPaperIds as soon as its analysis finishes, and
+ * that is the resume point; on timeout (deadline) it returns partial and the next
+ * run continues from the remaining pending entries.
  *
- * 并发安全：9:00 / 9:30 两班 cron（以及手动 discover）可能重叠，所以推进 digest 前
- * 先抢 DailyDigest.lockedAt 这把锁，抢不到就返回 locked；建行、建论文、飞书推送
- * 三处竞态分别用 P2002 兜底和 updateMany 条件写来收敛。
+ * Concurrency safety: the 9:00 / 9:30 cron runs (plus a manual discover) may
+ * overlap, so before advancing a digest we claim the DailyDigest.lockedAt lock and
+ * return locked if we cannot get it. The three remaining races — creating the
+ * digest row, creating papers, and pushing to Feishu — are each resolved by a
+ * P2002 fallback or a conditional updateMany write.
  */
 
 import { prisma } from "@paper-viewer/db";
@@ -28,9 +33,9 @@ export type DigestRunStatus =
 
 export type DigestRunResult = {
   status: DigestRunStatus;
-  /** 本次运行完成分析的论文数 */
+  /** Number of papers whose analysis finished during this run */
   processed: number;
-  /** 结束时仍在 pending 里的论文数 */
+  /** Number of papers still pending when the run ended */
   remaining: number;
   message?: string;
 };
@@ -39,11 +44,12 @@ const DEFAULT_CATEGORIES = ["cs.AI", "cs.CL", "cs.LG"];
 const MIN_CANDIDATES = 30;
 const MAX_TAGS = 3;
 const MAX_SUMMARY_LINE = 80;
-/** 锁的失效时长：持锁进程被硬杀（Vercel 超时）时，下一班 cron 过了这个窗口就能接手。 */
+/** Lock expiry: if the lock holder is hard-killed (Vercel timeout), the next cron run can take over once this window has passed. */
 const LOCK_TTL_MS = 10 * 60_000;
 /**
- * 每篇论文的处理预留：PDF 固化 + 一次全额 LLM 分析大约要这么久。
- * 剩余预算不够一整篇时就停手，避免开了个头再被 Vercel 硬砍在中途。
+ * Budget reserved per paper: pinning the PDF plus one full LLM analysis takes
+ * roughly this long. We stop once the remaining budget cannot cover a whole
+ * paper, so we do not start one only to have Vercel cut it off midway.
  */
 const PER_PAPER_MARGIN_MS = 60_000;
 
@@ -77,7 +83,7 @@ type AnalysisRow = {
 
 // ---------------------------------------------------------------- pure helpers
 
-/** digest 只有在「没有待处理论文 + 总览已生成 + 该推的已推」时才算彻底完成。 */
+/** A digest counts as fully complete only when there are no pending papers, the overview has been generated, and anything that should have been pushed has been pushed. */
 export function isDigestComplete(
   digest: Pick<DigestRow, "overviewSummary" | "pendingPaperIds" | "feishuSentAt">,
   hasWebhook: boolean
@@ -91,7 +97,7 @@ export function isDigestComplete(
   return !hasWebhook || digest.feishuSentAt !== null;
 }
 
-/** 卡片里每篇论文的一行摘要：优先取第一句，句子过长或没有句号就截断。 */
+/** One-line summary for each paper in the card: prefer the first sentence, and truncate when that sentence is too long or there is no sentence-ending punctuation. */
 export function summaryLineOf(summary: string | null | undefined): string {
   const text = (summary ?? "").replace(/\s+/g, " ").trim();
   if (!text) {
@@ -104,7 +110,7 @@ export function summaryLineOf(summary: string | null | undefined): string {
   return text.length <= MAX_SUMMARY_LINE ? text : `${text.slice(0, MAX_SUMMARY_LINE)}…`;
 }
 
-/** 续跑时手上只有 Paper 行，得还原成 analyzeSinglePaper 期待的 arXiv 形状。 */
+/** On a resumed run we only have the Paper row, so it has to be reshaped back into the arXiv shape analyzeSinglePaper expects. */
 export function toArxivPaper(paper: PaperRow): ArxivPaper {
   const arxivId = paper.arxivId ?? "";
   return {
@@ -119,8 +125,9 @@ export function toArxivPaper(paper: PaperRow): ArxivPaper {
 }
 
 /**
- * Prisma 的唯一约束冲突（P2002）。并发运行抢着建同一行时会撞上，
- * 语义是「别人已经建好了」，读回来接着用即可，不是真的错误。
+ * Prisma's unique constraint violation (P2002). Concurrent runs racing to create
+ * the same row hit this; it means "someone else already created it", so we just
+ * read the row back and carry on — it is not a real error.
  */
 export function isUniqueViolation(error: unknown): boolean {
   return (
@@ -130,7 +137,7 @@ export function isUniqueViolation(error: unknown): boolean {
   );
 }
 
-/** 同一篇论文可能有历史分析记录，按时间升序输入时保留最后（最新）一条。 */
+/** A paper may have older analysis records, so with rows fed in ascending time order we keep the last (most recent) one. */
 export function latestAnalysisPerPaper<T extends { paperId: string }>(rows: T[]): Map<string, T> {
   const byPaper = new Map<string, T>();
   for (const row of rows) {
@@ -154,8 +161,10 @@ async function knownArxivIds(workspaceId: string): Promise<Set<string>> {
 }
 
 /**
- * arXiv 元数据直接入库（标题/摘要/作者一律来自 RSS，不用 LLM 抽取的版本）。
- * find-then-create 之间另一个运行可能插了同一篇，撞 P2002 就读回它的行。
+ * Store arXiv metadata directly (title/abstract/authors always come from the RSS
+ * feed, never from an LLM-extracted version).
+ * Between the find and the create another run may have inserted the same paper,
+ * so on a P2002 we read its row back.
  */
 async function upsertArxivPaper(candidate: ArxivPaper): Promise<PaperRow> {
   const existing = await prisma.paper.findUnique({ where: { arxivId: candidate.arxivId } });
@@ -196,8 +205,9 @@ type Preferences = {
 };
 
 /**
- * 建今天的 digest。返回 null 表示「候选全是这个 workspace 已经见过的论文」，
- * 此时不建任何行、也不推送。arXiv / LLM 失败会抛出，由调用方转成 error。
+ * Create today's digest. Returning null means every candidate is a paper this
+ * workspace has already seen; in that case no row is created and nothing is
+ * pushed. arXiv / LLM failures throw, and the caller turns them into an error.
  */
 async function createTodayDigest(params: {
   workspaceId: string;
@@ -245,7 +255,8 @@ async function createTodayDigest(params: {
         create: { workspaceId, paperId: paper.id, tags: [] }
       });
     } catch (error) {
-      // 并发运行刚好插了同一篇：upsert 的 update 分支本来就是空操作，忽略即可
+      // A concurrent run inserted the same paper: the upsert's update branch is a
+      // no-op anyway, so this can be ignored
       if (!isUniqueViolation(error)) {
         throw error;
       }
@@ -260,7 +271,8 @@ async function createTodayDigest(params: {
     if (!isUniqueViolation(error)) {
       throw error;
     }
-    // 并发运行已经建好了今天的行，接手它（本次选出的论文仍留在 library 里）
+    // A concurrent run already created today's row, so take it over (the papers
+    // selected by this run still remain in the library)
     const raced = await prisma.dailyDigest.findUnique({
       where: { workspaceId_date: { workspaceId, date } }
     });
@@ -272,8 +284,10 @@ async function createTodayDigest(params: {
 }
 
 /**
- * 抢这一天 digest 的推进权。返回 false 表示另一个运行正在跑，调用方应当直接退场。
- * `lockedAt` 超过 LOCK_TTL_MS 视作上一个持锁者被硬杀，允许接管。
+ * Claim the right to advance this day's digest. Returning false means another run
+ * is in progress and the caller should bow out immediately.
+ * A `lockedAt` older than LOCK_TTL_MS is treated as a previous holder having been
+ * hard-killed, and taking over is allowed.
  */
 async function claimDigestLock(digestId: string): Promise<boolean> {
   const { count } = await prisma.dailyDigest.updateMany({
@@ -291,8 +305,10 @@ async function releaseDigestLock(digestId: string): Promise<void> {
 }
 
 /**
- * 先占坑再发送：把 feishuSentAt 从 null 改成现在，只有改成功（count===1）的运行才发卡片。
- * 这样两个并发运行不会各发一张。发送失败再把时间戳抹掉，交给下一次扫描重试。
+ * Claim before sending: flip feishuSentAt from null to now, and only the run whose
+ * write succeeded (count===1) sends the card. That way two concurrent runs do not
+ * each send one. If sending fails we clear the timestamp again and leave it for
+ * the next scan to retry.
  */
 async function claimFeishuSend(digestId: string): Promise<boolean> {
   const { count } = await prisma.dailyDigest.updateMany({
@@ -307,8 +323,9 @@ async function revertFeishuSend(digestId: string): Promise<void> {
 }
 
 /**
- * 手动为单篇论文补分析（Analysis tab 的生成按钮）。
- * 复用管道的单篇处理，产出与每日 digest 完全一致。
+ * Manually backfill the analysis for a single paper (the generate button on the
+ * Analysis tab). It reuses the pipeline's per-paper processing, so the output is
+ * exactly the same as the daily digest's.
  */
 export async function analyzePaperOnDemand(workspaceId: string, paperId: string): Promise<void> {
   const llm = await resolveLlmConfig(workspaceId);
@@ -316,7 +333,7 @@ export async function analyzePaperOnDemand(workspaceId: string, paperId: string)
   await processPaper({ workspaceId, paperId, llm, topics: prefs?.topics ?? [] });
 }
 
-/** 单篇论文的完整处理：固化 PDF → LLM 分析 → 落库 + 打标签。 */
+/** Full processing of one paper: pin the PDF → LLM analysis → persist + tag. */
 async function processPaper(params: {
   workspaceId: string;
   paperId: string;
@@ -330,9 +347,11 @@ async function processPaper(params: {
     return;
   }
 
-  // PDF 固化是标注锚点不漂移的前提，必须做；正文抽取则不预热——
-  // analyzeSinglePaper 只用标题+摘要，问答会在首次使用时自己抽，
-  // 在这里跑等于每篇多一次下载+解析，白白吃掉运行预算。
+  // Pinning the PDF is what keeps annotation anchors from drifting, so it is
+  // mandatory; full-text extraction, on the other hand, is not pre-warmed —
+  // analyzeSinglePaper only uses the title + abstract, and chat extracts the text
+  // itself on first use. Running it here would add one extra download + parse per
+  // paper and burn the run budget for nothing.
   try {
     await ensurePdfSnapshot(paperId, workspaceId);
   } catch (error) {
@@ -395,7 +414,7 @@ function toAnalysisResult(paper: PaperRow, analysis: AnalysisRow): PaperAnalysis
   };
 }
 
-/** 保持 digest.paperIds 的顺序，缺分析的论文也照样进卡片（只是没有摘要行）。 */
+/** Preserve the order of digest.paperIds; papers without an analysis still make it into the card (just without a summary line). */
 function digestPapers(
   paperIds: string[],
   papers: Map<string, PaperRow>,
@@ -426,11 +445,13 @@ async function notifyFeishu(params: {
 }
 
 /**
- * 跑（或续跑）某个 workspace 今天的 digest。
- * `opts.deadline` 是 `Date.now()` 口径的时间戳：每篇论文开始前检查，剩余预算不够
- * 一整篇（PER_PAPER_MARGIN_MS）就返回 partial。
+ * Run (or resume) today's digest for a workspace.
+ * `opts.deadline` is a timestamp on the `Date.now()` scale: it is checked before
+ * each paper, and if the remaining budget cannot cover a whole paper
+ * (PER_PAPER_MARGIN_MS) the run returns partial.
  *
- * 拿不到并发锁时返回 locked——另一个运行正在推进同一天的 digest，本次什么都不做。
+ * Returns locked when the concurrency lock cannot be acquired — another run is
+ * already advancing the same day's digest, so this one does nothing.
  */
 export async function runDailyDigest(
   workspaceId: string,
@@ -477,12 +498,13 @@ export async function runDailyDigest(
   try {
     return await advanceDigest({ workspaceId, digest, prefs, llm, today, webhookUrl, opts });
   } finally {
-    // partial / error 也要放锁：真正的硬杀由 LOCK_TTL_MS 兜底，正常返回没有理由占着
+    // Release the lock on partial / error too: a genuine hard kill is covered by
+    // LOCK_TTL_MS, and there is no reason to hold it across a normal return
     await releaseDigestLock(digest.id);
   }
 }
 
-/** 锁内的实际推进：逐篇分析 → 总览 → 飞书。调用方保证已持锁。 */
+/** The actual work done under the lock: analyze each paper → overview → Feishu. The caller guarantees the lock is held. */
 async function advanceDigest(params: {
   workspaceId: string;
   digest: DigestRow;
@@ -505,7 +527,8 @@ async function advanceDigest(params: {
       await processPaper({ workspaceId, paperId, llm, topics: prefs.topics });
       processed += 1;
     } catch (error) {
-      // 分析失败也要出队，否则这篇论文会把 digest 永远卡住
+      // Dequeue even when the analysis failed, otherwise this paper would block
+      // the digest forever
       console.error("[daily-digest] analysis failed", paperId, error);
     }
     digest = await prisma.dailyDigest.update({
@@ -538,7 +561,8 @@ async function advanceDigest(params: {
     });
   }
 
-  // 先占坑再发：抢不到 feishuSentAt 说明别的运行已经发过（或正在发），本次不重复推送
+  // Claim before sending: failing to claim feishuSentAt means another run has
+  // already sent it (or is sending it), so this run does not push again
   if (webhookUrl && !digest.feishuSentAt && (await claimFeishuSend(digest.id))) {
     const sent = await notifyFeishu({
       webhookUrl,
@@ -547,7 +571,8 @@ async function advanceDigest(params: {
       papers: digestPapers(digest.paperIds, papers, analyses)
     });
     if (!sent) {
-      // 推失败就把时间戳抹掉，留给下一次扫描重试
+      // On a failed push, clear the timestamp again and leave it for the next
+      // scan to retry
       await revertFeishuSend(digest.id);
       console.error("[daily-digest] feishu delivery failed, will retry on next run", digest.id);
     }

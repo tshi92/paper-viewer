@@ -109,7 +109,8 @@ describe("isUniqueViolation", () => {
   it("recognises the prisma unique-constraint code", () => {
     const error = Object.assign(new Error("Unique constraint failed"), { code: "P2002" });
     expect(isUniqueViolation(error)).toBe(true);
-    // 裸对象也认：并发路径只关心 code，不依赖 Prisma 的错误类
+    // A bare object is accepted too: the concurrency path only cares about the
+    // code and does not depend on Prisma's error class
     expect(isUniqueViolation({ code: "P2002" })).toBe(true);
   });
 

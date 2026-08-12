@@ -9,7 +9,7 @@ import { DEFAULT_PUSH_HOUR } from "@/lib/push-schedule";
 type NotificationView = {
   configured: boolean;
   feishuWebhookMasked: string;
-  /** 每日推送钟点，北京时间 0-23 */
+  /** Hour of the daily push, in Beijing time, 0-23 */
   pushHour: number;
 };
 
@@ -19,9 +19,11 @@ type PreferencesRow = {
 };
 
 /**
- * `feishuWebhookUrl` 三态：缺省=保持不变，空串=清除，非空=校验后保存。
- * 因此这里只能用 `.optional()`，不能给默认值。`pushHour` 同理：缺省=保持不变，
- * 所以只写其中一个字段不会顺手清掉另一个。
+ * `feishuWebhookUrl` has three states: absent = leave unchanged, empty string =
+ * clear, non-empty = validate and save. That is why only `.optional()` works here
+ * and no default may be given. The same goes for `pushHour`: absent = leave
+ * unchanged, so writing just one of the two fields does not incidentally clear
+ * the other.
  */
 const updateSchema = z.object({
   feishuWebhookUrl: z.string().max(500).optional(),
@@ -49,7 +51,7 @@ function toView(prefs: PreferencesRow): NotificationView {
   };
 }
 
-/** 没有偏好行的工作区按默认值呈现，不为了读一次就建行。 */
+/** A workspace with no preferences row is presented with the defaults; a row is not created just to serve a read. */
 async function loadPreferences(workspaceId: string): Promise<PreferencesRow> {
   const row = await prisma.researchPreferences.findUnique({ where: { workspaceId } });
   return {
@@ -62,7 +64,7 @@ async function loadWebhookUrl(workspaceId: string): Promise<string | null> {
   return (await loadPreferences(workspaceId)).feishuWebhookUrl;
 }
 
-/** 401/403 统一入口：返回 CurrentUser 或应当直接回给客户端的 Response。 */
+/** Single entry point for 401/403: returns either the CurrentUser or a Response that should go straight back to the client. */
 async function authorize(): Promise<CurrentUser | Response> {
   const user = await resolveCurrentUser();
   if (!user) {
@@ -93,7 +95,7 @@ export async function PUT(request: Request) {
   const { pushHour } = parsed.data;
   const webhookUrl = parsed.data.feishuWebhookUrl?.trim();
 
-  // 两个字段都缺省：什么都不写。
+  // Both fields absent: write nothing.
   if (webhookUrl === undefined && pushHour === undefined) {
     return Response.json(toView(await loadPreferences(auth.workspaceId)));
   }
@@ -102,8 +104,10 @@ export async function PUT(request: Request) {
     return Response.json({ error: "Webhook 必须是 https 地址" }, { status: 400 });
   }
 
-  // 只清 webhook 时用 updateMany，以免为没有偏好行的工作区凭空建行；
-  // 一旦要写 pushHour，建行是本来就该发生的（其余字段吃 schema 默认值）。
+  // When only clearing the webhook, use updateMany so that no row is conjured up
+  // for a workspace that has no preferences row; once pushHour is being written,
+  // creating the row is what should happen anyway (the remaining fields take the
+  // schema defaults).
   if (pushHour === undefined && webhookUrl === "") {
     await prisma.researchPreferences.updateMany({
       where: { workspaceId: auth.workspaceId },
@@ -124,7 +128,7 @@ export async function PUT(request: Request) {
   return Response.json(toView(await loadPreferences(auth.workspaceId)));
 }
 
-/** 只发测试卡片，不落库；请求体里的地址原样使用，方便保存前先试。 */
+/** Only sends a test card, never persists anything; the address in the request body is used as-is, which makes it easy to try before saving. */
 export async function POST(request: Request) {
   const auth = await authorize();
   if (auth instanceof Response) return auth;
@@ -139,7 +143,8 @@ export async function POST(request: Request) {
   if (!webhookUrl) {
     return Response.json({ ok: false, message: "未配置 webhook" });
   }
-  // 测试发送与保存同规则：仅 https，防止 admin 侧的 SSRF 面
+  // Test sends follow the same rule as saving: https only, to close off an SSRF
+  // surface on the admin side
   if (!z.string().url().safeParse(webhookUrl).success || !webhookUrl.startsWith("https://")) {
     return Response.json({ error: "Webhook 必须是 https 地址" }, { status: 400 });
   }

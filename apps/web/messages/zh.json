@@ -148,7 +148,8 @@
     "sortAria": "排序",
     "sortPosition": "按位置",
     "sortNewest": "从新到旧",
-    "sortOldest": "从旧到新"
+    "sortOldest": "从旧到新",
+    "deleteAnnotationAria": "删除标注"
   },
   "chat": {
     "heading": "与论文对话",

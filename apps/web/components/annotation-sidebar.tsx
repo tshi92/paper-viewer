@@ -123,28 +123,44 @@ export function AnnotationSidebar({
             key={annotation.id}
             className={`px-3 py-2.5 ${selectedId === annotation.id ? "bg-surface" : ""}`}
           >
-            <button type="button" className="block w-full text-left" onClick={() => onJump(annotation)}>
-              <div className="flex items-center gap-2 text-xs text-muted">
-                {/* The dot always mirrors the colour this annotation is painted
-                    with in the document — label names travel as text chips below. */}
-                <span
-                  aria-hidden
-                  title={t("dotTitle")}
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ background: color }}
-                />
-                <span>{annotation.author.name ?? annotation.author.email}</span>
-                {/* The selected row is itself bg-surface, which would swallow the badge. */}
-                <span
-                  className={`rounded px-1.5 py-0.5 ${
-                    selectedId === annotation.id ? "bg-white" : "bg-surface"
-                  }`}
+            {/* The meta row lives outside the jump button so the annotation's own
+                delete action can sit next to the timestamp — inside the reply row
+                it read as "delete this reply". */}
+            <div className="flex items-center gap-2 text-xs text-muted">
+              {/* The dot always mirrors the colour this annotation is painted
+                  with in the document — label names travel as text chips below. */}
+              <span
+                aria-hidden
+                title={t("dotTitle")}
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ background: color }}
+              />
+              <span>{annotation.author.name ?? annotation.author.email}</span>
+              {/* The selected row is itself bg-surface, which would swallow the badge. */}
+              <span
+                className={`rounded px-1.5 py-0.5 ${
+                  selectedId === annotation.id ? "bg-white" : "bg-surface"
+                }`}
+              >
+                {t("pageBadge", { page: annotation.pageNumber })}
+              </span>
+              <span>{annotation.type === "area" ? t("typeArea") : t("typeHighlight")}</span>
+              <TimeStamp value={annotation.createdAt} className="ml-auto text-[11px] text-muted" />
+              {annotation.author.id === currentUserId ? (
+                // Distinct accessible name: three plain "删除" buttons per row
+                // (annotation + each comment) are indistinguishable to a screen
+                // reader — and to tests.
+                <button
+                  type="button"
+                  aria-label={t("deleteAnnotationAria")}
+                  className="text-xs text-muted hover:underline"
+                  onClick={() => setPendingDelete(annotation)}
                 >
-                  {t("pageBadge", { page: annotation.pageNumber })}
-                </span>
-                <span>{annotation.type === "area" ? t("typeArea") : t("typeHighlight")}</span>
-                <TimeStamp value={annotation.createdAt} className="ml-auto text-[11px] text-muted" />
-              </div>
+                  {t("delete")}
+                </button>
+              ) : null}
+            </div>
+            <button type="button" className="block w-full text-left" onClick={() => onJump(annotation)}>
               {annotation.areaImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- small API-served thumbnail
                 <img
@@ -218,15 +234,6 @@ export function AnnotationSidebar({
                   setReplyDrafts((drafts) => ({ ...drafts, [annotation.id]: "" }));
                 }}
               />
-              {annotation.author.id === currentUserId ? (
-                <button
-                  type="button"
-                  className="text-xs text-danger"
-                  onClick={() => setPendingDelete(annotation)}
-                >
-                  {t("delete")}
-                </button>
-              ) : null}
             </div>
           </article>
         ))}

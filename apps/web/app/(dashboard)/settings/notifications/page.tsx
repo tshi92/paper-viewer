@@ -8,7 +8,8 @@ export default async function NotificationSettingsPage() {
   const user = await requireCurrentUser();
   const t = await getTranslations("settingsNotifications");
 
-  // 成员在这里没有任何可读内容（不同于研究偏好），直接送回通用设置。
+  // Members have nothing readable here (unlike research preferences), so send them
+  // straight back to the general settings.
   if (!canManageWorkspaceSettings(user.role)) {
     redirect("/settings/general");
   }

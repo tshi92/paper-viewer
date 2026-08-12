@@ -21,8 +21,10 @@ const paperEntrySchema = z.object({
 });
 
 /**
- * `overviewSummary` 保留在 schema 里只为兼容老调用方的请求体，服务端已不再消费：
- * DailyDigest 现在完全归每日管道（cron / discover）所有，见下方 POST 里的说明。
+ * `overviewSummary` is kept in the schema only for compatibility with older
+ * callers' request bodies; the server no longer consumes it. DailyDigest now
+ * belongs entirely to the daily pipeline (cron / discover) — see the note in the
+ * POST handler below.
  */
 const ingestSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -75,7 +77,8 @@ export async function POST(request: Request) {
 
   const results: { paperId: string; title: string; created: boolean }[] = [];
   const existingTopics = await getExistingTopics(workspace.id);
-  // 未配置 LLM 时降级为直接用 keywords 当 tags，不阻断 ingest。
+  // With no LLM configured, degrade to using the keywords directly as tags rather
+  // than blocking the ingest.
   const llm = await resolveLlmConfig(workspace.id).catch(() => null);
 
   for (const entry of papers) {
@@ -159,11 +162,14 @@ export async function POST(request: Request) {
     results.push({ paperId: paper.id, title: entry.title, created });
   }
 
-  // 这里刻意不写 DailyDigest：那一行归每日管道（cron / discover）所有。
-  // 外部 ingest 一旦抢先建行，当天的管道会把它当成「已经建过」，pending 为空、
-  // 总览非空 → 直接判 done，真正的每日推荐就被顶掉了；反过来 ingest 也可能
-  // 覆盖掉管道刚写好的总览。ingest 的论文照常落 Paper + WorkspacePaper，
-  // 在 Library 里可见可读，只是不参与当天的 digest 卡片。
+  // DailyDigest is deliberately not written here: that row belongs to the daily
+  // pipeline (cron / discover). If an external ingest were to create the row
+  // first, that day's pipeline would treat it as already created — pending empty
+  // and overview non-empty means it is judged done straight away, which would
+  // displace the real daily recommendations. Conversely, an ingest could also
+  // overwrite an overview the pipeline had just written. Ingested papers still
+  // land in Paper + WorkspacePaper as usual and are visible and readable in the
+  // Library; they simply do not take part in that day's digest card.
 
   return Response.json({
     ok: true,

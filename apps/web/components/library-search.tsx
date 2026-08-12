@@ -7,8 +7,10 @@ import { useEffect, useState } from "react";
 const DEBOUNCE_MS = 300;
 
 /**
- * 文库搜索框：受控输入 + 300ms 防抖，把关键词写回 `?q=`。
- * 其余查询参数（time / tag）原样保留，所以搜索能和时间、主题筛选叠加。
+ * Library search box: a controlled input with a 300ms debounce that writes the
+ * keyword back into `?q=`.
+ * The remaining query parameters (time / tag) are preserved as they are, so search
+ * stacks with the time and topic filters.
  */
 export function LibrarySearch() {
   const t = useTranslations("library");
@@ -17,7 +19,8 @@ export function LibrarySearch() {
   const queryParam = searchParams.get("q") ?? "";
   const [value, setValue] = useState(queryParam);
 
-  // URL 侧的变化（前进/后退、清除筛选）回灌到输入框。
+  // Changes on the URL side (back/forward, clearing filters) flow back into the
+  // input.
   useEffect(() => {
     setValue(queryParam);
   }, [queryParam]);
@@ -40,7 +43,7 @@ export function LibrarySearch() {
   return (
     <div className="relative ml-auto">
       <input
-        // 用 text 而非 search，避免 WebKit 原生清除按钮与下面的 ✕ 重复
+        // text rather than search, so WebKit's native clear button does not duplicate the ✕ below
         type="text"
         value={value}
         onChange={(event) => setValue(event.target.value)}

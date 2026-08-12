@@ -233,9 +233,11 @@ test("annotation threads share the same moderation rule", async ({ page }) => {
     "thread comment edited"
   );
 
+  // Exact name skips the annotation-level delete, whose accessible name is
+  // 删除标注; the owner's comment delete comes before the member's.
   await page
     .locator("article", { hasText: "thread comment edited" })
-    .getByRole("button", { name: "删除" })
+    .getByRole("button", { name: "删除", exact: true })
     .first()
     .click();
   await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();

@@ -38,15 +38,18 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
   const { paper } = workspacePaper;
   const analysis = paper.analyses[0];
 
-  // 快照会下载并写入对象存储，必须排在 workspace 归属校验之后，
-  // 否则任何登录用户都能对不属于自己 workspace 的论文触发下载/写入。
-  // 首次打开时固化 PDF 快照，之后标注坐标不会因上游改版而漂移。
+  // Taking the snapshot downloads the file and writes it to object storage, so it
+  // must come after the workspace ownership check; otherwise any logged-in user
+  // could trigger a download/write for a paper that does not belong to their own
+  // workspace.
+  // Pinning the PDF snapshot on first open keeps annotation coordinates from
+  // drifting when the upstream version changes.
   let hasPdf = paper.files.length > 0 || Boolean(paper.blobUrl);
   if (!hasPdf) {
     try {
       hasPdf = await ensurePdfSnapshot(paperId, user.workspaceId);
     } catch {
-      /* 快照失败不阻塞阅读 */
+      /* A failed snapshot does not block reading */
     }
   }
 
