@@ -326,7 +326,9 @@
     "copy": "复制",
     "copied": "已复制",
     "confirm": "确认",
-    "cancel": "取消"
+    "cancel": "取消",
+    "dismiss": "关闭",
+    "loading": "加载中…"
   },
   "preview": {
     "readOnlyNotice": "预览模式：存入文库后即可标注、评论与讨论。",
@@ -335,7 +337,8 @@
     "saveFailed": "存入失败，请重试",
     "noPdf": "暂无 PDF。",
     "duplicateInLibrary": "该论文已在文库中",
-    "duplicateView": "查看"
+    "duplicateView": "查看",
+    "saveDone": "已存入文库"
   },
   "conferences": {
     "title": "顶会",

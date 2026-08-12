@@ -326,7 +326,9 @@
     "copy": "Copy",
     "copied": "Copied",
     "confirm": "Confirm",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "dismiss": "Dismiss",
+    "loading": "Loading…"
   },
   "preview": {
     "readOnlyNotice": "Preview: save to library to annotate, comment and discuss.",
@@ -335,7 +337,8 @@
     "saveFailed": "Save failed. Please try again.",
     "noPdf": "No PDF available.",
     "duplicateInLibrary": "Already in the library",
-    "duplicateView": "View"
+    "duplicateView": "View",
+    "saveDone": "Saved to library"
   },
   "conferences": {
     "title": "Conferences",

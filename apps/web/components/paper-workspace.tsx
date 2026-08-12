@@ -242,7 +242,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         {/* Compact header: the PDF below is the page's protagonist, so the
             card spends as little vertical space as possible. The arXiv link is
             reference material, not a primary action — it reads as a text link. */}
-        <div className="mb-3 rounded border border-border bg-white px-4 py-3">
+        <div className="mb-3 rounded border border-border bg-white shadow-card px-4 py-3">
           <div className="flex items-start justify-between gap-4">
             <h1 className="text-lg font-semibold leading-snug">{paper.title}</h1>
             <div className="flex shrink-0 items-center gap-3 text-sm">
@@ -307,7 +307,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           />
           </>
         ) : (
-          <div className="flex items-center justify-center rounded border border-border bg-white p-12 text-sm text-muted">
+          <div className="flex items-center justify-center rounded border border-border bg-white shadow-card p-12 text-sm text-muted">
             {paper.abstract ? (
               <div className="max-w-2xl">
                 <h2 className="font-semibold text-ink">{t("abstractHeading")}</h2>
@@ -324,7 +324,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           bottom always stay visible no matter how tall the header card is.
           Stacked below lg, the panel takes a fixed 70vh instead. */}
       <aside className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:self-start">
-        <div className="shrink-0 rounded border border-border bg-white p-3">
+        <div className="shrink-0 rounded border border-border bg-white shadow-card p-3">
           <ReadingStateChips paperId={paper.id} state={paper.readingState as ReadingState} showLabel />
         </div>
 
@@ -338,7 +338,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         ) : null}
 
         {/* Tab switcher */}
-        <div className="flex shrink-0 rounded border border-border bg-white overflow-hidden">
+        <div className="flex shrink-0 rounded border border-border bg-white shadow-card overflow-hidden">
           {SIDEBAR_TABS.map((tab) => {
             const labels = {
               annotations: t("tabAnnotations"),
@@ -349,7 +349,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             return (
               <button
                 key={tab}
-                className={`flex-1 px-2 py-2 text-sm font-medium ${activeTab === tab ? "bg-accent text-white" : "text-muted hover:bg-surface"}`}
+                className={`flex-1 px-2 py-2 text-sm font-medium transition-colors duration-150 ${activeTab === tab ? "bg-accent text-white" : "text-muted hover:bg-surface"}`}
                 onClick={() => setActiveTab(tab)}
               >
                 {labels[tab]}
@@ -361,7 +361,9 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         {/* All four tab panels share this slot, so they line up exactly;
             min-w-0 keeps the min-width chain intact so wide chat/code content
             scrolls inside its panel instead of widening the 360px column. */}
-        <div className="h-[70vh] min-h-0 min-w-0 lg:h-auto lg:flex-1">
+        {/* key={activeTab} remounts the slot so each tab entrance replays the
+            fade; the panels inside were conditionally mounted anyway. */}
+        <div key={activeTab} className="h-[70vh] min-h-0 min-w-0 animate-fade-in lg:h-auto lg:flex-1">
         {activeTab === "annotations" ? (
           <AnnotationSidebar
             annotations={annotations}

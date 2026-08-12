@@ -58,7 +58,7 @@ export default async function MembersPage({
       {/* Page title first; the invite form is one card under it, not the page's own h1. */}
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
       <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
-      <form className="grid gap-3 rounded border border-border bg-white p-4" action="/api/members/invitations" method="post">
+      <form className="grid gap-3 rounded border border-border bg-white shadow-card p-4" action="/api/members/invitations" method="post">
         <h2 className="text-lg font-semibold">{t("inviteTitle")}</h2>
         <input className="rounded border border-control px-3 py-2" name="email" placeholder={t("emailPlaceholder")} aria-label={t("emailPlaceholder")} type="email" required />
         <select aria-label={t("roleSelectLabel")} className="rounded border border-control px-3 py-2" name="role" defaultValue="member">
@@ -76,7 +76,7 @@ export default async function MembersPage({
       </form>
 
       <section className="grid gap-4">
-        <div className="rounded border border-border bg-white">
+        <div className="rounded border border-border bg-white shadow-card">
           <div className="border-b border-border px-4 py-3">
             <h2 className="font-semibold">{t("membersHeading")}</h2>
           </div>
@@ -90,7 +90,7 @@ export default async function MembersPage({
           </div>
         </div>
 
-        <div className="rounded border border-border bg-white">
+        <div className="rounded border border-border bg-white shadow-card">
           <div className="border-b border-border px-4 py-3">
             <h2 className="font-semibold">{t("invitationsHeading")}</h2>
           </div>

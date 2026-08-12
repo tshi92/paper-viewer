@@ -355,7 +355,7 @@ function AddLabelRow({
         onChange={(event) => setName(event.target.value)}
       />
       <button
-        className="rounded bg-accent px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+        className="rounded bg-accent transition-transform duration-150 active:scale-[0.98] px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
         data-testid={`label-add-submit-${scope}`}
         type="submit"
         disabled={busy || !name.trim()}

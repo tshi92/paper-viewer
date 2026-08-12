@@ -42,7 +42,7 @@ export function DiscoverButton() {
   return (
     <div className="flex flex-col items-end gap-1">
       <button
-        className="rounded bg-accent px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        className="rounded bg-accent transition-transform duration-150 active:scale-[0.98] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
         onClick={handleDiscover}
         disabled={loading}
       >

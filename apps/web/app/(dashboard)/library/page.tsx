@@ -186,7 +186,7 @@ export default async function LibraryPage({
   const isDiscoveredTag = tag && !prefTopicSet.has(tag);
 
   return (
-    <section className="rounded border border-border bg-white">
+    <section className="rounded border border-border bg-white shadow-card">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <h1 className="text-lg font-semibold">{t("title")}</h1>
         <PaperUploadForm />
@@ -252,7 +252,7 @@ export default async function LibraryPage({
 
       <div className="divide-y divide-border">
         {workspacePapers.map(({ paper, tags, labelLinks, readingStates: rowStates, createdAt, id: wpId }) => (
-          <div className="flex items-center justify-between px-4 py-4 hover:bg-surface group" key={paper.id}>
+          <div className="flex items-center justify-between px-4 py-4 transition-colors duration-150 hover:bg-surface group" key={paper.id}>
             <Link className="min-w-0 flex-1" href={`/papers/${paper.id}`}>
               <h2 className="font-medium">{paper.title}</h2>
               <p className="mt-1 text-sm text-muted">{Array.isArray(paper.authors) ? paper.authors.join(", ") : ""}</p>

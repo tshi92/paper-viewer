@@ -80,7 +80,7 @@ export function CommentBody({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="rounded bg-accent px-2 py-0.5 text-xs text-white disabled:opacity-50"
+            className="rounded bg-accent transition-transform duration-150 active:scale-[0.98] px-2 py-0.5 text-xs text-white disabled:opacity-50"
             onClick={() => void handleSave()}
             disabled={busy || !draft.trim()}
           >

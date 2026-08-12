@@ -69,7 +69,7 @@ export function ConfirmDialog({
         aria-modal="true"
         aria-label={confirmLabel}
         aria-describedby={messageId}
-        className="w-full max-w-sm rounded border border-border bg-white p-4"
+        className="w-full max-w-sm rounded border border-border bg-white p-4 shadow-overlay"
         onClick={(event) => event.stopPropagation()}
       >
         <p id={messageId} className="text-sm leading-relaxed">{message}</p>

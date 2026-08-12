@@ -81,7 +81,7 @@ export default async function ConferencesPage({
       </div>
 
       {sections.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded border border-border bg-white px-6 py-16 text-center">
+        <div className="flex flex-col items-center gap-3 rounded border border-border bg-white shadow-card px-6 py-16 text-center">
           <h2 className="text-lg font-semibold">{t("emptyTitle")}</h2>
           <p className="max-w-md text-sm leading-relaxed text-muted">
             {canSync ? t("emptyBodyAdmin") : t("emptyBody")}
@@ -97,7 +97,7 @@ export default async function ConferencesPage({
 
       {sections.map((section) => (
         <section key={section.key} className="space-y-3">
-          <div className="flex items-baseline justify-between rounded border border-border bg-white px-5 py-3">
+          <div className="flex items-baseline justify-between rounded border border-border bg-white shadow-card px-5 py-3">
             <h2 className="text-sm font-semibold uppercase text-muted">
               {section.venue} {section.year}
             </h2>
@@ -112,7 +112,7 @@ export default async function ConferencesPage({
             return (
               <div
                 key={entry.id}
-                className="rounded border border-border bg-white p-5 transition hover:border-accent/40"
+                className="rounded border border-border bg-white shadow-card p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-raised"
               >
                 <div className="flex items-start justify-between gap-4">
                   {/* Only the content column links out, so the actions on the

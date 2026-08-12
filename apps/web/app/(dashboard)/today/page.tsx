@@ -71,7 +71,7 @@ export default async function TodayPage() {
       {digests.length === 0 ? (
         // First-run guidance instead of a blank viewport: what this page is,
         // when it fills itself, and the one thing to do next.
-        <div className="flex flex-col items-center gap-3 rounded border border-border bg-white px-6 py-16 text-center">
+        <div className="flex flex-col items-center gap-3 rounded border border-border bg-white shadow-card px-6 py-16 text-center">
           <h2 className="text-lg font-semibold">{t("emptyGuideTitle")}</h2>
           <p className="max-w-md text-sm leading-relaxed text-muted">
             {hasPrefs ? t("emptyGuideBodyReady") : t("emptyGuideBody")}
@@ -94,7 +94,7 @@ export default async function TodayPage() {
 
         return (
           <section key={digest.id} className="space-y-3">
-            <div className="rounded border border-border bg-white p-5">
+            <div className="rounded border border-border bg-white shadow-card p-5">
               <h2 className="text-sm font-semibold uppercase text-muted">
                 {t("digestMeta", {
                   date: dateFormat.format(new Date(digest.date)),
@@ -116,7 +116,7 @@ export default async function TodayPage() {
               return (
                 <div
                   key={`${digest.id}-${paper.id}`}
-                  className="rounded border border-border bg-white p-5 transition hover:border-accent/40"
+                  className="rounded border border-border bg-white shadow-card p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-raised"
                 >
                   <div className="flex items-start justify-between gap-4">
                     {/* Only the content column links out, so the actions on the

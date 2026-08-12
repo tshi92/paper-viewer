@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "@/components/toast";
 
 /**
  * The explicit act that turns a digest/conference paper into a library entry.
@@ -16,13 +17,11 @@ export function SaveToLibraryButton({ paperId }: { paperId: string }) {
   const t = useTranslations("preview");
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
   const [duplicateOf, setDuplicateOf] = useState<string | null>(null);
 
   async function save() {
     if (busy) return;
     setBusy(true);
-    setFailed(false);
     try {
       const response = await fetch(`/api/papers/${paperId}/save`, { method: "POST" });
       if (!response.ok) throw new Error("save failed");
@@ -32,9 +31,10 @@ export function SaveToLibraryButton({ paperId }: { paperId: string }) {
         setBusy(false);
         return;
       }
+      toast.success(t("saveDone"));
       router.refresh();
     } catch {
-      setFailed(true);
+      toast.error(t("saveFailed"));
       setBusy(false);
     }
   }
@@ -51,20 +51,13 @@ export function SaveToLibraryButton({ paperId }: { paperId: string }) {
   }
 
   return (
-    <span className="inline-flex items-center gap-2">
-      <button
-        type="button"
-        className="rounded bg-accent px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-        onClick={() => void save()}
-        disabled={busy}
-      >
-        {busy ? t("saving") : t("saveToLibrary")}
-      </button>
-      {failed ? (
-        <span role="alert" className="text-xs text-danger">
-          {t("saveFailed")}
-        </span>
-      ) : null}
-    </span>
+    <button
+      type="button"
+      className="rounded bg-accent transition-transform duration-150 active:scale-[0.98] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+      onClick={() => void save()}
+      disabled={busy}
+    >
+      {busy ? t("saving") : t("saveToLibrary")}
+    </button>
   );
 }

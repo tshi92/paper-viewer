@@ -164,7 +164,7 @@ export function FilterDropdown({
           role="listbox"
           aria-label={prefix}
           onKeyDown={handleMenuKeyDown}
-          className="absolute left-0 top-full z-50 mt-1 max-h-72 min-w-full overflow-y-auto rounded border border-border bg-white p-1 shadow-lg"
+          className="absolute left-0 top-full z-50 mt-1 max-h-72 min-w-full overflow-y-auto rounded border border-border bg-white p-1 shadow-overlay"
         >
           {options.map((option, index) => {
             const isSelected = index === selectedIndex;

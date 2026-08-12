@@ -74,7 +74,7 @@ export function AnnotationSidebar({
   }, [annotations, authorFilter, labelFilter, sortOrder]);
 
   return (
-    <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white">
+    <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white shadow-card">
       {/* Three selects plus the count outgrow 360px in English — let it wrap. */}
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
         <select
