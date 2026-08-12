@@ -4,9 +4,8 @@ import { prisma } from "@paper-viewer/db";
 import bcrypt from "bcryptjs";
 
 /**
- * Editing and deleting comments is author-only, and the workspace owner — the
- * strongest role there is — stands in for "not even an admin may touch someone
- * else's comment".
+ * Comment moderation: authors manage their own, and admins/owners may edit or
+ * delete anyone's. A plain member touching someone else's is still refused.
  */
 const password = "comment-edit-e2e-password";
 
@@ -108,10 +107,10 @@ async function signIn(page: Page, email: string): Promise<void> {
   await expect(page).toHaveURL(/\/(today)?$/);
 }
 
-test("the author edits a discussion comment; other people's carry no affordances", async ({ page }) => {
+test("the author edits their own comment; the owner also sees moderation affordances", async ({ page }) => {
   await signIn(page, ownerEmail);
   await page.goto(`/papers/${paperId}`);
-  await page.getByRole("button", { name: /^评论（/ }).click();
+  await page.getByRole("button", { name: "评论", exact: true }).click();
 
   const mine = page.locator("article", { hasText: "owner original body" });
   await mine.getByRole("button", { name: "编辑" }).click();
@@ -128,32 +127,44 @@ test("the author edits a discussion comment; other people's carry no affordances
     "owner edited body"
   );
 
+  // The owner moderates: someone else's comment carries the affordances too.
   const theirs = page.locator("article", { hasText: "member only comment" });
   await expect(theirs).toBeVisible();
-  await expect(theirs.getByRole("button", { name: "编辑" })).toHaveCount(0);
-  await expect(theirs.getByRole("button", { name: "删除" })).toHaveCount(0);
+  await expect(theirs.getByRole("button", { name: "编辑" })).toHaveCount(1);
+  await expect(theirs.getByRole("button", { name: "删除" })).toHaveCount(1);
 });
 
-test("the workspace owner may not edit or delete someone else's comment", async ({ page }) => {
+test("admins moderate anyone's comment; a plain member is refused", async ({ page }) => {
   await signIn(page, ownerEmail);
 
   const patch = await page.request.patch(`/api/papers/${paperId}/comments/${otherComment}`, {
+    data: { body: "moderated by owner" }
+  });
+  expect(patch.status()).toBe(200);
+  expect((await prisma.comment.findUniqueOrThrow({ where: { id: otherComment } })).body).toBe(
+    "moderated by owner"
+  );
+
+  // The member may not touch the owner's comment.
+  await signIn(page, memberEmail);
+  const memberPatch = await page.request.patch(`/api/papers/${paperId}/comments/${ownComment}`, {
     data: { body: "hijacked" }
   });
-  expect(patch.status()).toBe(403);
+  expect(memberPatch.status()).toBe(403);
+  const memberDelete = await page.request.delete(`/api/papers/${paperId}/comments/${ownComment}`);
+  expect(memberDelete.status()).toBe(403);
 
+  // Back as owner: moderation extends to deletion.
+  await signIn(page, ownerEmail);
   const del = await page.request.delete(`/api/papers/${paperId}/comments/${otherComment}`);
-  expect(del.status()).toBe(403);
-
-  expect((await prisma.comment.findUniqueOrThrow({ where: { id: otherComment } })).body).toBe(
-    "member only comment"
-  );
+  expect(del.status()).toBe(200);
+  expect(await prisma.comment.findUnique({ where: { id: otherComment } })).toBeNull();
 });
 
 test("deleting a comment warns about its replies and takes the thread with it", async ({ page }) => {
   await signIn(page, ownerEmail);
   await page.goto(`/papers/${paperId}`);
-  await page.getByRole("button", { name: /^评论（/ }).click();
+  await page.getByRole("button", { name: "评论", exact: true }).click();
 
   await page
     .locator("article", { hasText: "owner parent with replies" })
@@ -173,7 +184,7 @@ test("deleting a comment warns about its replies and takes the thread with it", 
   expect(remaining).toHaveLength(0);
 });
 
-test("annotation threads offer the same author-only edit and delete", async ({ page }) => {
+test("annotation threads share the same moderation rule", async ({ page }) => {
   const annotation = await prisma.annotation.create({
     data: {
       workspaceId,
@@ -184,8 +195,17 @@ test("annotation threads offer the same author-only edit and delete", async ({ p
       position: {},
       quotedText: "a quoted sentence",
       comments: {
+        // Explicit timestamps: nested creates land in the same millisecond and
+        // `orderBy createdAt asc` then returns them in random order, which made
+        // "the first delete button" flip between the two comments across runs.
         create: [
-          { workspaceId, paperId, authorId: ownerId, body: "thread comment by owner" },
+          {
+            workspaceId,
+            paperId,
+            authorId: ownerId,
+            body: "thread comment by owner",
+            createdAt: new Date(Date.now() - 60_000)
+          },
           { workspaceId, paperId, authorId: memberId, body: "thread comment by member" }
         ]
       }
@@ -201,10 +221,11 @@ test("annotation threads offer the same author-only edit and delete", async ({ p
 
   const thread = page.locator("article", { hasText: "thread comment by owner" });
   await expect(thread).toBeVisible();
-  // Two comments in the thread, one of them the caller's: exactly one edit button.
-  await expect(thread.getByRole("button", { name: "编辑" })).toHaveCount(1);
+  // Two comments in the thread; the owner moderates, so both carry an edit button.
+  await expect(thread.getByRole("button", { name: "编辑" })).toHaveCount(2);
 
-  await thread.getByRole("button", { name: "编辑" }).click();
+  // The owner's own comment was created first, so its editor comes first.
+  await thread.getByRole("button", { name: "编辑" }).first().click();
   await page.locator("article textarea").fill("thread comment edited");
   await page.getByRole("article").getByRole("button", { name: "保存" }).click();
   await expect(page.locator("article textarea")).toHaveCount(0);

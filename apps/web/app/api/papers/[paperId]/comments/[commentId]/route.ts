@@ -1,6 +1,6 @@
 import { prisma } from "@paper-viewer/db";
 import { z } from "zod";
-import { canDeleteComment } from "@paper-viewer/core/permissions";
+import { canModifyComment } from "@paper-viewer/core/permissions";
 import { requireCurrentUser, type CurrentUser } from "@/lib/auth";
 
 const updateCommentSchema = z.object({
@@ -50,10 +50,9 @@ export async function PATCH(
     return Response.json({ error: "Comment not found" }, { status: 404 });
   }
 
-  // Editing is author-only on purpose: admins and owners may moderate their own
-  // words, never rewrite someone else's.
-  if (comment.authorId !== user.id) {
-    return Response.json({ error: "Only the author can edit this comment" }, { status: 403 });
+  // Authors manage their own comments; admins and owners may moderate anyone's.
+  if (!canModifyComment(user.role, comment.authorId === user.id)) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const parsed = updateCommentSchema.safeParse(await request.json().catch(() => null));
@@ -85,7 +84,7 @@ export async function DELETE(
     return Response.json({ error: "Comment not found" }, { status: 404 });
   }
 
-  if (!canDeleteComment(user.role, comment.authorId === user.id)) {
+  if (!canModifyComment(user.role, comment.authorId === user.id)) {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 

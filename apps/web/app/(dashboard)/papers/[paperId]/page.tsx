@@ -134,7 +134,8 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
         annotationLabels,
         paperLabels,
         paperLabelOptions,
-        currentUserId: user.id
+        currentUserId: user.id,
+        currentUserRole: user.role
       }}
     />
   );

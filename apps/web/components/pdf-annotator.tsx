@@ -146,6 +146,25 @@ type Bounds = { left: number; top: number; right: number; bottom: number };
  * full layer width, and the area wrapper's 1px border even gives it a height, so
  * including them would anchor the card to the whole page instead of the mark.
  */
+/**
+ * Whether a viewport point lands on one of the wrapper's painted parts,
+ * returning that part's area so overlapping annotations can resolve to the
+ * most specific (smallest) one. Point-in-part, not point-in-union: the union
+ * box of a multi-line highlight covers the gap between its lines.
+ */
+function hitAreaAtPoint(wrapper: HTMLElement, x: number, y: number): number | null {
+  let best: number | null = null;
+  for (const element of wrapper.querySelectorAll<HTMLElement>("*")) {
+    if (getComputedStyle(element).position !== "absolute") continue;
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) continue;
+    const area = rect.width * rect.height;
+    if (best === null || area < best) best = area;
+  }
+  return best;
+}
+
 function measureHighlightBounds(wrapper: HTMLElement): Bounds | null {
   let bounds: Bounds | null = null;
   for (const element of wrapper.querySelectorAll<HTMLElement>("*")) {
@@ -183,15 +202,28 @@ function placePreview(bounds: Bounds): PreviewPlacement {
  * beat the module rules, including `._scrolledTo_… ._part_…`.
  */
 const HIGHLIGHT_STYLES = `
+/*
+ * The whole highlight layer is transparent to the pointer: starting a text
+ * selection on an already-highlighted sentence must anchor in the text layer
+ * beneath (with pointer events on, the anchor landed on the highlight div and
+ * dragging selected the entire page). Hover previews and click-to-select are
+ * re-implemented with geometric hit-testing on the container instead.
+ */
+.pv-highlight,
+.pv-highlight * {
+  pointer-events: none !important;
+}
 .pv-highlight .Highlight__part {
   background: var(--pv-highlight-color, ${DEFAULT_HIGHLIGHT_COLOR}) !important;
-  opacity: 0.45;
-  cursor: pointer;
+  /* Light wash + multiply keeps the text underneath crisp and the colour
+     recognisable without shouting; hover/selected only nudges it up. */
+  opacity: 0.22;
+  mix-blend-mode: multiply;
   transition: opacity 0.15s ease;
 }
 .pv-highlight:hover .Highlight__part,
 .pv-highlight[data-scrolled-to="true"] .Highlight__part {
-  opacity: 0.75;
+  opacity: 0.4;
 }
 `;
 
@@ -390,6 +422,29 @@ export function PdfAnnotator({
   /** The hovered `.pv-highlight`, kept for repositioning; null while no card is up. */
   const hoverWrapperRef = useRef<HTMLElement | null>(null);
 
+  // The highlight layer is pointer-transparent (see HIGHLIGHT_STYLES), so
+  // hover and click resolve geometrically against the live DOM. Scanning the
+  // container (rather than a ref registry) also covers the duplicate layer a
+  // StrictMode remount leaves behind: whichever copy is painted where the
+  // pointer is wins.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const lastHitIdRef = useRef<string | null>(null);
+  const moveRafRef = useRef(0);
+
+  const hitTest = useCallback((x: number, y: number) => {
+    const container = containerRef.current;
+    if (!container) return null;
+    let best: { id: string; wrapper: HTMLElement; area: number } | null = null;
+    for (const wrapper of container.querySelectorAll<HTMLElement>(".pv-highlight")) {
+      const id = wrapper.dataset.annotationId;
+      if (!id) continue;
+      const area = hitAreaAtPoint(wrapper, x, y);
+      if (area === null) continue;
+      if (!best || area < best.area) best = { id, wrapper, area };
+    }
+    return best;
+  }, []);
+
   const cancelPreviewClose = useCallback(() => {
     if (leaveTimerRef.current === null) return;
     clearTimeout(leaveTimerRef.current);
@@ -437,6 +492,60 @@ export function PdfAnnotator({
   }, [cancelPreviewClose, closePreview]);
 
   useEffect(() => cancelPreviewClose, [cancelPreviewClose]);
+  useEffect(
+    () => () => {
+      if (moveRafRef.current) cancelAnimationFrame(moveRafRef.current);
+    },
+    []
+  );
+
+  const handleContainerMouseMove = useCallback(
+    (event: ReactMouseEvent) => {
+      const { clientX, clientY, buttons } = event;
+      const target = event.target as HTMLElement | null;
+      if (moveRafRef.current) return;
+      moveRafRef.current = requestAnimationFrame(() => {
+        moveRafRef.current = 0;
+        // Mid-drag (text selection in progress): no previews in the way.
+        if (buttons !== 0) {
+          lastHitIdRef.current = null;
+          schedulePreviewClose();
+          return;
+        }
+        if (target?.closest?.('[data-testid="annotation-hover-preview"]')) {
+          cancelPreviewClose();
+          return;
+        }
+        const hit = hitTest(clientX, clientY);
+        if (hit && entries.has(hit.id)) {
+          cancelPreviewClose();
+          if (lastHitIdRef.current !== hit.id) {
+            lastHitIdRef.current = hit.id;
+            openPreview(hit.id, hit.wrapper);
+          }
+        } else {
+          lastHitIdRef.current = null;
+          schedulePreviewClose();
+        }
+      });
+    },
+    [cancelPreviewClose, entries, hitTest, openPreview, schedulePreviewClose]
+  );
+
+  const handleContainerClick = useCallback(
+    (event: ReactMouseEvent) => {
+      // A click that ends a text selection, or one inside the selection tip /
+      // preview card, is not an annotation click.
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest?.('[data-testid="annotation-hover-preview"]')) return;
+      if (target?.closest?.(".PdfHighlighter__tip-container")) return;
+      const hit = hitTest(event.clientX, event.clientY);
+      if (hit) onSelect(hit.id);
+    },
+    [hitTest, onSelect]
+  );
 
   // A deleted annotation must not leave its card hanging.
   const previewEntry = hoverPreview ? entries.get(hoverPreview.annotationId) : undefined;
@@ -540,6 +649,8 @@ export function PdfAnnotator({
       // `image` is the only area marker available.
       const isArea = entry ? entry.annotation.type === "area" : Boolean(highlight.content?.image);
 
+      // Clicks are handled by the container's geometric hit test — these
+      // elements are pointer-transparent and never see them.
       const inner = isArea ? (
         <AreaHighlightBox
           highlight={highlight}
@@ -549,13 +660,9 @@ export function PdfAnnotator({
           enableResizing={false}
           style={{
             background: color,
-            opacity: isScrolledTo ? 0.5 : 0.35,
-            cursor: "pointer"
-          }}
-          onClick={(event) => {
-            event.stopPropagation();
-            event.preventDefault();
-            onSelect(highlight.id);
+            border: `1.5px solid ${color}`,
+            opacity: isScrolledTo ? 0.3 : 0.16,
+            mixBlendMode: "multiply"
           }}
         />
       ) : (
@@ -563,38 +670,43 @@ export function PdfAnnotator({
           position={highlight.position}
           comment={highlight.comment}
           isScrolledTo={isScrolledTo}
-          onClick={() => onSelect(highlight.id)}
         />
       );
 
-      // Hover lands on the painted parts (a text rect, or the area's react-rnd
-      // box) and bubbles up here; React derives enter/leave from the DOM tree,
-      // so the wrapper sees them even though its own box is empty.
+      // The wrapper carries its annotation id for the geometric hit test —
+      // with the layer pointer-transparent it never receives mouse events.
       return (
         <div
           key={`${highlight.id}-${index}`}
+          data-annotation-id={highlight.id}
           className="pv-highlight"
           data-annotation-type={isArea ? "area" : "highlight"}
           data-scrolled-to={isScrolledTo ? "true" : "false"}
           style={{ "--pv-highlight-color": color } as CSSProperties}
-          onMouseEnter={
-            entry ? (event) => openPreview(highlight.id, event.currentTarget) : undefined
-          }
-          onMouseLeave={entry ? schedulePreviewClose : undefined}
         >
           {inner}
         </div>
       );
     },
-    [entries, onSelect, openPreview, schedulePreviewClose, selectedId]
+    [entries, selectedId]
   );
 
   return (
     <div
+      ref={containerRef}
       className="relative h-[calc(100vh-3rem)] overflow-hidden rounded border border-border bg-surface"
       // Scroll does not bubble, but the PDF's inner container's does reach here
       // in the capture phase.
       onScrollCapture={repositionPreview}
+      onMouseMove={handleContainerMouseMove}
+      onClick={handleContainerClick}
+      // The pointer leaving the container entirely produces no further
+      // mousemoves, so the close must hook the leave itself. Entering the
+      // preview card does not count as leaving — it is a DOM child.
+      onMouseLeave={() => {
+        lastHitIdRef.current = null;
+        schedulePreviewClose();
+      }}
     >
       <style>{HIGHLIGHT_STYLES}</style>
       <PdfLoader

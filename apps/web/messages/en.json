@@ -94,7 +94,7 @@
     "tabAnnotations": "Annotations",
     "tabAnalysis": "Intro",
     "tabChat": "AI Chat",
-    "tabComments": "Comments ({count})",
+    "tabComments": "Comments",
     "downloadPdf": "Download PDF to server",
     "downloadingPdf": "Downloading…",
     "analysisHeading": "Intro",
@@ -144,7 +144,11 @@
     "pdfError": "Failed to load PDF.",
     "dotTitle": "Highlight colour",
     "labelFilterAria": "Filter by label",
-    "authorFilterAria": "Filter by member"
+    "authorFilterAria": "Filter by member",
+    "sortAria": "Sort order",
+    "sortPosition": "By position",
+    "sortNewest": "Newest first",
+    "sortOldest": "Oldest first"
   },
   "chat": {
     "heading": "Chat with Paper",
@@ -162,7 +166,6 @@
     "saveToCommentsFailed": "Save failed, try again"
   },
   "comments": {
-    "heading": "Discussion",
     "empty": "No comments yet.",
     "pageBadge": "p.{page}",
     "placeholder": "Add a comment",
@@ -172,7 +175,13 @@
     "save": "Save",
     "cancel": "Cancel",
     "deleteConfirm": "{count, plural, =0 {Delete this comment?} one {Delete this comment and its # reply?} other {Delete this comment and its # replies?}}",
-    "actionFailed": "That did not work. Try again."
+    "actionFailed": "That did not work. Try again.",
+    "filterAllMembers": "All members",
+    "authorFilterAria": "Filter by member",
+    "count": "{count, plural, one {# comment} other {# comments}}",
+    "sortAria": "Sort order",
+    "sortNewest": "Newest first",
+    "sortOldest": "Oldest first"
   },
   "readingState": {
     "label": "Reading state",

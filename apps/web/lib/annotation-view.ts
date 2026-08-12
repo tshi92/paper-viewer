@@ -5,7 +5,9 @@ export const annotationInclude = {
   author: { select: { id: true, email: true, name: true } },
   labels: { orderBy: { order: "asc" as const }, include: { label: true } },
   comments: {
-    orderBy: { createdAt: "asc" as const },
+    // id breaks createdAt ties (same-transaction inserts share a millisecond),
+    // so thread order is stable across requests.
+    orderBy: [{ createdAt: "asc" as const }, { id: "asc" as const }],
     include: { author: { select: { id: true, email: true, name: true } } }
   }
 };

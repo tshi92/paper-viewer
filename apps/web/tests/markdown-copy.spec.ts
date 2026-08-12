@@ -133,7 +133,7 @@ test("a saved chat reply renders as markdown in the discussion and copies raw", 
   // The newlines were always in storage; only the old plain-text rendering ate them.
   expect(stored.body).toBe(assistantReply);
 
-  await page.getByRole("button", { name: /^评论（/ }).click();
+  await page.getByRole("button", { name: "评论", exact: true }).click();
   const comment = page.locator("article", { hasText: "Main contribution" });
   await expect(comment.getByRole("heading", { name: "Main contribution", level: 4 })).toBeVisible();
   await expect(comment.getByRole("listitem")).toHaveCount(2);

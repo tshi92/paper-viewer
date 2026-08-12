@@ -94,7 +94,7 @@
     "tabAnnotations": "标注",
     "tabAnalysis": "简介",
     "tabChat": "AI 对话",
-    "tabComments": "评论（{count}）",
+    "tabComments": "评论",
     "downloadPdf": "下载 PDF 到服务器",
     "downloadingPdf": "下载中…",
     "analysisHeading": "简介",
@@ -144,7 +144,11 @@
     "pdfError": "PDF 加载失败。",
     "dotTitle": "高亮颜色",
     "labelFilterAria": "按标签筛选",
-    "authorFilterAria": "按成员筛选"
+    "authorFilterAria": "按成员筛选",
+    "sortAria": "排序",
+    "sortPosition": "按位置",
+    "sortNewest": "从新到旧",
+    "sortOldest": "从旧到新"
   },
   "chat": {
     "heading": "与论文对话",
@@ -162,7 +166,6 @@
     "saveToCommentsFailed": "保存失败，请重试"
   },
   "comments": {
-    "heading": "讨论",
     "empty": "暂无评论。",
     "pageBadge": "第 {page} 页",
     "placeholder": "添加评论",
@@ -172,7 +175,13 @@
     "save": "保存",
     "cancel": "取消",
     "deleteConfirm": "{count, plural, =0 {删除这条评论？} other {删除这条评论及其 # 条回复？}}",
-    "actionFailed": "操作失败，请重试"
+    "actionFailed": "操作失败，请重试",
+    "filterAllMembers": "全部成员",
+    "authorFilterAria": "按成员筛选",
+    "count": "{count, plural, other {# 条}}",
+    "sortAria": "排序",
+    "sortNewest": "从新到旧",
+    "sortOldest": "从旧到新"
   },
   "readingState": {
     "label": "阅读状态",

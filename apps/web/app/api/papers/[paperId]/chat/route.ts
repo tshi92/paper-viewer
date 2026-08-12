@@ -45,12 +45,15 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
     data: { paperId, userId: user.id, role: "user", content: message }
   });
 
-  // Get chat history
-  const history = await prisma.paperChatMessage.findMany({
-    where: { paperId, userId: user.id },
-    orderBy: { createdAt: "asc" },
-    take: 20 // last 20 messages for context
-  });
+  // Last 20 messages for context — fetched newest-first then flipped, since
+  // asc+take would keep the OLDEST 20 and drop recent turns as the chat grows.
+  const history = (
+    await prisma.paperChatMessage.findMany({
+      where: { paperId, userId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: 20
+    })
+  ).reverse();
 
   // Build messages for LLM
   const messages = [

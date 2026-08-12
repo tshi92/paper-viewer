@@ -14,6 +14,7 @@ import { AnnotationSidebar } from "./annotation-sidebar";
 import { PaperLabelPicker } from "./paper-label-picker";
 import type { CreateAnnotationInput } from "./pdf-annotator";
 import type { ReadingState } from "@paper-viewer/core/paper-status";
+import type { WorkspaceRole } from "@paper-viewer/core/permissions";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
 
 // react-pdf-highlighter touches the DOM at import time, so the annotator is
@@ -47,6 +48,7 @@ type PaperData = {
   /** Every paper-scope label in the workspace, i.e. what the picker can offer. */
   paperLabelOptions: LabelView[];
   currentUserId: string;
+  currentUserRole: WorkspaceRole;
   /** Neighbours in the library ordering; null at either end of the list. */
   prevPaperId: string | null;
   nextPaperId: string | null;
@@ -59,7 +61,7 @@ type WorkspaceErrorKey = "errorAnnotationCreate" | "errorAnnotationDelete" | "er
 
 // 简介 leads: opening a paper starts with what it's about; clicking a
 // highlight in the PDF still switches to 标注 automatically.
-const SIDEBAR_TABS = ["analysis", "annotations", "chat", "comments"] as const;
+const SIDEBAR_TABS = ["analysis", "chat", "annotations", "comments"] as const;
 
 export function PaperWorkspace({ paper }: { paper: PaperData }) {
   const t = useTranslations("workspace");
@@ -342,7 +344,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
               annotations: t("tabAnnotations"),
               analysis: t("tabAnalysis"),
               chat: t("tabChat"),
-              comments: t("tabComments", { count: paper.comments.length })
+              comments: t("tabComments")
             };
             return (
               <button
@@ -365,6 +367,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             annotations={annotations}
             labels={paper.annotationLabels}
             currentUserId={paper.currentUserId}
+            currentUserRole={paper.currentUserRole}
             selectedId={selectedAnnotationId}
             // Selecting alone would not move the viewer when the row is already
             // selected, so the jump is asked for directly; the annotator makes
@@ -387,6 +390,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             paperId={paper.id}
             comments={paper.comments}
             currentUserId={paper.currentUserId}
+            currentUserRole={paper.currentUserRole}
           />
         )}
         </div>

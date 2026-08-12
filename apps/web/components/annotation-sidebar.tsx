@@ -3,15 +3,20 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { annotationColor } from "@paper-viewer/core/labels";
+import { canModifyComment, type WorkspaceRole } from "@paper-viewer/core/permissions";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
 import { CommentBody } from "./comment-body";
 import { ConfirmDialog } from "./confirm-dialog";
 import { LabelChip } from "./label-chip";
+import { TimeStamp } from "./time-stamp";
+
+type SortOrder = "position" | "newest" | "oldest";
 
 export function AnnotationSidebar({
   annotations,
   labels,
   currentUserId,
+  currentUserRole,
   selectedId,
   onJump,
   onReply,
@@ -22,6 +27,7 @@ export function AnnotationSidebar({
   annotations: AnnotationView[];
   labels: LabelView[];
   currentUserId: string;
+  currentUserRole: WorkspaceRole;
   selectedId: string | null;
   onJump: (annotation: AnnotationView) => void;
   onReply: (annotationId: string, body: string) => Promise<void>;
@@ -32,6 +38,7 @@ export function AnnotationSidebar({
   const t = useTranslations("annotations");
   const [labelFilter, setLabelFilter] = useState<string>("all");
   const [authorFilter, setAuthorFilter] = useState<string>("all");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("position");
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>({});
   const [pendingDelete, setPendingDelete] = useState<AnnotationView | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -44,25 +51,32 @@ export function AnnotationSidebar({
     return [...map.entries()];
   }, [annotations]);
 
-  // The API delivers annotations ordered by page asc, createdAt asc; keep that
-  // order, and carry each row's colour alongside so the dot and the quote rule
-  // resolve it once.
-  const filtered = useMemo(
-    () =>
-      annotations
-        .filter(
-          (annotation) =>
-            (labelFilter === "all" ||
-              annotation.labels.some((label) => label.id === labelFilter)) &&
-            (authorFilter === "all" || annotation.author.id === authorFilter)
-        )
-        .map((annotation) => ({ annotation, color: annotationColor(annotation.labels) })),
-    [annotations, authorFilter, labelFilter]
-  );
+  // The API delivers annotations ordered by page asc, createdAt asc — that is
+  // the "position" order. Time sorts rearrange a copy; the colour rides along
+  // so the dot and the quote rule resolve it once.
+  const filtered = useMemo(() => {
+    const rows = annotations
+      .filter(
+        (annotation) =>
+          (labelFilter === "all" ||
+            annotation.labels.some((label) => label.id === labelFilter)) &&
+          (authorFilter === "all" || annotation.author.id === authorFilter)
+      )
+      .map((annotation) => ({ annotation, color: annotationColor(annotation.labels) }));
+    if (sortOrder !== "position") {
+      rows.sort((a, b) => {
+        const delta =
+          new Date(a.annotation.createdAt).getTime() - new Date(b.annotation.createdAt).getTime();
+        return sortOrder === "newest" ? -delta : delta;
+      });
+    }
+    return rows;
+  }, [annotations, authorFilter, labelFilter, sortOrder]);
 
   return (
     <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+      {/* Three selects plus the count outgrow 360px in English — let it wrap. */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
         <select
           aria-label={t("labelFilterAria")}
           className="rounded border border-control px-1.5 py-1 text-xs"
@@ -89,7 +103,19 @@ export function AnnotationSidebar({
             </option>
           ))}
         </select>
-        <span className="ml-auto text-xs text-muted">{t("count", { count: filtered.length })}</span>
+        <select
+          aria-label={t("sortAria")}
+          className="rounded border border-control px-1.5 py-1 text-xs"
+          value={sortOrder}
+          onChange={(event) => setSortOrder(event.target.value as SortOrder)}
+        >
+          <option value="position">{t("sortPosition")}</option>
+          <option value="newest">{t("sortNewest")}</option>
+          <option value="oldest">{t("sortOldest")}</option>
+        </select>
+        <span className="ml-auto whitespace-nowrap text-xs text-muted">
+          {t("count", { count: filtered.length })}
+        </span>
       </div>
       <div className="min-h-0 flex-1 divide-y divide-border overflow-auto">
         {filtered.map(({ annotation, color }) => (
@@ -117,6 +143,7 @@ export function AnnotationSidebar({
                   {t("pageBadge", { page: annotation.pageNumber })}
                 </span>
                 <span>{annotation.type === "area" ? t("typeArea") : t("typeHighlight")}</span>
+                <TimeStamp value={annotation.createdAt} className="ml-auto text-[11px] text-muted" />
               </div>
               {annotation.areaImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element -- small API-served thumbnail
@@ -149,10 +176,14 @@ export function AnnotationSidebar({
                 <div key={comment.id} className={comment.parentId ? "ml-4" : ""}>
                   <span className="text-xs font-medium">
                     {comment.author.name ?? comment.author.email}
-                  </span>
+                  </span>{" "}
+                  <TimeStamp value={comment.createdAt} className="text-[10px] text-muted" />
                   <CommentBody
                     body={comment.body}
-                    isAuthor={comment.author.id === currentUserId}
+                    canModify={canModifyComment(
+                      currentUserRole,
+                      comment.author.id === currentUserId
+                    )}
                     replyCount={
                       annotation.comments.filter((it) => it.parentId === comment.id).length
                     }

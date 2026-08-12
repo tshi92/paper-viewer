@@ -7,20 +7,22 @@ import { CopyTextButton } from "./copy-text-button";
 import { MarkdownBody } from "./markdown-body";
 
 /**
- * A comment's text plus the author-only edit/delete affordances, shared by the
- * paper-level Discussion panel and the annotation threads so both offer the same
- * interaction. Non-authors get the text alone — the API refuses their writes too.
+ * A comment's text plus its edit/delete affordances, shared by the paper-level
+ * Discussion panel and the annotation threads so both offer the same
+ * interaction. The caller decides who may modify (author, or admins/owners
+ * moderating) — everyone else gets the text alone, and the API enforces the
+ * same rule server-side.
  */
 export function CommentBody({
   body,
-  isAuthor,
+  canModify,
   replyCount,
   textClassName = "text-sm",
   onEdit,
   onDelete
 }: {
   body: string;
-  isAuthor: boolean;
+  canModify: boolean;
   /** Direct replies, used to warn that deleting takes the thread with it. */
   replyCount: number;
   textClassName?: string;
@@ -68,7 +70,9 @@ export function CommentBody({
     return (
       <div className="grid gap-1.5">
         <textarea
-          className={`min-h-16 w-full rounded border border-control px-2 py-1.5 ${textClassName}`}
+          // field-sizing grows the box with its content (Chrome 123+); the
+          // min/max clamp is the fallback everywhere else.
+          className={`min-h-40 w-full rounded border border-control px-2 py-1.5 [field-sizing:content] max-h-[45vh] ${textClassName}`}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           disabled={busy}
@@ -106,7 +110,7 @@ export function CommentBody({
       <MarkdownBody className={textClassName}>{body}</MarkdownBody>
       <div className="mt-1 flex items-center gap-2">
         <CopyTextButton text={body} />
-        {isAuthor ? (
+        {canModify ? (
           <>
             <button
               type="button"

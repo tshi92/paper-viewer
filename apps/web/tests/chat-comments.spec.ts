@@ -83,8 +83,7 @@ test("chat reply → 存入评论 → shows in the comments tab and bumps its co
   await page.getByRole("button", { name: "AI 对话" }).click();
   await expect(page.getByText(assistantReply)).toBeVisible();
 
-  const commentsTab = page.getByRole("button", { name: /^评论（/ });
-  await expect(commentsTab).toHaveText("评论（0）");
+  const commentsTab = page.getByRole("button", { name: "评论", exact: true });
 
   await page.getByRole("button", { name: "存入评论" }).click();
 
@@ -92,9 +91,8 @@ test("chat reply → 存入评论 → shows in the comments tab and bumps its co
   await expect(savedButton).toBeVisible();
   await expect(savedButton).toBeDisabled();
 
-  // The panel and the tab count both come from server props, so this also proves
-  // the router refresh landed.
-  await expect(commentsTab).toHaveText("评论（1）");
+  // The panel content comes from server props, so finding the saved reply in
+  // the comments tab also proves the router refresh landed.
   await commentsTab.click();
   await expect(page.getByText(assistantReply)).toBeVisible();
 

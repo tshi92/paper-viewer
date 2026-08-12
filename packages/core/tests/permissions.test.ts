@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canDeleteAnnotation,
-  canDeleteComment,
+  canModifyComment,
   canManageWorkspace,
   canManageWorkspaceSettings,
   canReadWorkspace,
@@ -49,13 +49,14 @@ describe("permissions", () => {
 
   it("rejects an author who is no longer a workspace member", () => {
     expect(canDeleteAnnotation(null, true)).toBe(false);
-    expect(canDeleteComment(null, true)).toBe(false);
+    expect(canModifyComment(null, true)).toBe(false);
   });
 
-  it("applies the same author-only policy to comments", () => {
-    expect(canDeleteComment("member", true)).toBe(true);
-    expect(canDeleteComment("member", false)).toBe(false);
-    expect(canDeleteComment("admin", false)).toBe(false);
-    expect(canDeleteComment("owner", false)).toBe(false);
+  it("lets comment authors and admins modify, plain members only their own", () => {
+    expect(canModifyComment("member", true)).toBe(true);
+    expect(canModifyComment("member", false)).toBe(false);
+    expect(canModifyComment("admin", false)).toBe(true);
+    expect(canModifyComment("owner", false)).toBe(true);
+    expect(canModifyComment("admin", true)).toBe(true);
   });
 });

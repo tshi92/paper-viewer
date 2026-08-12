@@ -21,6 +21,13 @@ export function canDeleteAnnotation(role: WorkspaceRole | null, isAuthor: boolea
   return isAuthor && role !== null;
 }
 
-export function canDeleteComment(role: WorkspaceRole | null, isAuthor: boolean): boolean {
-  return canDeleteAnnotation(role, isAuthor);
+/**
+ * Comments diverge from annotations on purpose: the author manages their own,
+ * and admins/owners may moderate anyone's (edit and delete alike).
+ */
+export function canModifyComment(role: WorkspaceRole | null, isAuthor: boolean): boolean {
+  if (role === null) {
+    return false;
+  }
+  return isAuthor || role === "admin" || role === "owner";
 }

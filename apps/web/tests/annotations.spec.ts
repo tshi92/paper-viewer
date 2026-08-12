@@ -213,6 +213,28 @@ async function assertAnchoredTo(
   expect(card.x).toBeLessThan(mark.x + mark.width + 40);
 }
 
+/**
+ * Highlights are pointer-transparent (text selection must anchor through
+ * them), so Playwright's actionability check rejects `.hover()` on them —
+ * the app reads coordinates off container mousemove instead, and so does this.
+ */
+async function hoverCenter(page: Page, target: ReturnType<Page["locator"]>): Promise<void> {
+  // Saving an annotation scrolls the viewer to it on a delayed retry, so a
+  // coordinate measured too early points at where the highlight used to be.
+  // Re-measure and re-hover until the preview actually shows; the ±1px jiggle
+  // guarantees a fresh mousemove even when the coordinates repeat.
+  const preview = page.getByTestId("annotation-hover-preview");
+  await expect(async () => {
+    // Creating an annotation scrolls the viewer elsewhere, which can leave
+    // this highlight half-clipped with its centre over the page chrome.
+    await target.scrollIntoViewIfNeeded();
+    const box = (await target.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2 + 1, box.y + box.height / 2 + 1);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(preview).toBeVisible({ timeout: 500 });
+  }).toPass({ timeout: 15_000 });
+}
+
 async function assertHoverCycles(
   page: Page,
   target: ReturnType<Page["locator"]>,
@@ -220,7 +242,7 @@ async function assertHoverCycles(
 ): Promise<void> {
   const preview = page.getByTestId("annotation-hover-preview");
   for (let cycle = 0; cycle < 10; cycle++) {
-    await target.hover();
+    await hoverCenter(page, target);
     await expect(preview, `cycle ${cycle}`).toBeVisible();
     await expect(preview.getByText(commentText), `cycle ${cycle}`).toBeVisible();
     await assertAnchoredTo(preview, target);
@@ -268,12 +290,12 @@ test("hover previews appear on every pass and survive a trip into the card", asy
 
   // The card carries the whole annotation: author, labels, the quoted text and
   // the first comment — and the screenshot for an area.
-  await textPart.hover();
+  await hoverCenter(page, textPart);
   await expect(preview.getByText(/Annotations E2E/)).toBeVisible();
   await expect(preview.getByText("method")).toBeVisible();
   await expect(preview.locator("blockquote")).toBeVisible();
   await page.mouse.move(2, 2);
-  await areaBox.hover();
+  await hoverCenter(page, areaBox);
   await expect(preview.locator("img")).toBeVisible();
   await page.mouse.move(2, 2);
   await expect(preview).toBeHidden();
@@ -285,14 +307,14 @@ test("hover previews appear on every pass and survive a trip into the card", asy
   await expect(page.getByRole("button", { name: "保存标注" })).toBeVisible();
   await page.keyboard.press("Escape");
   await page.mouse.move(2, 2);
-  await textPart.hover();
+  await hoverCenter(page, textPart);
   await expect(preview).toBeVisible();
   await expect(preview.getByText("hover text note")).toBeVisible();
   await page.mouse.move(2, 2);
   await expect(preview).toBeHidden();
 
   // Moving from the highlight into the card keeps it open; leaving the card closes it.
-  await textPart.hover();
+  await hoverCenter(page, textPart);
   await expect(preview).toBeVisible();
   await preview.hover();
   await expect(preview).toBeVisible();
