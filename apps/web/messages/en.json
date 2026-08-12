@@ -203,6 +203,7 @@
     "notSet": "Not set"
   },
   "settingsMembers": {
+    "title": "Members",
     "inviteTitle": "Invite member",
     "emailPlaceholder": "Email",
     "roleOwner": "owner",

@@ -98,8 +98,8 @@ test("chat renders assistant markdown and copies the raw source", async ({ page 
   await page.goto(`/papers/${paperId}`);
   await page.getByRole("button", { name: "AI 对话" }).click();
 
-  await expect(page.getByRole("heading", { name: "Main contribution", level: 2 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Usage", level: 3 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Main contribution", level: 4 })).toBeVisible(); // ## demoted two levels
+  await expect(page.getByRole("heading", { name: "Usage", level: 5 })).toBeVisible();
   await expect(page.getByRole("listitem")).toHaveCount(2);
   await expect(page.locator("pre code")).toContainText(
     "model.fit(x_train_long_enough_to_need_a_scrollbar, y_train)"
@@ -135,7 +135,7 @@ test("a saved chat reply renders as markdown in the discussion and copies raw", 
 
   await page.getByRole("button", { name: /^评论（/ }).click();
   const comment = page.locator("article", { hasText: "Main contribution" });
-  await expect(comment.getByRole("heading", { name: "Main contribution", level: 2 })).toBeVisible();
+  await expect(comment.getByRole("heading", { name: "Main contribution", level: 4 })).toBeVisible();
   await expect(comment.getByRole("listitem")).toHaveCount(2);
   await expect(comment.locator("pre code")).toContainText(
     "model.fit(x_train_long_enough_to_need_a_scrollbar, y_train)"
@@ -159,7 +159,7 @@ test.describe("in English", () => {
 
     await page.goto(`/papers/${paperId}`);
     await page.getByRole("button", { name: "AI Chat" }).click();
-    await expect(page.getByRole("heading", { name: "Main contribution", level: 2 })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Main contribution", level: 4 })).toBeVisible();
 
     await page.getByRole("button", { name: "Copy" }).nth(1).click();
     await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();

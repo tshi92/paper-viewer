@@ -268,7 +268,7 @@ export default async function LibraryPage({
                 {tags.length > 0 ? (
                   <div className="flex gap-1">
                     {tags.slice(0, 3).map((paperTag) => (
-                      <span key={paperTag} className="rounded bg-surface px-1.5 py-0.5 text-[10px] text-muted">{paperTag}</span>
+                      <span key={paperTag} className="rounded bg-surface px-1.5 py-0.5 text-[11px] text-muted">{paperTag}</span>
                     ))}
                   </div>
                 ) : null}

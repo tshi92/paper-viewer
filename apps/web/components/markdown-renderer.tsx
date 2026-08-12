@@ -13,11 +13,14 @@ import remarkGfm from "remark-gfm";
  * injecting markup.
  */
 const components: Components = {
-  h1: ({ children }) => <h1 className="mt-3 text-[1.15em] font-semibold first:mt-0">{children}</h1>,
-  h2: ({ children }) => <h2 className="mt-3 text-[1.08em] font-semibold first:mt-0">{children}</h2>,
-  h3: ({ children }) => <h3 className="mt-2.5 font-semibold first:mt-0">{children}</h3>,
-  h4: ({ children }) => <h4 className="mt-2 font-semibold text-muted first:mt-0">{children}</h4>,
-  h5: ({ children }) => <h5 className="mt-2 font-semibold text-muted first:mt-0">{children}</h5>,
+  // Heading tags are demoted two levels (visual sizes unchanged): an LLM reply
+  // or comment starting with `# Title` must not inject a second h1 next to the
+  // page's own, or the document outline turns into noise.
+  h1: ({ children }) => <h3 className="mt-3 text-[1.15em] font-semibold first:mt-0">{children}</h3>,
+  h2: ({ children }) => <h4 className="mt-3 text-[1.08em] font-semibold first:mt-0">{children}</h4>,
+  h3: ({ children }) => <h5 className="mt-2.5 font-semibold first:mt-0">{children}</h5>,
+  h4: ({ children }) => <h6 className="mt-2 font-semibold text-muted first:mt-0">{children}</h6>,
+  h5: ({ children }) => <h6 className="mt-2 font-semibold text-muted first:mt-0">{children}</h6>,
   h6: ({ children }) => <h6 className="mt-2 font-semibold text-muted first:mt-0">{children}</h6>,
   p: ({ children }) => <p className="mt-2 leading-relaxed first:mt-0">{children}</p>,
   ul: ({ children }) => (

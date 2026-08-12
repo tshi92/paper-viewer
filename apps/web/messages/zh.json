@@ -203,6 +203,7 @@
     "notSet": "未设置"
   },
   "settingsMembers": {
+    "title": "成员",
     "inviteTitle": "邀请成员",
     "emailPlaceholder": "邮箱",
     "roleOwner": "所有者",

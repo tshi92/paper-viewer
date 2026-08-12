@@ -20,7 +20,7 @@ export function LabelChip({
   // drop below AA and read as disabled.
   return (
     <span
-      className={`inline-flex items-center gap-1 whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-medium ${
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded border px-1.5 py-0.5 text-[11px] font-medium ${
         dimmed ? "border-dashed border-control bg-transparent" : "border-transparent"
       }`}
       style={dimmed ? { color: chip.text } : { background: chip.background, color: chip.text }}
