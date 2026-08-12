@@ -4,7 +4,16 @@
   "outputDirectory": "apps/web/.next",
   "framework": "nextjs",
   "crons": [
-    { "path": "/api/cron/daily-digest", "schedule": "0 1 * * 1-5" },
-    { "path": "/api/cron/daily-digest", "schedule": "30 1 * * 1-5" }
+    {
+      "path": "/api/cron/daily-digest",
+      "schedule": "0 1 * * 1-5"
+    },
+    {
+      "path": "/api/cron/daily-digest",
+      "schedule": "30 1 * * 1-5"
+    }
+  ],
+  "regions": [
+    "sin1"
   ]
 }
