@@ -59,6 +59,11 @@ export default async function ConferencesPage({
               title: true,
               authors: true,
               externalUrl: true,
+              // Everything the preview page can render inline from: a direct
+              // PDF link, an arXiv id, or an already-pinned snapshot.
+              pdfUrl: true,
+              arxivId: true,
+              blobUrl: true,
               // Present only once someone saved the paper to the library.
               workspacePapers: { where: { workspaceId: user.workspaceId }, select: { id: true } }
             }
@@ -176,6 +181,17 @@ export default async function ConferencesPage({
                       </p>
                     </Link>
                     <div className="flex shrink-0 items-center gap-3">
+                      {/* Signals before the click that the paper page will show
+                          the full text inline; absent when it can't. */}
+                      {paper.pdfUrl || paper.arxivId || paper.blobUrl ? (
+                        <Link
+                          href={`/papers/${paper.id}`}
+                          title={t("pdfBadgeTitle")}
+                          className="rounded px-1.5 py-0.5 text-xs font-medium text-accent ring-1 ring-inset ring-accent/30 transition-colors duration-150 hover:bg-accent/5"
+                        >
+                          {t("pdfBadge")}
+                        </Link>
+                      ) : null}
                       {paper.externalUrl ? (
                         <a
                           href={paper.externalUrl}
