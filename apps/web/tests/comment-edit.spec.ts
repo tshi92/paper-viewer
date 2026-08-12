@@ -254,3 +254,59 @@ test("an unknown comment id reads as missing rather than forbidden", async ({ pa
   });
   expect(missing.status()).toBe(404);
 });
+
+test("replying nests the comment one level in with an @name label", async ({ page }) => {
+  await signIn(page, memberEmail);
+  await page.goto(`/papers/${paperId}`);
+  await page.getByRole("button", { name: "评论", exact: true }).click();
+
+  // Open the inline composer on the owner's comment.
+  await page
+    .locator("article", { hasText: "owner edited body" })
+    .getByRole("button", { name: "回复", exact: true })
+    .click();
+  const composer = page.locator("textarea[placeholder^='回复 @']");
+  await expect(composer).toBeVisible();
+  await composer.fill("member threaded reply");
+  // The composer's submit shares the label with the reply action; it is the
+  // last 回复 button inside the article that holds the composer.
+  await page
+    .locator("article")
+    .filter({ has: composer })
+    .getByRole("button", { name: "回复", exact: true })
+    .last()
+    .click();
+
+  // The reply renders indented (single level) and names who it answers.
+  const reply = page.locator("article.ml-5", { hasText: "member threaded reply" });
+  await expect(reply).toBeVisible();
+  await expect(reply.getByText(/^@Comment Edit Owner/)).toBeVisible();
+
+  const saved = await prisma.comment.findFirst({ where: { body: "member threaded reply" } });
+  expect(saved?.parentId).toBe(ownComment);
+
+  // Replies can themselves be replied to: answer the member's reply as the
+  // owner; it lands at the same indent level, @-labeled with the member.
+  await signIn(page, ownerEmail);
+  await page.goto(`/papers/${paperId}`);
+  await page.getByRole("button", { name: "评论", exact: true }).click();
+  await reply.getByRole("button", { name: "回复", exact: true }).click();
+  const nested = page.locator("textarea[placeholder^='回复 @']");
+  await nested.fill("owner answers the reply");
+  await page
+    .locator("article")
+    .filter({ has: nested })
+    .getByRole("button", { name: "回复", exact: true })
+    .last()
+    .click();
+
+  const nestedReply = page.locator("article.ml-5", { hasText: "owner answers the reply" });
+  await expect(nestedReply).toBeVisible();
+  await expect(nestedReply.getByText(/^@Comment Edit Member/)).toBeVisible();
+
+  // The member filter keeps whole threads: filtering by the member still
+  // shows the owner's root as context.
+  await page.getByLabel("按成员筛选").selectOption(memberId);
+  await expect(page.getByText("owner edited body")).toBeVisible();
+  await expect(page.getByText("member threaded reply")).toBeVisible();
+});
