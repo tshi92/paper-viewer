@@ -166,3 +166,45 @@ describe("surplusCatalogEntries", () => {
     expect(surplusCatalogEntries(stable)).toEqual(["second"]);
   });
 });
+
+describe("pdf_url ingestion", () => {
+  function feedWith(paper: Record<string, unknown>) {
+    return parseConferenceFeed({
+      meta: { venue: "OSDI", year: 2026 },
+      papers: [{ title: "P", authors: ["A"], ...paper }]
+    }).entries[0]!;
+  }
+
+  it("accepts a direct .pdf link (USENIX shape)", () => {
+    const entry = feedWith({ pdf_url: "https://www.usenix.org/system/files/osdi26-x.pdf" });
+    expect(entry.pdfUrl).toBe("https://www.usenix.org/system/files/osdi26-x.pdf");
+  });
+
+  it("rejects publisher pdf pages that bot protection blocks server-side", () => {
+    const entry = feedWith({
+      pdf_url: "https://dl.acm.org/doi/pdf/10.1145/3767295.3803568",
+      doi: "10.1145/3767295.3803568"
+    });
+    expect(entry.pdfUrl).toBeNull();
+    // The article is still reachable for humans through the external link.
+    expect(entry.externalUrl).toBe("https://doi.org/10.1145/3767295.3803568");
+  });
+
+  it("normalizes an arXiv pdf link and derives the arXiv id from it", () => {
+    const entry = feedWith({ pdf_url: "https://arxiv.org/pdf/2605.15617v2" });
+    expect(entry.pdfUrl).toBe("https://arxiv.org/pdf/2605.15617");
+    expect(entry.arxivId).toBe("2605.15617");
+  });
+
+  it("still accepts a .pdf `url` when no pdf_url is present (VLDB shape)", () => {
+    const entry = feedWith({ url: "https://www.vldb.org/pvldb/vol18/p1-x.pdf" });
+    expect(entry.pdfUrl).toBe("https://www.vldb.org/pvldb/vol18/p1-x.pdf");
+    expect(entry.externalUrl).toBe("https://www.vldb.org/pvldb/vol18/p1-x.pdf");
+  });
+
+  it("an explicit arXiv abs url fills the arXiv id too", () => {
+    const entry = feedWith({ url: "https://arxiv.org/abs/2608.10402" });
+    expect(entry.arxivId).toBe("2608.10402");
+    expect(entry.pdfUrl).toBe("https://arxiv.org/pdf/2608.10402");
+  });
+});

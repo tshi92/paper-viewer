@@ -70,11 +70,19 @@ function asYear(value: unknown): number | null {
   return Number.isInteger(year) && year >= 1960 && year <= 2100 ? year : null;
 }
 
-/** Only a URL that plainly serves a PDF may become pdfUrl: the snapshot
- * pipeline downloads it verbatim, and a DOI landing page would be garbage. */
+const ARXIV_URL_ID = /arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})(?:v\d+)?/i;
+
+/** Only a URL the snapshot pipeline can actually download may become pdfUrl:
+ * plain .pdf files (USENIX, VLDB) and arXiv links. Publisher "pdf" URLs like
+ * dl.acm.org/doi/pdf/... sit behind bot protection (403 even with a browser
+ * user agent) and would only produce dead PDF badges — those stay external
+ * links. */
 function asPdfUrl(value: unknown): string | null {
   const url = asTrimmedString(value);
-  return url && /\.pdf($|[?#])/i.test(url) ? url : null;
+  if (!url) return null;
+  if (/\.pdf($|[?#])/i.test(url)) return url;
+  const arxiv = url.match(ARXIV_URL_ID);
+  return arxiv ? `https://arxiv.org/pdf/${arxiv[1]}` : null;
 }
 
 /**
@@ -119,16 +127,22 @@ export function parseConferenceFeed(raw: unknown): ConferenceFeedParseResult {
     }
     const doi = asTrimmedString(record.doi);
     const rawUrl = asTrimmedString(record.url ?? record.ee);
+    // csconf-papers ships an explicit pdf_url since 2026-08; older shapes used
+    // pdfUrl/pdf or relied on `url` itself being a .pdf file.
+    const explicitPdf = asTrimmedString(record.pdf_url ?? record.pdfUrl ?? record.pdf);
+    // An arXiv pdf link also names the paper's arXiv id — capture it so
+    // identity resolution can merge with digest/import twins.
+    const arxivFromUrl = (explicitPdf ?? rawUrl ?? "").match(ARXIV_URL_ID)?.[1] ?? null;
     entries.push({
       venue: venue.toUpperCase(),
       year,
       title,
       authors: asAuthors(record.authors),
       abstract: asTrimmedString(record.abstract),
-      pdfUrl: asPdfUrl(record.pdfUrl ?? record.pdf ?? rawUrl),
+      pdfUrl: asPdfUrl(explicitPdf) ?? asPdfUrl(rawUrl),
       externalUrl: rawUrl ?? (doi ? `https://doi.org/${doi}` : null),
       doi,
-      arxivId: asTrimmedString(record.arxivId ?? record.arxiv)
+      arxivId: asTrimmedString(record.arxivId ?? record.arxiv) ?? arxivFromUrl
     });
   }
   return { entries, skipped };
@@ -334,26 +348,32 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
     }
   }
 
-  // Later syncs can learn a link the first import lacked (DBLP indexes a
-  // venue after its website listing). Backfill our own conference rows only —
-  // papers matched from other sources keep their own metadata.
-  const missingUrl = new Map(
-    existing
-      .filter((p) => p.source === "conference" && !p.externalUrl)
-      .map((p) => [p.id, true])
+  // Later syncs can learn links the first import lacked (DBLP indexes a venue
+  // after its website listing; the source repo grew pdf_url in 2026-08).
+  // Backfill our own conference rows only — papers matched from other sources
+  // keep their own metadata — and only fields still empty.
+  const conferenceRows = new Map(
+    existing.filter((p) => p.source === "conference").map((p) => [p.id, p])
   );
-  const urlBackfills = new Map<string, string>();
+  const backfills = new Map<string, { externalUrl?: string; pdfUrl?: string }>();
   for (const entry of entries) {
     const paperId = resolve(entry);
-    if (paperId && entry.externalUrl && missingUrl.has(paperId) && !urlBackfills.has(paperId)) {
-      urlBackfills.set(paperId, entry.externalUrl);
+    const row = paperId ? conferenceRows.get(paperId) : undefined;
+    if (!row) continue;
+    const patch = backfills.get(paperId!) ?? {};
+    if (entry.externalUrl && !row.externalUrl && !patch.externalUrl) {
+      patch.externalUrl = entry.externalUrl;
+    }
+    if (entry.pdfUrl && !row.pdfUrl && !patch.pdfUrl) {
+      patch.pdfUrl = entry.pdfUrl;
+    }
+    if (Object.keys(patch).length > 0) {
+      backfills.set(paperId!, patch);
     }
   }
-  for (const batch of chunk([...urlBackfills.entries()], 25)) {
+  for (const batch of chunk([...backfills.entries()], 25)) {
     await Promise.all(
-      batch.map(([paperId, externalUrl]) =>
-        prisma.paper.update({ where: { id: paperId }, data: { externalUrl } })
-      )
+      batch.map(([paperId, data]) => prisma.paper.update({ where: { id: paperId }, data }))
     );
   }
 
