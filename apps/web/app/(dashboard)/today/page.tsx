@@ -4,6 +4,7 @@ import { prisma } from "@paper-viewer/db";
 import { isReadingState } from "@paper-viewer/core/paper-status";
 import { requireCurrentUser } from "@/lib/auth";
 import { DiscoverButton } from "@/components/discover-button";
+import { DigestProgressBanner } from "@/components/digest-progress-banner";
 import { ReadingStateChips } from "@/components/reading-state-chips";
 import { SaveToLibraryButton } from "@/components/save-to-library-button";
 
@@ -44,6 +45,15 @@ export default async function TodayPage() {
     : [];
   const papersById = new Map(papers.map((paper) => [paper.id, paper]));
 
+  // A run in flight: papers still pending, or a fresh pipeline lock. Derived
+  // server-side so the state survives navigating away and back — the Discover
+  // button's local spinner is only a courtesy.
+  const digestInProgress = digests.some(
+    (digest) =>
+      digest.pendingPaperIds.length > 0 ||
+      (digest.lockedAt !== null && Date.now() - digest.lockedAt.getTime() < 10 * 60 * 1000)
+  );
+
   const dateFormat = new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "long",
@@ -67,6 +77,8 @@ export default async function TodayPage() {
           <DiscoverButton />
         </div>
       </div>
+
+      {digestInProgress ? <DigestProgressBanner /> : null}
 
       {digests.length === 0 ? (
         // First-run guidance instead of a blank viewport: what this page is,

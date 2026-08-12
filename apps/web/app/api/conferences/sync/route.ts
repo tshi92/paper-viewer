@@ -29,6 +29,9 @@ export async function POST() {
     return Response.json({ ok: true, ...result });
   } catch (error) {
     console.error("[conference-sync] failed", error);
-    return Response.json({ error: "sync_failed" }, { status: 502 });
+    // The route is admin-gated, so surfacing the concrete failure is safe and
+    // beats a blind "try again" when e.g. an upstream host is unreachable.
+    const detail = error instanceof Error ? error.message.slice(0, 200) : String(error).slice(0, 200);
+    return Response.json({ error: "sync_failed", detail }, { status: 502 });
   }
 }

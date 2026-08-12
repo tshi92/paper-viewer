@@ -1,5 +1,5 @@
 {
-  "buildCommand": "pnpm db:generate && pnpm --filter @paper-viewer/web build",
+  "buildCommand": "pnpm db:generate && ([ \"$VERCEL_ENV\" != \"production\" ] || pnpm --filter @paper-viewer/db exec prisma migrate deploy --schema prisma/schema.prisma) && pnpm --filter @paper-viewer/web build",
   "installCommand": "pnpm install",
   "outputDirectory": "apps/web/.next",
   "framework": "nextjs",

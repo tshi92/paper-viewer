@@ -55,7 +55,8 @@
     "emptyGuideBody": "设置研究偏好后，每个工作日会自动挑选相关论文，更新在这里并推送到飞书群。",
     "emptyGuideBodyReady": "研究偏好已设置。到推送时间这里会自动更新，也可以点击「发现论文」立即试一次。",
     "emptyGuideCta": "设置研究偏好",
-    "savedBadge": "已在文库"
+    "savedBadge": "已在文库",
+    "digestRunning": "正在生成今日推送……可以离开此页，完成后会自动显示在这里。"
   },
   "library": {
     "title": "文库",
