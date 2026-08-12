@@ -54,7 +54,7 @@ export default async function MembersPage({
   ]);
 
   return (
-    <div className="grid grid-cols-[360px_1fr] gap-6">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       <form className="grid gap-3 rounded border border-border bg-white p-4" action="/api/members/invitations" method="post">
         <h1 className="text-lg font-semibold">{t("inviteTitle")}</h1>
         <input className="rounded border border-control px-3 py-2" name="email" placeholder={t("emailPlaceholder")} aria-label={t("emailPlaceholder")} type="email" required />

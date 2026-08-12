@@ -231,7 +231,9 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
         : null;
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_360px] gap-6">
+    // Below lg the sidebar stacks under the PDF instead of squeezing the
+    // reading column below a usable width.
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <section>
         {/* Compact header: the PDF below is the page's protagonist, so the
             card spends as little vertical space as possible. The arXiv link is
@@ -313,10 +315,11 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           </div>
         )}
       </section>
-      {/* Sticky full-height column: the tab panel flexes to whatever the
-          viewport leaves over, so composers at the bottom always stay visible
-          no matter how tall the header card is. */}
-      <aside className="sticky top-6 flex h-[calc(100vh-3rem)] min-w-0 flex-col gap-3 self-start">
+      {/* Sticky full-height column (two-column layouts only): the tab panel
+          flexes to whatever the viewport leaves over, so composers at the
+          bottom always stay visible no matter how tall the header card is.
+          Stacked below lg, the panel takes a fixed 70vh instead. */}
+      <aside className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:self-start">
         <div className="shrink-0 rounded border border-border bg-white p-3">
           <ReadingStateChips paperId={paper.id} state={paper.readingState as ReadingState} showLabel />
         </div>
@@ -351,10 +354,10 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           })}
         </div>
 
-        {/* All four tab panels share this flexed slot, so they line up exactly;
+        {/* All four tab panels share this slot, so they line up exactly;
             min-w-0 keeps the min-width chain intact so wide chat/code content
             scrolls inside its panel instead of widening the 360px column. */}
-        <div className="min-h-0 min-w-0 flex-1">
+        <div className="h-[70vh] min-h-0 min-w-0 lg:h-auto lg:flex-1">
         {activeTab === "annotations" ? (
           <AnnotationSidebar
             annotations={annotations}

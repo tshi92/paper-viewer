@@ -591,7 +591,7 @@ export function PdfAnnotator({
 
   return (
     <div
-      className="relative h-[calc(100vh-200px)] overflow-hidden rounded border border-border bg-surface"
+      className="relative h-[calc(100vh-3rem)] overflow-hidden rounded border border-border bg-surface"
       // Scroll does not bubble, but the PDF's inner container's does reach here
       // in the capture phase.
       onScrollCapture={repositionPreview}

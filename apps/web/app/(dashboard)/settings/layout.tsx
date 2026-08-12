@@ -22,7 +22,7 @@ export default async function SettingsLayout({ children }: { children: ReactNode
   }
 
   return (
-    <div className="grid grid-cols-[200px_1fr] gap-6">
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-[200px_minmax(0,1fr)]">
       <SettingsNav items={items} />
       <div>{children}</div>
     </div>
