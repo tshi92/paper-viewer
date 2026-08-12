@@ -89,14 +89,10 @@ export default async function LibraryPage({
   // Collect topics and the paper-label vocabulary. The unfiltered paper scan
   // feeds both the topic counts and the per-label counts, so the filter row
   // always shows the full workspace vocabulary, not just what survives filtering.
-  const [allPaperTags, prefs, paperLabels] = await Promise.all([
+  const [allPaperTags, paperLabels] = await Promise.all([
     prisma.workspacePaper.findMany({
       where: { workspaceId: user.workspaceId, state: "visible" },
       select: { tags: true, labelLinks: { select: { labelId: true } } }
-    }),
-    prisma.researchPreferences.findUnique({
-      where: { workspaceId: user.workspaceId },
-      select: { topics: true, keywords: true }
     }),
     prisma.label.findMany({
       where: { workspaceId: user.workspaceId, scope: "paper" },
@@ -113,7 +109,6 @@ export default async function LibraryPage({
   }
   const activeLabel = label ? paperLabels.find((it) => it.id === label) : undefined;
 
-  const prefTopicSet = new Set([...(prefs?.topics ?? []), ...(prefs?.keywords ?? [])]);
   const paperTopics = allPaperTags.flatMap((p) => p.tags);
 
   // Count papers per topic
@@ -122,12 +117,15 @@ export default async function LibraryPage({
     topicCounts.set(topic, (topicCounts.get(topic) ?? 0) + 1);
   }
 
-  // Split: preference topics (main) vs discovered topics (more)
-  const mainTopics = [...prefTopicSet].filter((topic) => topicCounts.has(topic))
-    .sort((a, b) => (topicCounts.get(b) ?? 0) - (topicCounts.get(a) ?? 0));
-  const discoveredTopics = [...new Set(paperTopics)]
-    .filter((topic) => !prefTopicSet.has(topic))
-    .sort((a, b) => (topicCounts.get(b) ?? 0) - (topicCounts.get(a) ?? 0));
+  // One rule for every topic, wherever it came from: the most-used ones sit
+  // inline, the rest fold into "More". (Preference topics used to be pinned,
+  // which read as one arbitrary chip being always visible.)
+  const TOP_TOPICS = 6;
+  const rankedTopics = [...new Set(paperTopics)].sort(
+    (a, b) => (topicCounts.get(b) ?? 0) - (topicCounts.get(a) ?? 0) || a.localeCompare(b)
+  );
+  const mainTopics = rankedTopics.slice(0, TOP_TOPICS);
+  const discoveredTopics = rankedTopics.slice(TOP_TOPICS);
 
   /** Every filter link rebuilds the whole query string, so the other three params always survive. */
   function buildUrl(params: {
@@ -181,8 +179,9 @@ export default async function LibraryPage({
     return key ? t(key) : source;
   }
 
-  // Check if current tag is a discovered (non-pref) topic
-  const isDiscoveredTag = tag && !prefTopicSet.has(tag);
+  // The active topic must stay visible as a dismissible chip even when it
+  // ranks below the inline cut (it normally lives inside "More").
+  const isOverflowTag = Boolean(tag) && !mainTopics.includes(tag ?? "");
 
   return (
     <section className="rounded border border-border bg-white shadow-card">
@@ -217,7 +216,7 @@ export default async function LibraryPage({
                 </Link>
               );
             })}
-            {isDiscoveredTag ? (
+            {tag && isOverflowTag ? (
               <Link
                 href={buildUrl({ tag: null })}
                 className="rounded bg-accent px-2 py-0.5 text-xs text-white"
@@ -270,13 +269,6 @@ export default async function LibraryPage({
                   {/* Kept consistent with the hasPdf check on the paper detail page: a Blob snapshot counts as having a PDF */}
                   {paper.files.length > 0 || paper.blobUrl ? ` · ${t("pdfBadge")}` : ""}
                 </span>
-                {labelLinks.length > 0 ? (
-                  <div className="flex gap-1">
-                    {labelLinks.map(({ label: paperLabel }) => (
-                      <LabelChip key={paperLabel.id} name={paperLabel.name} color={paperLabel.color} />
-                    ))}
-                  </div>
-                ) : null}
                 {tags.length > 0 ? (
                   <div className="flex gap-1">
                     {tags.slice(0, 3).map((paperTag) => (
@@ -287,8 +279,12 @@ export default async function LibraryPage({
               </div>
             </Link>
             {/* Row actions stay minimal: reading state is changed on the paper
-                page itself, and the meta line already names the arXiv id. */}
-            <div className="flex items-center gap-2">
+                page itself, and the meta line already names the arXiv id.
+                Labels sit here on the right, where the freed-up space is. */}
+            <div className="flex shrink-0 items-center gap-2">
+              {labelLinks.map(({ label: paperLabel }) => (
+                <LabelChip key={paperLabel.id} name={paperLabel.name} color={paperLabel.color} />
+              ))}
               <RemovePaperButton workspacePaperId={wpId} paperTitle={paper.title} />
             </div>
           </div>
