@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  /* theme() keeps tailwind.config.ts the single source for every color. */
+  background: theme(colors.surface);
+  color: theme(colors.ink);
+  /* Explicit CJK fallbacks: `ui-sans-serif` resolution is unreliable on
+     Windows, which would drop Chinese text into a default serif. */
+  font-family:
+    Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", ui-sans-serif, system-ui,
+    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Keyboard-only focus indicator; mouse clicks stay outline-free. */
+:focus-visible {
+  outline: 2px solid theme(colors.accent);
+  outline-offset: 2px;
+}

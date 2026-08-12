@@ -1,6 +1,0 @@
-{
-  "buildCommand": "pnpm db:generate && pnpm --filter @paper-viewer/web build",
-  "installCommand": "pnpm install",
-  "outputDirectory": "apps/web/.next",
-  "framework": "nextjs"
-}

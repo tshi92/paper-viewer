@@ -1,0 +1,44 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+export function RemovePaperButton({ workspacePaperId }: { workspacePaperId: string }) {
+  const t = useTranslations("library");
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+
+  async function handleRemove() {
+    await fetch(`/api/papers/${workspacePaperId}/remove`, { method: "POST" });
+    router.refresh();
+  }
+
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-1">
+        <button
+          className="rounded bg-danger px-2 py-1 text-xs text-white"
+          onClick={handleRemove}
+        >
+          {t("removeConfirm")}
+        </button>
+        <button
+          className="rounded border border-border px-2 py-1 text-xs"
+          onClick={() => setConfirming(false)}
+        >
+          {t("removeCancel")}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      className="shrink-0 rounded border border-border px-2 py-1 text-xs text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:border-danger-border hover:text-danger"
+      onClick={() => setConfirming(true)}
+    >
+      {t("remove")}
+    </button>
+  );
+}

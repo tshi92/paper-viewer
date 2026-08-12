@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      # prisma generate and the unit tests never open a connection; these
+      # only satisfy schema env() validation.
+      DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci"
+      DIRECT_URL: "postgresql://ci:ci@localhost:5432/ci"
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the pnpm version from the packageManager field.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # No postinstall hook generates the Prisma client; the type checks
+      # below fail without it. Bypasses the root `db:generate` script, whose
+      # `corepack pnpm` indirection can stall on the corepack download prompt
+      # in CI.
+      - run: pnpm --filter @paper-viewer/db prisma:generate
+
+      - name: Typecheck
+        run: pnpm -r lint
+
+      - name: Unit tests
+        run: pnpm -r test
