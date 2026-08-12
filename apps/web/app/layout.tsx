@@ -15,7 +15,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
 
   return (
     <html lang={locale}>
-      <body>
+      {/* Browser extensions inject attributes into <body> before React
+          hydrates (e.g. inmaintabuse="1"), which is noise, not a bug. */}
+      <body suppressHydrationWarning>
         <NextIntlClientProvider locale={locale} messages={messages}>
           {children}
         </NextIntlClientProvider>
