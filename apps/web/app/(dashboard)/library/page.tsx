@@ -120,7 +120,7 @@ export default async function LibraryPage({
   // One rule for every topic, wherever it came from: the most-used ones sit
   // inline, the rest fold into "More". (Preference topics used to be pinned,
   // which read as one arbitrary chip being always visible.)
-  const TOP_TOPICS = 6;
+  const TOP_TOPICS = 3;
   const rankedTopics = [...new Set(paperTopics)].sort(
     (a, b) => (topicCounts.get(b) ?? 0) - (topicCounts.get(a) ?? 0) || a.localeCompare(b)
   );
