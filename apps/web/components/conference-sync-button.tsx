@@ -23,11 +23,20 @@ export function ConferenceSyncButton() {
       const response = await fetch("/api/conferences/sync", { method: "POST" });
       const body = (await response.json().catch(() => ({}))) as {
         error?: string;
+        detail?: string;
         entries?: number;
         createdPapers?: number;
       };
       if (!response.ok) {
-        toast.error(body.error === "source_not_configured" ? t("syncNotConfigured") : t("syncFailed"));
+        // The admin-only route reports the concrete failure; show it so the
+        // admin can act instead of blindly retrying.
+        const message =
+          body.error === "source_not_configured"
+            ? t("syncNotConfigured")
+            : body.detail
+              ? `${t("syncFailed")} (${body.detail})`
+              : t("syncFailed");
+        toast.error(message);
         return;
       }
       toast.success(t("syncDone", { entries: body.entries ?? 0, created: body.createdPapers ?? 0 }));
