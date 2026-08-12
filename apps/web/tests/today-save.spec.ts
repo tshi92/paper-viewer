@@ -73,6 +73,39 @@ async function signIn(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/(today)?$/);
 }
 
+test("past days are collapsed to a title list and expand on demand", async ({ page }) => {
+  // A one-paper digest dated yesterday: it must render as a closed disclosure
+  // row, not as full cards like today's digest.
+  const pastPaper = await prisma.paper.create({
+    data: { title: `Past Digest Paper ${run}`, authors: ["Past Author"], source: "manual" }
+  });
+  const pastDigest = await prisma.dailyDigest.create({
+    data: {
+      workspaceId,
+      date: new Date(new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)),
+      overviewSummary: "",
+      paperIds: [pastPaper.id]
+    }
+  });
+  try {
+    await signIn(page);
+
+    const pastRow = page.locator("summary", { hasText: "1 篇论文" });
+    await expect(pastRow).toBeVisible();
+    await expect(page.getByText(`Past Digest Paper ${run}`)).toBeHidden();
+
+    await pastRow.click();
+    await expect(page.getByText(`Past Digest Paper ${run}`)).toBeVisible();
+    // The expanded row still offers the save action.
+    await expect(
+      page.locator("details").getByRole("button", { name: "存入文库" })
+    ).toBeVisible();
+  } finally {
+    await prisma.dailyDigest.delete({ where: { id: pastDigest.id } }).catch(() => undefined);
+    await prisma.paper.delete({ where: { id: pastPaper.id } }).catch(() => undefined);
+  }
+});
+
 test("a digest paper stays out of the library until it is saved", async ({ page }) => {
   await signIn(page);
 
