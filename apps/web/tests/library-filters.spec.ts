@@ -205,22 +205,15 @@ test("arrow keys move focus through the options and Enter picks one", async ({ p
   await expect(page).toHaveURL(/time=month/);
 });
 
-// Runs last on purpose: it flips "Never Opened" to reading, which the
-// unread-filter test above still needs untouched.
-test("inline reading-state chips mark a paper without leaving the library", async ({ page }) => {
+// Library rows are deliberately slim: reading state is changed on the paper
+// page (where the chips still live), and the row's meta line already names
+// the arXiv id — so neither appears as a row action.
+test("library rows carry no inline reading-state chips or arXiv button", async ({ page }) => {
   await signIn(page);
   await page.goto("/library");
 
   const row = page.locator("div.divide-y > div", { hasText: title("Never Opened") });
-  await row.getByRole("radio", { name: "在读" }).click();
-  await expect(row.getByRole("radio", { name: "在读" })).toHaveAttribute("aria-checked", "true");
-
-  await expect(async () => {
-    const record = await prisma.readingStateRecord.findUnique({
-      where: {
-        workspaceId_paperId_userId: { workspaceId, paperId: paperIds[3]!, userId }
-      }
-    });
-    expect(record?.state).toBe("reading");
-  }).toPass({ timeout: 10_000 });
+  await expect(row).toBeVisible();
+  await expect(row.getByRole("radio")).toHaveCount(0);
+  await expect(row.getByRole("link", { name: "arXiv", exact: true })).toHaveCount(0);
 });
