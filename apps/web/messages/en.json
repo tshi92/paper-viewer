@@ -23,7 +23,13 @@
     "languageSystemDescription": "Use the language your browser asks for.",
     "languageZhDescription": "Always show the interface in Chinese.",
     "languageEnDescription": "Always show the interface in English.",
-    "languageCurrent": "Current language: {language}"
+    "languageCurrent": "Current language: {language}",
+    "profileHeading": "Profile",
+    "profileDescription": "The display name is shown to teammates in comments and member lists instead of your email.",
+    "displayNameLabel": "Display name",
+    "profileSave": "Save",
+    "profileSaved": "Display name saved.",
+    "profileSaveFailed": "Could not save. Please try again."
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -56,7 +62,8 @@
     "emptyGuideBodyReady": "Research preferences are set. This page updates automatically at push time, or click “Discover papers” to try right now.",
     "emptyGuideCta": "Set research preferences",
     "savedBadge": "In library",
-    "digestRunning": "Generating today's digest… You can leave this page; results appear here automatically when it finishes."
+    "digestRunning": "Generating today's digest… You can leave this page; results appear here automatically when it finishes.",
+    "digestRunningProgress": "Generating today's digest ({done}/{total} papers done)… Results appear here automatically when it finishes."
   },
   "library": {
     "title": "Library",

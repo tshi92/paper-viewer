@@ -47,12 +47,22 @@ export default async function TodayPage() {
 
   // A run in flight: papers still pending, or a fresh pipeline lock. Derived
   // server-side so the state survives navigating away and back — the Discover
-  // button's local spinner is only a courtesy.
-  const digestInProgress = digests.some(
-    (digest) =>
-      digest.pendingPaperIds.length > 0 ||
-      (digest.lockedAt !== null && Date.now() - digest.lockedAt.getTime() < 10 * 60 * 1000)
+  // button's local spinner is only a courtesy. A pending digest whose lock is
+  // stale means the previous serverless invocation was hard-killed mid-run;
+  // the banner resumes it from the client instead of spinning forever.
+  const lockFresh = digests.some(
+    (digest) => digest.lockedAt !== null && Date.now() - digest.lockedAt.getTime() < 10 * 60 * 1000
   );
+  // Only today's digest counts: the resume path can only advance today's run,
+  // so leftovers on an older digest must not produce an unfinishable banner.
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const pendingDigest = digests.find(
+    (digest) =>
+      digest.pendingPaperIds.length > 0 && digest.date.toISOString().slice(0, 10) === todayUtc
+  );
+  const digestInProgress = lockFresh || Boolean(pendingDigest);
+  const digestTotal = pendingDigest?.paperIds.length ?? 0;
+  const digestDone = pendingDigest ? digestTotal - pendingDigest.pendingPaperIds.length : 0;
 
   const dateFormat = new Intl.DateTimeFormat(locale, {
     year: "numeric",
@@ -78,7 +88,13 @@ export default async function TodayPage() {
         </div>
       </div>
 
-      {digestInProgress ? <DigestProgressBanner /> : null}
+      {digestInProgress ? (
+        <DigestProgressBanner
+          done={digestDone}
+          total={digestTotal}
+          stalled={Boolean(pendingDigest) && !lockFresh}
+        />
+      ) : null}
 
       {digests.length === 0 ? (
         // First-run guidance instead of a blank viewport: what this page is,
@@ -133,7 +149,7 @@ export default async function TodayPage() {
                   <div className="flex items-start justify-between gap-4">
                     {/* Only the content column links out, so the actions on the
                         right stay clickable without nesting buttons in an <a>. */}
-                    <Link href={`/papers/${paper.id}`} className="min-w-0 flex-1">
+                    <Link href={`/papers/${paper.id}?from=today`} className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-accent">
                           {index + 1}/{digestPapers.length}

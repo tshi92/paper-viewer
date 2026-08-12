@@ -1,26 +1,39 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 export type TopNavItem = {
   href: string;
   label: string;
-  /** Extra path prefixes that light this item up (e.g. /papers under 文库). */
-  also?: string[];
+};
+
+/** Which tab a paper page belongs to, from its ?from= param. */
+const PAPER_SECTIONS: Record<string, string> = {
+  today: "/today",
+  conferences: "/conferences",
+  library: "/library"
 };
 
 /** Same active-state treatment as SettingsNav, lifted to the app header. */
 export function TopNav({ items }: { items: TopNavItem[] }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // A paper page highlights the tab it was opened from (?from=), not Library
+  // unconditionally: a conference paper someone previews is not in the library
+  // yet. Library stays the default for links that carry no origin.
+  const onPaperPage = pathname === "/papers" || pathname.startsWith("/papers/");
+  const paperSection = onPaperPage
+    ? (PAPER_SECTIONS[searchParams.get("from") ?? ""] ?? "/library")
+    : null;
 
   return (
     <>
       {items.map((item) => {
-        const prefixes = [item.href, ...(item.also ?? [])];
-        const isActive = prefixes.some(
-          (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
-        );
+        const isActive = paperSection
+          ? item.href === paperSection
+          : pathname === item.href || pathname.startsWith(`${item.href}/`);
         return (
           <Link
             aria-current={isActive ? "page" : undefined}

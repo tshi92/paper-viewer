@@ -187,7 +187,7 @@ export default async function ConferencesPage({
                           the full text inline; absent when it can't. */}
                       {paper.pdfUrl || paper.arxivId || paper.blobUrl ? (
                         <Link
-                          href={`/papers/${paper.id}`}
+                          href={`/papers/${paper.id}?from=conferences`}
                           title={t("pdfBadgeTitle")}
                           className="rounded px-1.5 py-0.5 text-xs font-medium text-accent ring-1 ring-inset ring-accent/30 transition-colors duration-150 hover:bg-accent/5"
                         >
