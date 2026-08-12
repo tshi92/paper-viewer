@@ -1,13 +1,12 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
-import { isReadingState, readingStates, type ReadingState } from "@paper-viewer/core/paper-status";
+import { isReadingState, readingStates } from "@paper-viewer/core/paper-status";
 import { PaperUploadForm } from "@/components/paper-upload-form";
 import { RemovePaperButton } from "@/components/remove-paper-button";
 import { MoreTopics } from "@/components/more-topics";
 import { LibrarySearch } from "@/components/library-search";
 import { FilterDropdown } from "@/components/filter-dropdown";
-import { ReadingStateChips } from "@/components/reading-state-chips";
 import { LabelChip } from "@/components/label-chip";
 import { requireCurrentUser } from "@/lib/auth";
 
@@ -258,7 +257,7 @@ export default async function LibraryPage({
       </div>
 
       <div className="divide-y divide-border">
-        {workspacePapers.map(({ paper, tags, labelLinks, readingStates: rowStates, createdAt, id: wpId }) => (
+        {workspacePapers.map(({ paper, tags, labelLinks, createdAt, id: wpId }) => (
           <div className="flex items-center justify-between px-4 py-4 transition-colors duration-150 hover:bg-surface group" key={paper.id}>
             <Link className="min-w-0 flex-1" href={`/papers/${paper.id}`}>
               <h2 className="font-medium">{paper.title}</h2>
@@ -287,22 +286,9 @@ export default async function LibraryPage({
                 ) : null}
               </div>
             </Link>
+            {/* Row actions stay minimal: reading state is changed on the paper
+                page itself, and the meta line already names the arXiv id. */}
             <div className="flex items-center gap-2">
-              {/* Prisma's ReadingState enum and the core union carry the same members. */}
-              <ReadingStateChips
-                paperId={paper.id}
-                state={(rowStates[0]?.state ?? "new") as ReadingState}
-              />
-              {paper.arxivId ? (
-                <a
-                  href={`https://arxiv.org/abs/${paper.arxivId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="shrink-0 rounded border border-border px-2.5 py-1 text-xs text-accent hover:bg-surface"
-                >
-                  arXiv
-                </a>
-              ) : null}
               <RemovePaperButton workspacePaperId={wpId} paperTitle={paper.title} />
             </div>
           </div>
