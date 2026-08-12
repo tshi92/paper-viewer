@@ -57,8 +57,8 @@ export default async function MembersPage({
     <div className="grid grid-cols-[360px_1fr] gap-6">
       <form className="grid gap-3 rounded border border-border bg-white p-4" action="/api/members/invitations" method="post">
         <h1 className="text-lg font-semibold">{t("inviteTitle")}</h1>
-        <input className="rounded border border-control px-3 py-2" name="email" placeholder={t("emailPlaceholder")} type="email" required />
-        <select className="rounded border border-control px-3 py-2" name="role" defaultValue="member">
+        <input className="rounded border border-control px-3 py-2" name="email" placeholder={t("emailPlaceholder")} aria-label={t("emailPlaceholder")} type="email" required />
+        <select aria-label={t("roleSelectLabel")} className="rounded border border-control px-3 py-2" name="role" defaultValue="member">
           <option value="member">{t("roleMember")}</option>
           <option value="admin">{t("roleAdmin")}</option>
         </select>

@@ -203,7 +203,7 @@ export function PaperChat({ paperId }: { paperId: string }) {
                     }
                   />
                   {saveState === "failed" ? (
-                    <span className="text-xs text-danger">{t("saveToCommentsFailed")}</span>
+                    <span role="alert" className="text-xs text-danger">{t("saveToCommentsFailed")}</span>
                   ) : null}
                 </div>
               </div>
@@ -212,7 +212,9 @@ export function PaperChat({ paperId }: { paperId: string }) {
         })}
 
         {streaming ? (
-          <div>
+          // polite live region: screen readers announce the reply as it lands
+          // instead of staying silent through the whole stream.
+          <div aria-live="polite">
             <div className="max-w-[85%] rounded-lg bg-surface px-3 py-2 text-sm">
               {/* Plain text while the tokens land: markdown of a half-written fence
                   reflows on every chunk. The finished message renders as markdown. */}
@@ -229,7 +231,7 @@ export function PaperChat({ paperId }: { paperId: string }) {
             ref={inputRef}
             className="flex-1 resize-none rounded border border-control px-3 py-2 text-sm"
             rows={2}
-            placeholder={t("inputPlaceholder")}
+            placeholder={t("inputPlaceholder")} aria-label={t("inputPlaceholder")}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

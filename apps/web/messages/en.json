@@ -142,7 +142,9 @@
     "tipSave": "Save annotation",
     "pdfLoading": "Loading PDF…",
     "pdfError": "Failed to load PDF.",
-    "dotTitle": "Highlight colour"
+    "dotTitle": "Highlight colour",
+    "labelFilterAria": "Filter by label",
+    "authorFilterAria": "Filter by member"
   },
   "chat": {
     "heading": "Chat with Paper",
@@ -212,7 +214,8 @@
     "copied": "Copied!",
     "membersHeading": "Members",
     "invitationsHeading": "Open invitations",
-    "invitationsEmpty": "No open invitations."
+    "invitationsEmpty": "No open invitations.",
+    "roleSelectLabel": "Role"
   },
   "settingsLlm": {
     "title": "LLM settings",
@@ -294,7 +297,17 @@
     "deleting": "Deleting…",
     "deleteConfirm": "Delete the label \"{name}\"? It is used in {count} places and will be removed from those annotations and papers.",
     "deleteConfirmUnused": "Delete the label \"{name}\"?",
-    "actionFailed": "Something went wrong, please try again"
+    "actionFailed": "Something went wrong, please try again",
+    "colorBlue": "Blue",
+    "colorGreen": "Green",
+    "colorOrange": "Orange",
+    "colorRed": "Red",
+    "colorPurple": "Purple",
+    "colorTeal": "Teal",
+    "colorYellow": "Yellow",
+    "colorPink": "Pink",
+    "colorSlate": "Slate",
+    "colorViolet": "Violet"
   },
   "common": {
     "copy": "Copy",

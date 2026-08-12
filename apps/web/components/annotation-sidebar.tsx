@@ -64,6 +64,7 @@ export function AnnotationSidebar({
     <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white">
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <select
+          aria-label={t("labelFilterAria")}
           className="rounded border border-control px-1.5 py-1 text-xs"
           value={labelFilter}
           onChange={(event) => setLabelFilter(event.target.value)}
@@ -76,6 +77,7 @@ export function AnnotationSidebar({
           ))}
         </select>
         <select
+          aria-label={t("authorFilterAria")}
           className="rounded border border-control px-1.5 py-1 text-xs"
           value={authorFilter}
           onChange={(event) => setAuthorFilter(event.target.value)}
@@ -159,7 +161,7 @@ export function AnnotationSidebar({
             <div className="mt-1.5 flex items-center gap-2">
               <input
                 className="min-w-0 flex-1 rounded border border-control px-2 py-1 text-xs"
-                placeholder={t("replyPlaceholder")}
+                placeholder={t("replyPlaceholder")} aria-label={t("replyPlaceholder")}
                 value={replyDrafts[annotation.id] ?? ""}
                 onChange={(event) =>
                   setReplyDrafts((drafts) => ({ ...drafts, [annotation.id]: event.target.value }))

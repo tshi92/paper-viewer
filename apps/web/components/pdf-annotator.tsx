@@ -298,6 +298,7 @@ function SelectionTip({
             <button
               key={label.id}
               type="button"
+              aria-pressed={selectedLabelIds.includes(label.id)}
               onClick={() => toggleLabel(label.id)}
               className="rounded"
             >
@@ -313,7 +314,7 @@ function SelectionTip({
       <textarea
         className="mt-2 w-full rounded border border-control px-2 py-1 text-xs"
         rows={2}
-        placeholder={t("tipCommentPlaceholder")}
+        placeholder={t("tipCommentPlaceholder")} aria-label={t("tipCommentPlaceholder")}
         value={comment}
         onChange={(event) => setComment(event.target.value)}
       />

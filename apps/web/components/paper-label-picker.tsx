@@ -90,7 +90,13 @@ export function PaperLabelPicker({
       {open && available.length > 0 ? (
         <div className="mt-1 flex w-full flex-wrap items-center gap-1 rounded border border-border bg-surface px-2 py-1.5">
           {available.map((label) => (
-            <button key={label.id} type="button" onClick={() => void toggleLabel(label.id)} className="rounded">
+            <button
+              key={label.id}
+              type="button"
+              aria-pressed={selectedIds.includes(label.id)}
+              onClick={() => void toggleLabel(label.id)}
+              className="rounded"
+            >
               <LabelChip
                 name={label.name}
                 color={label.color}

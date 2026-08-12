@@ -141,7 +141,7 @@ export function NotificationSettingsForm() {
   }
 
   if (loadError) {
-    return <p className="mt-6 text-sm text-danger">{loadError}</p>;
+    return <p role="alert" className="mt-6 text-sm text-danger">{loadError}</p>;
   }
 
   if (!config) {
@@ -237,11 +237,11 @@ export function NotificationSettingsForm() {
 
       {testResult ? (
         testResult.ok ? (
-          <p className="text-sm text-success" data-testid="notification-test-result">
+          <p role="status" className="text-sm text-success" data-testid="notification-test-result">
             {t("testSuccess")}
           </p>
         ) : (
-          <p className="text-sm text-danger" data-testid="notification-test-result">
+          <p role="alert" className="text-sm text-danger" data-testid="notification-test-result">
             {/* 服务端只在「没有可用地址」时带 message，其余失败原因统一提示。 */}
             ✗ {testResult.message ? t("testNotConfigured") : t("testFailed")}
           </p>
@@ -249,10 +249,10 @@ export function NotificationSettingsForm() {
       ) : null}
 
       {saveMessage ? (
-        <p className="text-sm text-success" data-testid="notification-save-result">{saveMessage}</p>
+        <p role="status" className="text-sm text-success" data-testid="notification-save-result">{saveMessage}</p>
       ) : null}
       {saveError ? (
-        <p className="text-sm text-danger" data-testid="notification-save-result">{saveError}</p>
+        <p role="alert" className="text-sm text-danger" data-testid="notification-save-result">{saveError}</p>
       ) : null}
     </div>
   );

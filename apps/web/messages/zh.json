@@ -142,7 +142,9 @@
     "tipSave": "保存标注",
     "pdfLoading": "正在加载 PDF…",
     "pdfError": "PDF 加载失败。",
-    "dotTitle": "高亮颜色"
+    "dotTitle": "高亮颜色",
+    "labelFilterAria": "按标签筛选",
+    "authorFilterAria": "按成员筛选"
   },
   "chat": {
     "heading": "与论文对话",
@@ -212,7 +214,8 @@
     "copied": "已复制！",
     "membersHeading": "成员",
     "invitationsHeading": "待接受的邀请",
-    "invitationsEmpty": "暂无待接受的邀请。"
+    "invitationsEmpty": "暂无待接受的邀请。",
+    "roleSelectLabel": "角色"
   },
   "settingsLlm": {
     "title": "LLM 配置",
@@ -294,7 +297,17 @@
     "deleting": "删除中…",
     "deleteConfirm": "删除标签「{name}」？它正被 {count} 处使用，删除后将从这些标注/论文上移除。",
     "deleteConfirmUnused": "删除标签「{name}」？",
-    "actionFailed": "操作失败，请重试"
+    "actionFailed": "操作失败，请重试",
+    "colorBlue": "蓝色",
+    "colorGreen": "绿色",
+    "colorOrange": "橙色",
+    "colorRed": "红色",
+    "colorPurple": "紫色",
+    "colorTeal": "青色",
+    "colorYellow": "黄色",
+    "colorPink": "粉色",
+    "colorSlate": "灰蓝",
+    "colorViolet": "紫罗兰"
   },
   "common": {
     "copy": "复制",

@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { PAPER_LABEL_PALETTE } from "@paper-viewer/core/labels";
 import type { LabelListItem } from "@/lib/annotation-types";
 import { ConfirmDialog } from "./confirm-dialog";
+import { moveRovingFocus } from "./reading-state-chips";
 
 type LabelScope = LabelListItem["scope"];
 
@@ -30,18 +31,32 @@ function SwatchPicker({
   onChange: (color: string) => void;
   ariaLabel: string;
 }) {
-  const palette = PAPER_LABEL_PALETTE.includes(value as (typeof PAPER_LABEL_PALETTE)[number])
+  const t = useTranslations("settingsLabels");
+  const swatchRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const palette: readonly string[] = PAPER_LABEL_PALETTE.includes(
+    value as (typeof PAPER_LABEL_PALETTE)[number]
+  )
     ? PAPER_LABEL_PALETTE
     : [value, ...PAPER_LABEL_PALETTE];
+  const selectedIndex = Math.max(0, palette.indexOf(value));
   return (
-    <div role="radiogroup" aria-label={ariaLabel} className="flex shrink-0 flex-wrap items-center gap-1">
-      {palette.map((swatch) => (
+    <div
+      role="radiogroup"
+      aria-label={ariaLabel}
+      className="flex shrink-0 flex-wrap items-center gap-1"
+      onKeyDown={(event) => moveRovingFocus(event, swatchRefs, palette.length, selectedIndex)}
+    >
+      {palette.map((swatch, index) => (
         <button
           key={swatch}
+          ref={(el) => {
+            swatchRefs.current[index] = el;
+          }}
           type="button"
           role="radio"
           aria-checked={value === swatch}
-          aria-label={swatch}
+          aria-label={COLOR_NAMES[swatch] ? t(COLOR_NAMES[swatch]) : swatch}
+          tabIndex={value === swatch ? 0 : -1}
           className={`h-5 w-5 rounded-full ${value === swatch ? "ring-2 ring-accent ring-offset-1" : ""}`}
           style={{ background: swatch }}
           onClick={() => onChange(swatch)}
@@ -50,6 +65,24 @@ function SwatchPicker({
     </div>
   );
 }
+
+/**
+ * Palette hex → settingsLabels message key, so screen readers hear a hue name
+ * instead of spelled-out hex. Legacy non-palette colors fall back to the raw
+ * value.
+ */
+const COLOR_NAMES: Record<string, string> = {
+  "#3b82f6": "colorBlue",
+  "#22c55e": "colorGreen",
+  "#f97316": "colorOrange",
+  "#ef4444": "colorRed",
+  "#a855f7": "colorPurple",
+  "#14b8a6": "colorTeal",
+  "#eab308": "colorYellow",
+  "#ec4899": "colorPink",
+  "#64748b": "colorSlate",
+  "#8b5cf6": "colorViolet"
+};
 
 export function LabelSettings() {
   const t = useTranslations("settingsLabels");
@@ -123,7 +156,7 @@ export function LabelSettings() {
   );
 
   if (loadError) {
-    return <p className="mt-6 text-sm text-danger">{loadError}</p>;
+    return <p role="alert" className="mt-6 text-sm text-danger">{loadError}</p>;
   }
 
   if (!labels) {
@@ -133,7 +166,7 @@ export function LabelSettings() {
   return (
     <div className="mt-6 grid gap-8">
       {actionError ? (
-        <p className="text-sm text-danger" data-testid="label-error">
+        <p role="alert" className="text-sm text-danger" data-testid="label-error">
           {actionError}
         </p>
       ) : null}

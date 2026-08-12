@@ -93,7 +93,7 @@ export function CommentBody({
           >
             {t("cancel")}
           </button>
-          {failed ? <span className="text-xs text-danger">{t("actionFailed")}</span> : null}
+          {failed ? <span role="alert" className="text-xs text-danger">{t("actionFailed")}</span> : null}
         </div>
       </div>
     );
@@ -136,7 +136,7 @@ export function CommentBody({
             />
           </>
         ) : null}
-        {failed ? <span className="text-xs text-danger">{t("actionFailed")}</span> : null}
+        {failed ? <span role="alert" className="text-xs text-danger">{t("actionFailed")}</span> : null}
       </div>
     </div>
   );

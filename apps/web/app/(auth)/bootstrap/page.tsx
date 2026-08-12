@@ -20,9 +20,9 @@ export default async function BootstrapPage({
         </p>
       ) : null}
       <form className="mt-6 grid gap-4" method="post" action="/api/bootstrap">
-        <input className="rounded border border-control px-3 py-2" name="name" placeholder={t("namePlaceholder")} required />
-        <input className="rounded border border-control px-3 py-2" name="email" placeholder={t("emailPlaceholder")} type="email" required />
-        <input className="rounded border border-control px-3 py-2" name="password" placeholder={t("passwordPlaceholder")} type="password" required minLength={12} />
+        <input className="rounded border border-control px-3 py-2" name="name" placeholder={t("namePlaceholder")} aria-label={t("namePlaceholder")} required />
+        <input className="rounded border border-control px-3 py-2" name="email" placeholder={t("emailPlaceholder")} aria-label={t("emailPlaceholder")} type="email" required />
+        <input className="rounded border border-control px-3 py-2" name="password" placeholder={t("passwordPlaceholder")} aria-label={t("passwordPlaceholder")} type="password" required minLength={12} />
         <button className="rounded bg-accent px-3 py-2 font-medium text-white" type="submit">{t("bootstrapSubmit")}</button>
       </form>
     </main>

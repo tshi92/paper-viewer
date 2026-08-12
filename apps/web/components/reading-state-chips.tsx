@@ -2,8 +2,33 @@
 
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { readingStates, type ReadingState } from "@paper-viewer/core/paper-status";
+
+/**
+ * Roving-tabindex arrow handling shared by the radiogroup-shaped controls:
+ * one Tab stop on the checked item, arrows move DOM focus, Space/Enter (the
+ * button's native click) selects. Selection deliberately does NOT follow
+ * focus — every change fires a network write here.
+ */
+export function moveRovingFocus(
+  event: React.KeyboardEvent,
+  refs: React.MutableRefObject<(HTMLButtonElement | null)[]>,
+  count: number,
+  fallbackIndex: number
+) {
+  const keys = ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp", "Home", "End"];
+  if (!keys.includes(event.key)) return;
+  event.preventDefault();
+  const active = refs.current.findIndex((el) => el === document.activeElement);
+  const base = active >= 0 ? active : fallbackIndex;
+  let next = base;
+  if (event.key === "ArrowRight" || event.key === "ArrowDown") next = (base + 1) % count;
+  if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = (base - 1 + count) % count;
+  if (event.key === "Home") next = 0;
+  if (event.key === "End") next = count - 1;
+  refs.current[next]?.focus();
+}
 
 /**
  * Inline segmented control for the viewer's reading state: click marks the
@@ -23,6 +48,7 @@ export function ReadingStateChips({
   const router = useRouter();
   const [current, setCurrent] = useState<ReadingState>(state);
   const [failed, setFailed] = useState(false);
+  const chipRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   async function mark(next: ReadingState) {
     if (next === current) return;
@@ -55,13 +81,20 @@ export function ReadingStateChips({
         aria-label={t("label")}
         className="flex items-center gap-0.5 rounded border border-border bg-white p-0.5"
         data-testid="reading-state-chips"
+        onKeyDown={(event) =>
+          moveRovingFocus(event, chipRefs, readingStates.length, readingStates.indexOf(current))
+        }
       >
-        {readingStates.map((readingState) => (
+        {readingStates.map((readingState, index) => (
           <button
             key={readingState}
+            ref={(el) => {
+              chipRefs.current[index] = el;
+            }}
             type="button"
             role="radio"
             aria-checked={readingState === current}
+            tabIndex={readingState === current ? 0 : -1}
             className={`whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] ${
               readingState === current ? "bg-accent text-white" : "text-muted hover:bg-surface"
             }`}
@@ -71,7 +104,7 @@ export function ReadingStateChips({
           </button>
         ))}
       </div>
-      {failed ? <span className="text-xs text-danger">{t("saveFailed")}</span> : null}
+      {failed ? <span role="alert" className="text-xs text-danger">{t("saveFailed")}</span> : null}
     </div>
   );
 }

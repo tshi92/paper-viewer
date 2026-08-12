@@ -83,7 +83,7 @@ export function PaperUploadForm() {
         <input
           type="text"
           className="w-56 rounded border border-control px-2 py-1.5 text-sm placeholder:text-muted"
-          placeholder={t("urlPlaceholder")}
+          placeholder={t("urlPlaceholder")} aria-label={t("urlPlaceholder")}
           value={url}
           onChange={(e) => { setUrl(e.target.value); setError(""); }}
           onKeyDown={(e) => { if (e.key === "Enter") handleUrl(); }}
@@ -97,7 +97,7 @@ export function PaperUploadForm() {
           {t("add")}
         </button>
       </div>
-      {error ? <span className="text-xs text-danger">{error}</span> : null}
+      {error ? <span role="alert" className="text-xs text-danger">{error}</span> : null}
     </div>
   );
 }

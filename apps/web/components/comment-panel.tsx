@@ -101,7 +101,7 @@ export function CommentPanel({
         <textarea
           className="min-h-20 rounded border border-control px-3 py-2 text-sm"
           name="body"
-          placeholder={t("placeholder")}
+          placeholder={t("placeholder")} aria-label={t("placeholder")}
           required
         />
         <button className="rounded bg-accent px-3 py-2 text-sm font-medium text-white" type="submit">{t("submit")}</button>

@@ -132,7 +132,7 @@ export function LlmSettingsForm() {
   }
 
   if (loadError) {
-    return <p className="mt-6 text-sm text-danger">{loadError}</p>;
+    return <p role="alert" className="mt-6 text-sm text-danger">{loadError}</p>;
   }
 
   if (!config) {
@@ -211,23 +211,23 @@ export function LlmSettingsForm() {
 
       {testResult ? (
         testResult.ok ? (
-          <p className="text-sm text-success" data-testid="llm-test-result">
+          <p role="status" className="text-sm text-success" data-testid="llm-test-result">
             {testResult.modelFound
               ? t("testSuccessWithModel", { count: testResult.total })
               : t("testSuccessWithoutModel", { count: testResult.total, model: model.trim() })}
           </p>
         ) : (
-          <p className="text-sm text-danger" data-testid="llm-test-result">
+          <p role="alert" className="text-sm text-danger" data-testid="llm-test-result">
             ✗ {testResult.status || t("connectionError")} {testResult.message}
           </p>
         )
       ) : null}
 
       {saveMessage ? (
-        <p className="text-sm text-success" data-testid="llm-save-result">{saveMessage}</p>
+        <p role="status" className="text-sm text-success" data-testid="llm-save-result">{saveMessage}</p>
       ) : null}
       {saveError ? (
-        <p className="text-sm text-danger" data-testid="llm-save-result">{saveError}</p>
+        <p role="alert" className="text-sm text-danger" data-testid="llm-save-result">{saveError}</p>
       ) : null}
     </div>
   );

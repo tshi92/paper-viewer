@@ -15,10 +15,15 @@ export function LabelChip({
   dimmed?: boolean;
 }) {
   const chip = labelChipColors(color);
+  // "Dimmed" (unselected in a picker) keeps the text at full contrast and
+  // signals the state with a dashed outline instead — a washed-out chip would
+  // drop below AA and read as disabled.
   return (
     <span
-      className="inline-flex items-center gap-1 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-medium"
-      style={{ background: chip.background, color: chip.text, opacity: dimmed ? 0.45 : 1 }}
+      className={`inline-flex items-center gap-1 whitespace-nowrap rounded border px-1.5 py-0.5 text-[10px] font-medium ${
+        dimmed ? "border-dashed border-control bg-transparent" : "border-transparent"
+      }`}
+      style={dimmed ? { color: chip.text } : { background: chip.background, color: chip.text }}
     >
       <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
       {name}
