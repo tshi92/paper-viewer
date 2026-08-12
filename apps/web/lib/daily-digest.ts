@@ -152,12 +152,35 @@ function utcToday(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-async function knownArxivIds(workspaceId: string): Promise<Set<string>> {
-  const rows = await prisma.workspacePaper.findMany({
-    where: { workspaceId, paper: { arxivId: { not: null } } },
-    select: { paper: { select: { arxivId: true } } }
-  });
-  return new Set(rows.map((row) => row.paper.arxivId).filter((id): id is string => Boolean(id)));
+/**
+ * Everything this workspace has already been shown: papers saved to the
+ * library AND papers surfaced by any earlier digest. Digest papers no longer
+ * enter the library automatically, so deduplicating against the library alone
+ * would re-recommend an unsaved paper every single day.
+ */
+async function seenArxivIds(workspaceId: string): Promise<Set<string>> {
+  const [libraryRows, digests] = await Promise.all([
+    prisma.workspacePaper.findMany({
+      where: { workspaceId, paper: { arxivId: { not: null } } },
+      select: { paper: { select: { arxivId: true } } }
+    }),
+    prisma.dailyDigest.findMany({ where: { workspaceId }, select: { paperIds: true } })
+  ]);
+
+  const seen = new Set(
+    libraryRows.map((row) => row.paper.arxivId).filter((id): id is string => Boolean(id))
+  );
+  const digestPaperIds = [...new Set(digests.flatMap((digest) => digest.paperIds))];
+  if (digestPaperIds.length > 0) {
+    const digestPapers = await prisma.paper.findMany({
+      where: { id: { in: digestPaperIds }, arxivId: { not: null } },
+      select: { arxivId: true }
+    });
+    for (const paper of digestPapers) {
+      if (paper.arxivId) seen.add(paper.arxivId);
+    }
+  }
+  return seen;
 }
 
 /**
@@ -223,7 +246,7 @@ async function createTodayDigest(params: {
     maxResults: Math.max(prefs.papersPerDay * 4, MIN_CANDIDATES)
   });
 
-  const known = await knownArxivIds(workspaceId);
+  const known = await seenArxivIds(workspaceId);
   const fresh = candidates.filter((candidate) => !known.has(candidate.arxivId));
   if (fresh.length === 0) {
     return null;
@@ -244,23 +267,12 @@ async function createTodayDigest(params: {
     throw new Error("LLM 未选出任何候选论文");
   }
 
+  // Digest papers stay out of the library on purpose: only an explicit
+  // "save to library" creates the WorkspacePaper row.
   const paperIds: string[] = [];
   for (const candidate of selected) {
     const paper = await upsertArxivPaper(candidate);
     paperIds.push(paper.id);
-    try {
-      await prisma.workspacePaper.upsert({
-        where: { workspaceId_paperId: { workspaceId, paperId: paper.id } },
-        update: {},
-        create: { workspaceId, paperId: paper.id, tags: [] }
-      });
-    } catch (error) {
-      // A concurrent run inserted the same paper: the upsert's update branch is a
-      // no-op anyway, so this can be ignored
-      if (!isUniqueViolation(error)) {
-        throw error;
-      }
-    }
   }
 
   try {
@@ -375,10 +387,24 @@ async function processPaper(params: {
     }
   });
 
+  // The analysis keywords double as library tags, but the WorkspacePaper row
+  // only exists once someone saves the paper — updateMany is a no-op until
+  // then and fills the tags in for papers that were saved before analysis
+  // finished (manual discover while someone reads along).
   await prisma.workspacePaper.updateMany({
-    where: { workspaceId, paperId },
+    where: { workspaceId, paperId, tags: { isEmpty: true } },
     data: { tags: analysis.keywords.slice(0, MAX_TAGS) }
   });
+}
+
+/** The library tags a saved digest paper starts with: its latest analysis keywords. */
+export async function analysisTags(workspaceId: string, paperId: string): Promise<string[]> {
+  const latest = await prisma.paperAnalysis.findFirst({
+    where: { workspaceId, paperId },
+    orderBy: { createdAt: "desc" },
+    select: { keywords: true }
+  });
+  return latest?.keywords.slice(0, MAX_TAGS) ?? [];
 }
 
 async function loadAnalyses(workspaceId: string, paperIds: string[]): Promise<Map<string, AnalysisRow>> {

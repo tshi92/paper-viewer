@@ -2,6 +2,7 @@ import { prisma } from "@paper-viewer/db";
 import { createS3Client, getPdfObject } from "@paper-viewer/storage/pdf-storage";
 import { getCurrentUser } from "@/lib/auth";
 import { getS3Config } from "@/lib/env";
+import { canAccessPaper } from "@/lib/paper-access";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ paperId: string }> }) {
   const user = await getCurrentUser();
@@ -11,30 +12,26 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pap
 
   const { paperId } = await params;
 
-  const workspacePaper = await prisma.workspacePaper.findUnique({
-    where: {
-      workspaceId_paperId: {
-        workspaceId: user.workspaceId,
-        paperId
-      }
-    },
+  // Digest papers are previewable before they are saved, so access goes
+  // through the shared check rather than requiring a WorkspacePaper row.
+  if (!(await canAccessPaper(user.workspaceId, paperId))) {
+    return new Response("PDF not found", { status: 404 });
+  }
+
+  const paper = await prisma.paper.findUnique({
+    where: { id: paperId },
     include: {
-      paper: {
-        include: {
-          files: {
-            orderBy: { createdAt: "desc" },
-            take: 1
-          }
-        }
+      files: {
+        orderBy: { createdAt: "desc" },
+        take: 1
       }
     }
   });
 
-  if (!workspacePaper) {
+  if (!paper) {
     return new Response("PDF not found", { status: 404 });
   }
 
-  const { paper } = workspacePaper;
   const file = paper.files[0];
 
   // With no object-storage copy but a Blob snapshot available, proxy it from the

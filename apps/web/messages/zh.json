@@ -53,7 +53,8 @@
     "emptyGuideTitle": "每日论文推送",
     "emptyGuideBody": "设置研究偏好后，每个工作日会自动挑选相关论文，更新在这里并推送到飞书群。",
     "emptyGuideBodyReady": "研究偏好已设置。到推送时间这里会自动更新，也可以点击「发现论文」立即试一次。",
-    "emptyGuideCta": "设置研究偏好"
+    "emptyGuideCta": "设置研究偏好",
+    "savedBadge": "已在文库"
   },
   "library": {
     "title": "文库",
@@ -325,5 +326,12 @@
     "copied": "已复制",
     "confirm": "确认",
     "cancel": "取消"
+  },
+  "preview": {
+    "readOnlyNotice": "预览模式：存入文库后即可标注、评论与讨论。",
+    "saveToLibrary": "存入文库",
+    "saving": "存入中…",
+    "saveFailed": "存入失败，请重试",
+    "noPdf": "暂无 PDF。"
   }
 }

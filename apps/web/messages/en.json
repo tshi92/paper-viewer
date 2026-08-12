@@ -53,7 +53,8 @@
     "emptyGuideTitle": "Daily paper digest",
     "emptyGuideBody": "Once research preferences are set, relevant papers are picked every weekday, listed here and pushed to the Feishu group.",
     "emptyGuideBodyReady": "Research preferences are set. This page updates automatically at push time, or click “Discover papers” to try right now.",
-    "emptyGuideCta": "Set research preferences"
+    "emptyGuideCta": "Set research preferences",
+    "savedBadge": "In library"
   },
   "library": {
     "title": "Library",
@@ -325,5 +326,12 @@
     "copied": "Copied",
     "confirm": "Confirm",
     "cancel": "Cancel"
+  },
+  "preview": {
+    "readOnlyNotice": "Preview: save to library to annotate, comment and discuss.",
+    "saveToLibrary": "Save to library",
+    "saving": "Saving…",
+    "saveFailed": "Save failed. Please try again.",
+    "noPdf": "No PDF available."
   }
 }

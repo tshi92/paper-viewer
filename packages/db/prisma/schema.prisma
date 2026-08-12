@@ -145,7 +145,7 @@ model ResearchPreferences {
   papersPerDay     Int      @default(10)
   arxivCategories  String[] @default([])
   feishuWebhookUrl String?
-  /** 每日推送的触发钟点，北京时间 0-23；cron 只在到点之后才跑这个 workspace。 */
+  /** Hour (0-23, Beijing time) that triggers the daily push; the cron only processes this workspace after it. */
   pushHour         Int      @default(9)
   updatedAt        DateTime @updatedAt
 }
@@ -179,7 +179,7 @@ model DailyDigest {
   paperIds        String[]
   pendingPaperIds String[]  @default([])
   feishuSentAt    DateTime?
-  // 并发运行的互斥锁：抢到的运行独占推进这一天的 digest，超过 10 分钟未刷新视作失效
+  // Mutex for concurrent runs: the holder alone advances this day's digest; a lock older than 10 minutes counts as stale
   lockedAt        DateTime?
   createdAt       DateTime  @default(now())
 
@@ -191,7 +191,7 @@ model LlmConfig {
   workspaceId String   @unique
   baseUrl     String
   model       String
-  apiKey      String   // 服务端可读；API 层只返回打码值
+  apiKey      String   // readable server-side; the API layer only ever returns a masked value
   updatedAt   DateTime @updatedAt
 }
 

@@ -1,8 +1,10 @@
 import { prisma } from "@paper-viewer/db";
 import { notFound } from "next/navigation";
+import { PaperPreview } from "@/components/paper-preview";
 import { PaperWorkspace } from "@/components/paper-workspace";
 import type { LabelView } from "@/lib/annotation-types";
 import { requireCurrentUser } from "@/lib/auth";
+import { canAccessPaper } from "@/lib/paper-access";
 import { ensurePdfSnapshot } from "@/lib/pdf-snapshot";
 
 export default async function PaperPage({ params }: { params: Promise<{ paperId: string }> }) {
@@ -31,8 +33,62 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
     }
   });
 
+  // Not in the library yet: digest papers get a read-only preview with a
+  // "save to library" action; anything else in this workspace is a 404.
   if (!workspacePaper) {
-    notFound();
+    if (!(await canAccessPaper(user.workspaceId, paperId))) {
+      notFound();
+    }
+
+    const previewPaper = await prisma.paper.findUnique({
+      where: { id: paperId },
+      include: {
+        files: { take: 1 },
+        analyses: {
+          where: { workspaceId: user.workspaceId },
+          orderBy: { createdAt: "desc" },
+          take: 1
+        }
+      }
+    });
+    if (!previewPaper) {
+      notFound();
+    }
+
+    let previewHasPdf = previewPaper.files.length > 0 || Boolean(previewPaper.blobUrl);
+    if (!previewHasPdf) {
+      try {
+        previewHasPdf = await ensurePdfSnapshot(paperId, user.workspaceId);
+      } catch {
+        /* A failed snapshot does not block reading */
+      }
+    }
+
+    const previewAnalysis = previewPaper.analyses[0];
+    return (
+      <PaperPreview
+        paper={{
+          id: previewPaper.id,
+          title: previewPaper.title,
+          authors: Array.isArray(previewPaper.authors) ? (previewPaper.authors as string[]) : [],
+          arxivId: previewPaper.arxivId,
+          pdfUrl: previewPaper.pdfUrl,
+          abstract: previewPaper.abstract,
+          hasPdf: previewHasPdf,
+          analysis: previewAnalysis
+            ? {
+                summary: previewAnalysis.summary,
+                motivation: previewAnalysis.motivation,
+                problem: previewAnalysis.problem,
+                method: previewAnalysis.method,
+                keyFindings: previewAnalysis.keyFindings,
+                whyItMatters: previewAnalysis.whyItMatters,
+                keywords: previewAnalysis.keywords
+              }
+            : null
+        }}
+      />
+    );
   }
 
   const { paper } = workspacePaper;
