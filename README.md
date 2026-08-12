@@ -65,4 +65,4 @@ Designed for **Vercel + Neon** free tiers: `vercel.json` at the repo root carrie
 
 ## License
 
-[MIT](LICENSE)
+[AGPL-3.0](LICENSE)
