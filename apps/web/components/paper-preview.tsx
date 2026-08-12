@@ -52,13 +52,14 @@ export async function PaperPreview({
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+    <div className="space-y-3">
+      {/* Standalone back affordance at the page's top-left, outside the
+          title card — it navigates the app, not the paper. */}
+      <BackButton fallbackHref={paper.conference ? "/conferences" : "/today"} />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
       <section>
         <div className="mb-3 rounded border border-border bg-white shadow-card px-4 py-3">
-          <div className="flex items-start gap-3">
-            <BackButton fallbackHref={paper.conference ? "/conferences" : "/today"} />
-            <h1 className="text-lg font-semibold leading-snug">{paper.title}</h1>
-          </div>
+          <h1 className="text-lg font-semibold leading-snug">{paper.title}</h1>
           <p className="mt-1 text-xs text-muted">
             {paper.authors.join(", ")}
             {paper.conference ? ` · ${paper.conference.venue} ${paper.conference.year}` : ""}
@@ -156,6 +157,7 @@ export async function PaperPreview({
           )}
         </section>
       </aside>
+      </div>
     </div>
   );
 }
