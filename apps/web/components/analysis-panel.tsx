@@ -39,11 +39,15 @@ function OutlineBlock({
   const [open, setOpen] = useState(true);
 
   return (
-    <div className="mb-3 border-b border-border pb-3">
+    <section
+      className={`flex min-h-0 shrink-0 flex-col rounded border border-border bg-white shadow-card p-4 ${
+        open ? "max-h-[45%]" : ""
+      }`}
+    >
       <button
         type="button"
         aria-expanded={open}
-        className="flex w-full items-center justify-between text-sm font-semibold uppercase text-muted transition-colors duration-150 hover:text-ink"
+        className="flex w-full shrink-0 items-center justify-between text-sm font-semibold uppercase text-muted transition-colors duration-150 hover:text-ink"
         onClick={() => setOpen((current) => !current)}
       >
         {t("outlineHeading")}
@@ -52,7 +56,7 @@ function OutlineBlock({
         </span>
       </button>
       {open ? (
-        <nav className="mt-2 max-h-72 space-y-0.5 overflow-auto">
+        <nav className="mt-2 min-h-0 space-y-0.5 overflow-auto">
           {outline.map((entry, index) => (
             <button
               key={`${entry.page}-${index}`}
@@ -68,7 +72,7 @@ function OutlineBlock({
           ))}
         </nav>
       ) : null}
-    </div>
+    </section>
   );
 }
 
@@ -111,9 +115,9 @@ export function AnalysisPanel({
 
   if (!analysis) {
     return (
-      <section className="flex h-full flex-col rounded border border-border bg-white shadow-card p-4 text-sm text-muted">
+      <div className="flex h-full min-h-0 flex-col gap-3">
         {outlineBlock}
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+        <section className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto rounded border border-border bg-white shadow-card p-4 text-center text-sm text-muted">
         <p>{t("analysisEmpty")}</p>
         <button
           type="button"
@@ -124,14 +128,17 @@ export function AnalysisPanel({
           {generating ? t("analysisGenerating") : t("analysisGenerate")}
         </button>
         {failed ? <p role="alert" className="text-xs text-danger">{t("analysisGenerateFailed")}</p> : null}
-        </div>
-      </section>
+        </section>
+      </div>
     );
   }
 
   return (
-    <section className="h-full overflow-auto rounded border border-border bg-white shadow-card p-4">
+    // Contents and Intro are two separate cards, each with its own scroll:
+    // a long outline must not push the intro out of reach, and vice versa.
+    <div className="flex h-full min-h-0 flex-col gap-3">
       {outlineBlock}
+      <section className="min-h-0 flex-1 overflow-auto rounded border border-border bg-white shadow-card p-4">
       <h2 className="text-sm font-semibold uppercase text-muted">{t("analysisHeading")}</h2>
       <div className="mt-3 space-y-3 text-sm leading-relaxed">
         <p>{analysis.summary}</p>
@@ -155,6 +162,7 @@ export function AnalysisPanel({
           </div>
         ) : null}
       </div>
-    </section>
+      </section>
+    </div>
   );
 }
