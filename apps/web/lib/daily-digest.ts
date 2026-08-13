@@ -20,6 +20,8 @@ import { fetchArxivPapers, type ArxivPaper } from "@/lib/arxiv";
 import { getEnv } from "@/lib/env";
 import { buildDigestCard, sendFeishuCard, type DigestPaper } from "@/lib/feishu";
 import { analyzeSinglePaper, generateOverview, selectPapers, type PaperAnalysisResult } from "@/lib/llm";
+import { getPaperText } from "@/lib/paper-text";
+import type { SourceMaterial } from "@/lib/prompts";
 import { toOutputLanguage, type OutputLanguage } from "@paper-viewer/core/llm-config";
 import { resolveLlmConfig, type LlmRuntimeConfig } from "@/lib/llm-config";
 import { ensurePdfSnapshot } from "@/lib/pdf-snapshot";
@@ -357,10 +359,10 @@ async function revertFeishuSend(digestId: string): Promise<void> {
  * Analysis tab). It reuses the pipeline's per-paper processing, so the output is
  * exactly the same as the daily digest's.
  */
-export async function analyzePaperOnDemand(workspaceId: string, paperId: string): Promise<void> {
+export async function analyzePaperOnDemand(workspaceId: string, paperId: string): Promise<boolean> {
   const llm = await resolveLlmConfig(workspaceId);
   const prefs = await prisma.researchPreferences.findUnique({ where: { workspaceId } });
-  await processPaper({
+  return processPaper({
     workspaceId,
     paperId,
     llm,
@@ -369,19 +371,23 @@ export async function analyzePaperOnDemand(workspaceId: string, paperId: string)
   });
 }
 
-/** Full processing of one paper: pin the PDF → LLM analysis → persist + tag. */
+/**
+ * Full processing of one paper: pin the PDF → LLM analysis → persist + tag.
+ * Returns false when the paper carries nothing to analyse, which is not a
+ * failure — see the source-material comment below.
+ */
 async function processPaper(params: {
   workspaceId: string;
   paperId: string;
   llm: LlmRuntimeConfig;
   topics: string[];
   language: OutputLanguage;
-}): Promise<void> {
+}): Promise<boolean> {
   const { workspaceId, paperId, llm, topics, language } = params;
 
   const paper = await prisma.paper.findUnique({ where: { id: paperId } });
   if (!paper) {
-    return;
+    return false;
   }
 
   // Pinning the PDF is what keeps annotation anchors from drifting, so it is
@@ -395,7 +401,26 @@ async function processPaper(params: {
     console.error("[daily-digest] pdf snapshot failed", paperId, error);
   }
 
-  const analysis = await analyzeSinglePaper(llm, toArxivPaper(paper), topics, language);
+  // What the analysis is written from. The prompt asks for a motivation, a
+  // method and measured results; from a bare title the model has no choice but
+  // to invent all three, confidently. arXiv papers carry an abstract, but a
+  // conference catalog entry never does — the upstream feed is titles and
+  // authors — so those are grounded in the PDF's text instead. A paper with
+  // neither is left without an intro rather than given a fabricated one.
+  const abstract = paper.abstract?.trim() ?? "";
+  let source: SourceMaterial;
+  if (abstract) {
+    source = { kind: "abstract", text: abstract };
+  } else {
+    const fullText = (await getPaperText(paperId))?.trim();
+    if (!fullText) {
+      console.warn("[analysis] skipped: no abstract and no readable PDF", paperId);
+      return false;
+    }
+    source = { kind: "fullText", text: fullText };
+  }
+
+  const analysis = await analyzeSinglePaper(llm, toArxivPaper(paper), topics, language, source);
 
   // A concurrent generation may have landed while the model ran (two members
   // opening the same intro-less paper triggers two on-demand runs; the route's
@@ -405,7 +430,7 @@ async function processPaper(params: {
     select: { id: true }
   });
   if (alreadyAnalyzed) {
-    return;
+    return false;
   }
 
   await prisma.paperAnalysis.create({
@@ -431,6 +456,7 @@ async function processPaper(params: {
     where: { workspaceId, paperId, tags: { isEmpty: true } },
     data: { tags: analysis.keywords.slice(0, MAX_TAGS) }
   });
+  return true;
 }
 
 /** The library tags a saved digest paper starts with: its latest analysis keywords. */

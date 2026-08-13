@@ -36,12 +36,17 @@ export async function POST(_request: Request, { params }: { params: Promise<{ pa
     return Response.json({ ok: true, existing: true });
   }
 
+  let generated: boolean;
   try {
-    await analyzePaperOnDemand(user.workspaceId, paperId);
+    generated = await analyzePaperOnDemand(user.workspaceId, paperId);
   } catch (error) {
     console.error("[analyze] on-demand analysis failed", paperId, error);
     return Response.json({ error: "analysis failed" }, { status: 502 });
   }
 
-  return Response.json({ ok: true });
+  // `generated: false` is not an error: the paper carries no abstract and no
+  // readable PDF, so there was nothing to write an intro from. The client stops
+  // waiting and explains that, rather than polling for an analysis that will
+  // never appear.
+  return Response.json({ ok: true, generated });
 }

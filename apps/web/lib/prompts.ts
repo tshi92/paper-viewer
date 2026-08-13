@@ -50,12 +50,35 @@ const LANGUAGE_PROFILES: Record<OutputLanguage, LanguageProfile> = {
   }
 };
 
+/**
+ * What the model is given to work from. An arXiv paper arrives with an
+ * abstract; a conference catalog entry never does — the feed carries titles and
+ * authors only — so those are analysed from the PDF's extracted text instead.
+ * A paper with neither is not analysed at all: see processPaper.
+ */
+export type SourceMaterial =
+  | { kind: "abstract"; text: string }
+  | { kind: "fullText"; text: string };
+
+/**
+ * Full text is sent truncated. It is only ever the fallback for a paper with no
+ * abstract, and the front of a paper carries what the analysis asks about;
+ * sending an entire 40-page PDF would cost far more than the answer improves.
+ */
+const FULL_TEXT_LIMIT = 40_000;
+
 export function analysisPrompt(
   language: OutputLanguage,
   paper: ArxivPaper,
-  topics: string[]
+  topics: string[],
+  source: SourceMaterial = { kind: "abstract", text: paper.abstract }
 ): Prompt {
   const profile = LANGUAGE_PROFILES[language];
+  const sourceBlock =
+    source.kind === "abstract"
+      ? `Abstract: ${source.text}`
+      : `Full text of the paper (truncated), which is all there is — this paper has no abstract on file:
+${source.text.slice(0, FULL_TEXT_LIMIT)}`;
 
   return {
     system: `You are a computer-systems research assistant who analyses papers on systems for large models. Write every analysis in ${profile.name}, in plain language, explaining technical concepts clearly. Return pure JSON.
@@ -67,7 +90,7 @@ ${profile.styleRules}`,
 Title: ${paper.title}
 arXiv: ${paper.arxivId}
 Authors: ${paper.authors.join(", ")}
-Abstract: ${paper.abstract}
+${sourceBlock}
 
 The reader's research areas: ${topics.join(", ")}
 

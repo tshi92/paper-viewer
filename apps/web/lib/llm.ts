@@ -1,7 +1,7 @@
 import type { LlmRuntimeConfig } from "./llm-config";
 import type { OutputLanguage } from "@paper-viewer/core/llm-config";
 import type { ArxivPaper } from "./arxiv";
-import { analysisPrompt, overviewPrompt } from "./prompts";
+import { analysisPrompt, overviewPrompt, type SourceMaterial } from "./prompts";
 
 export type PaperAnalysisResult = {
   title: string;
@@ -186,19 +186,21 @@ export async function analyzeSinglePaper(
   config: LlmRuntimeConfig,
   paper: ArxivPaper,
   topics: string[],
-  language: OutputLanguage
+  language: OutputLanguage,
+  /** Defaults to the paper's abstract; callers pass full text when there is none. */
+  source?: SourceMaterial
 ): Promise<PaperAnalysisResult> {
   // The LLM occasionally returns invalid JSON (for example an unescaped quote
   // inside a Chinese string); a single retry all but eliminates it.
   // Only retry on the SyntaxError thrown by JSON.parse: retrying a 401 / 429 /
   // network error is pointless and would just burn another full call.
   try {
-    return await analyzeSinglePaperOnce(config, paper, topics, language);
+    return await analyzeSinglePaperOnce(config, paper, topics, language, source);
   } catch (error) {
     if (!(error instanceof SyntaxError)) {
       throw error;
     }
-    return analyzeSinglePaperOnce(config, paper, topics, language);
+    return analyzeSinglePaperOnce(config, paper, topics, language, source);
   }
 }
 
@@ -206,9 +208,10 @@ async function analyzeSinglePaperOnce(
   config: LlmRuntimeConfig,
   paper: ArxivPaper,
   topics: string[],
-  language: OutputLanguage
+  language: OutputLanguage,
+  source?: SourceMaterial
 ): Promise<PaperAnalysisResult> {
-  const prompt = analysisPrompt(language, paper, topics);
+  const prompt = analysisPrompt(language, paper, topics, source);
   const result = await callLlm(config, [
     { role: "system", content: prompt.system },
     { role: "user", content: prompt.user }
