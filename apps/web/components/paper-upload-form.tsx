@@ -97,7 +97,9 @@ export function PaperUploadForm() {
     <div className="flex items-center gap-2">
       <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={handleFile} />
       <button
-        className="shrink-0 rounded bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent/90 disabled:opacity-50"
+        // Outlined, like every other action in the app's chrome: this sits in a
+        // header next to a text field, not at the end of a flow.
+        className="shrink-0 rounded border border-accent/40 px-3 py-1.5 text-sm font-medium text-accent transition-colors duration-150 hover:bg-accent/10 disabled:opacity-50"
         onClick={() => fileRef.current?.click()}
         disabled={loading}
       >

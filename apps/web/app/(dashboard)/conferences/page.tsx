@@ -7,6 +7,7 @@ import { ConferenceSyncButton } from "@/components/conference-sync-button";
 import { InLibraryLink } from "@/components/in-library-link";
 import { LibrarySearch } from "@/components/library-search";
 import { SaveToLibraryButton } from "@/components/save-to-library-button";
+import { ScholarIcon } from "@/components/scholar-icon";
 import { canRenderPdf, isPreprintPdf } from "@/lib/paper-pdf";
 
 // A single program never comes close to this; only a broad search can, and
@@ -200,18 +201,31 @@ export default async function ConferencesPage({
                           {isPreprintPdf(paper) ? t("pdfBadgeArxiv") : t("pdfBadge")}
                         </Link>
                       ) : null}
-                      <a
-                        href={
-                          paper.externalUrl ??
-                          `https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}`
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title={paper.externalUrl ? undefined : t("scholarLinkTitle")}
-                        className="whitespace-nowrap text-xs text-accent hover:underline"
-                      >
-                        {paper.externalUrl ? tCommon("sourceLink") : t("scholarLink")} ↗
-                      </a>
+                      {/* Two different destinations: the publisher's own page
+                          when the catalog knows one, otherwise a Scholar
+                          lookup — which travels as the mark rather than the
+                          word, since a row is already dense with text. */}
+                      {paper.externalUrl ? (
+                        <a
+                          href={paper.externalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="whitespace-nowrap text-xs text-accent hover:underline"
+                        >
+                          {tCommon("sourceLink")} ↗
+                        </a>
+                      ) : (
+                        <a
+                          href={`https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={t("scholarLinkTitle")}
+                          title={t("scholarLinkTitle")}
+                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150 hover:bg-surface"
+                        >
+                          <ScholarIcon />
+                        </a>
+                      )}
                       {saved ? (
                         <InLibraryLink paperId={paper.id} />
                       ) : (
