@@ -86,7 +86,7 @@ export function LibrarySearch({ basePath = "/library" }: { basePath?: string }) 
         }}
         placeholder={t("searchPlaceholder")}
         aria-label={t("searchPlaceholder")}
-        className="w-56 rounded border border-control bg-white py-1 pl-7 pr-6 text-xs placeholder:text-muted focus:border-accent"
+        className="h-[26px] w-56 rounded border border-control bg-white pl-7 pr-6 text-xs placeholder:text-muted focus:border-accent"
       />
       {value ? (
         <button
