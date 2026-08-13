@@ -101,6 +101,14 @@ Paper Viewer 就是照着免费额度设计的：**Vercel Hobby** 跑应用和�
 | **Settings → Labels** | 全组共用的标签体系 |
 | **Conferences → 同步** | 第一次同步顶会目录（数千篇，约一分钟） |
 
+<table>
+  <tr>
+    <td width="33%"><img src="assets/screenshots/settings2.png" alt="设置 → LLM：base URL、模型、API key 和 AI 生成语言" /></td>
+    <td width="33%"><img src="assets/screenshots/settings1.png" alt="设置 → 研究偏好：研究方向、关键词、arXiv 分类和每日篇数" /></td>
+    <td width="33%"><img src="assets/screenshots/settings3.png" alt="设置 → 通知：飞书 webhook 和每日推送时间" /></td>
+  </tr>
+</table>
+
 > **模型并发数很关键。** 每日推送是一篇接一篇地分析，而站内 AI 对话用的是同一个 key。如果套餐只允许 1 个并发请求，推送跑着的时候对话就会一直失败，直到推送结束。
 
 ## 8. 让每日推送准点（可选）
