@@ -338,7 +338,9 @@
     "dismiss": "Dismiss",
     "loading": "Loading…",
     "back": "Back",
-    "sourceLink": "Source"
+    "sourceLink": "Source",
+    "preprint": "preprint",
+    "preprintNote": "The PDF shown here is the arXiv preprint; it may differ from the conference's version of record."
   },
   "preview": {
     "readOnlyNotice": "Preview: save to library to annotate, comment and discuss.",

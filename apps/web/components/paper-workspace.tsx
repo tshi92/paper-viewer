@@ -33,6 +33,8 @@ type PaperData = {
   externalUrl: string | null;
   abstract: string | null;
   hasPdf: boolean;
+  /** The inline PDF is an arXiv preprint while the version of record is the conference's. */
+  pdfIsPreprint: boolean;
   analysis: AnalysisView | null;
   comments: {
     id: string;
@@ -274,6 +276,14 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
                 >
                   arXiv:{paper.arxivId} ↗
                 </a>
+                {paper.pdfIsPreprint ? (
+                  <span
+                    title={tCommon("preprintNote")}
+                    className="ml-1.5 rounded bg-surface px-1.5 py-0.5 text-[11px] text-muted"
+                  >
+                    {tCommon("preprint")}
+                  </span>
+                ) : null}
               </>
             ) : null}
             {paper.externalUrl ? (

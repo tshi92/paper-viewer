@@ -82,6 +82,12 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
           doi: previewPaper.doi,
           abstract: previewPaper.abstract,
           hasPdf: previewHasPdf,
+          // The inline PDF comes from arXiv while the version of record is the
+          // conference's — the reader should know it may differ.
+          pdfIsPreprint:
+            previewPaper.source === "conference" &&
+            Boolean(previewPaper.arxivId) &&
+            !previewPaper.pdfUrl,
           conference: previewPaper.conferenceEntries[0] ?? null,
           analysis: previewAnalysis
             ? {
@@ -176,6 +182,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
         externalUrl: paper.externalUrl,
         abstract: paper.abstract,
         hasPdf,
+        pdfIsPreprint: paper.source === "conference" && Boolean(paper.arxivId) && !paper.pdfUrl,
         analysis: analysis
           ? {
               summary: analysis.summary,
