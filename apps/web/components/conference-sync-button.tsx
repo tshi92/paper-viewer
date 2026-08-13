@@ -26,6 +26,7 @@ export function ConferenceSyncButton() {
         detail?: string;
         entries?: number;
         createdPapers?: number;
+        unlinkedStale?: number;
       };
       if (!response.ok) {
         // The admin-only route reports the concrete failure; show it so the
@@ -39,7 +40,11 @@ export function ConferenceSyncButton() {
         toast.error(message);
         return;
       }
-      toast.success(t("syncDone", { entries: body.entries ?? 0, created: body.createdPapers ?? 0 }));
+      // Unlinking is the one outcome an admin should not have to go looking
+      // for: it means an edition listed articles that were never part of it.
+      const removed = body.unlinkedStale ?? 0;
+      const summary = t("syncDone", { entries: body.entries ?? 0, created: body.createdPapers ?? 0 });
+      toast.success(removed > 0 ? `${summary}${t("syncUnlinked", { removed })}` : summary);
       router.refresh();
     } catch {
       toast.error(t("syncFailed"));

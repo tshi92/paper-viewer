@@ -3,6 +3,8 @@ import {
   conferenceSourceId,
   parseConferenceFeed,
   parseGithubRepo,
+  sameAuthors,
+  staleCatalogEntries,
   surplusCatalogEntries,
   type CatalogEntryRow
 } from "./conference-sync";
@@ -226,5 +228,65 @@ describe("arxiv_id ingestion", () => {
       ]
     });
     expect(entries[0]!.arxivId).toBe("2607.01234");
+  });
+});
+
+describe("author display names", () => {
+  it("renders display_name, which drops DBLP's homonym suffix", () => {
+    const { entries } = parseConferenceFeed({
+      meta: { venue: "SOSP", year: 2026 },
+      papers: [
+        {
+          title: "P",
+          authors: [
+            { name: "Li Jiang 0002", display_name: "Li Jiang", pid: "45/4954-2" },
+            { name: "Grace Hopper", display_name: "Grace Hopper", pid: "h/GraceHopper" }
+          ]
+        }
+      ]
+    });
+    expect(entries[0]!.authors).toEqual(["Li Jiang", "Grace Hopper"]);
+  });
+
+  it("falls back to name for feeds published before display_name existed", () => {
+    const { entries } = parseConferenceFeed({
+      meta: { venue: "SOSP", year: 2026 },
+      papers: [{ title: "P", authors: [{ name: "Ada Lovelace", pid: null }] }]
+    });
+    expect(entries[0]!.authors).toEqual(["Ada Lovelace"]);
+  });
+});
+
+describe("sameAuthors", () => {
+  it("treats an identical list as unchanged", () => {
+    expect(sameAuthors(["Ada Lovelace", "Grace Hopper"], ["Ada Lovelace", "Grace Hopper"])).toBe(true);
+  });
+
+  it("reports the mojibake and homonym-suffix spellings as changed", () => {
+    expect(sameAuthors(["Moritz WagenlÃ¤nder"], ["Moritz Wagenländer"])).toBe(false);
+    expect(sameAuthors(["Li Jiang 0002"], ["Li Jiang"])).toBe(false);
+  });
+
+  it("reports a different length or a non-array as changed", () => {
+    expect(sameAuthors(["Ada Lovelace"], ["Ada Lovelace", "Grace Hopper"])).toBe(false);
+    expect(sameAuthors(null, ["Ada Lovelace"])).toBe(false);
+    expect(sameAuthors("Ada Lovelace", ["Ada Lovelace"])).toBe(false);
+  });
+});
+
+describe("staleCatalogEntries", () => {
+  it("returns the entries whose paper the feed no longer lists", () => {
+    const rows = [
+      { id: "keep-1", paperId: "p1" },
+      { id: "keep-2", paperId: "p2" },
+      // A SOSP 2024 paper that the commented-out list wrongly put in 2026.
+      { id: "stale", paperId: "p-from-another-edition" }
+    ];
+    expect(staleCatalogEntries(rows, new Set(["p1", "p2"]))).toEqual(["stale"]);
+  });
+
+  it("returns nothing when the feed still lists everything", () => {
+    const rows = [{ id: "a", paperId: "p1" }];
+    expect(staleCatalogEntries(rows, new Set(["p1", "p2"]))).toEqual([]);
   });
 });

@@ -52,7 +52,16 @@ function asAuthors(value: unknown): string[] {
       .map((item) => {
         if (typeof item === "string") return item.trim();
         if (item && typeof item === "object") {
-          return asTrimmedString((item as { name?: unknown }).name) ?? "";
+          // DBLP disambiguates homonyms by appending a number ("Li Jiang 0002"),
+          // which is meaningless to a reader. The source repo ships the clean
+          // form as display_name and keeps the suffixed one under name for
+          // matching; render the former, and fall back for older feeds.
+          const author = item as { display_name?: unknown; displayName?: unknown; name?: unknown };
+          return (
+            asTrimmedString(author.display_name ?? author.displayName) ??
+            asTrimmedString(author.name) ??
+            ""
+          );
         }
         return "";
       })
@@ -177,6 +186,10 @@ export type ConferenceSyncResult = {
   linkedExisting: number;
   skipped: number;
   removedDuplicates: number;
+  /** Catalog links dropped because the feed no longer lists that article. */
+  unlinkedStale: number;
+  /** Conference rows whose author list the feed corrected. */
+  refreshedAuthors: number;
 };
 
 export type CatalogEntryRow = {
@@ -224,6 +237,30 @@ export function surplusCatalogEntries(rows: CatalogEntryRow[]): string[] {
   return surplus;
 }
 
+/** Prisma hands `authors` back as Json; only an identical string list counts as unchanged. */
+export function sameAuthors(stored: unknown, incoming: string[]): boolean {
+  if (!Array.isArray(stored) || stored.length !== incoming.length) return false;
+  return stored.every((author, index) => author === incoming[index]);
+}
+
+/**
+ * Catalog links for a venue-year that the current feed no longer lists.
+ *
+ * An edition's paper list can shrink for real: the SOSP 2026 page kept the
+ * previous edition's list in an HTML comment, and fixing the upstream parser
+ * removed 43 articles that had never been SOSP 2026 papers. Nothing in the
+ * insert-only sync could retract them, so they stayed in the catalog forever.
+ *
+ * Only the link is stale, never the article — the Paper row is left alone so
+ * annotations, comments and library entries made against it survive.
+ */
+export function staleCatalogEntries(
+  rows: { id: string; paperId: string }[],
+  livePaperIds: ReadonlySet<string>
+): string[] {
+  return rows.filter((row) => !livePaperIds.has(row.paperId)).map((row) => row.id);
+}
+
 /** Delete duplicate catalog entries for the given venue-years; returns how many were removed. */
 async function dedupeConferenceEntries(pairs: { venue: string; year: number }[]): Promise<number> {
   let removed = 0;
@@ -256,7 +293,15 @@ async function dedupeConferenceEntries(pairs: { venue: string; year: number }[])
 export async function syncConferencePapers(feed: unknown): Promise<Omit<ConferenceSyncResult, "files">> {
   const { entries, skipped } = parseConferenceFeed(feed);
   if (entries.length === 0) {
-    return { entries: 0, createdPapers: 0, linkedExisting: 0, skipped, removedDuplicates: 0 };
+    return {
+      entries: 0,
+      createdPapers: 0,
+      linkedExisting: 0,
+      skipped,
+      removedDuplicates: 0,
+      unlinkedStale: 0,
+      refreshedAuthors: 0
+    };
   }
 
   const arxivIds = [...new Set(entries.map((entry) => entry.arxivId).filter((id): id is string => Boolean(id)))];
@@ -276,6 +321,7 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
     select: {
       id: true,
       title: true,
+      authors: true,
       doi: true,
       arxivId: true,
       sourceId: true,
@@ -358,7 +404,11 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
   const conferenceRows = new Map(
     existing.filter((p) => p.source === "conference").map((p) => [p.id, p])
   );
-  const backfills = new Map<string, { externalUrl?: string; pdfUrl?: string; arxivId?: string }>();
+  const backfills = new Map<
+    string,
+    { externalUrl?: string; pdfUrl?: string; arxivId?: string; authors?: string[] }
+  >();
+  let refreshedAuthors = 0;
   for (const entry of entries) {
     const paperId = resolve(entry);
     const row = paperId ? conferenceRows.get(paperId) : undefined;
@@ -372,6 +422,14 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
     }
     if (entry.arxivId && !row.arxivId && !patch.arxivId) {
       patch.arxivId = entry.arxivId;
+    }
+    // Authors are the one field re-written rather than only filled in: the
+    // upstream repo corrects them after the fact (mojibake from a charset-less
+    // response, DBLP's "Li Jiang 0002" homonym suffixes), and writing once at
+    // create time would leave every existing row on the broken spelling.
+    if (entry.authors.length > 0 && !patch.authors && !sameAuthors(row.authors, entry.authors)) {
+      patch.authors = entry.authors;
+      refreshedAuthors += 1;
     }
     if (Object.keys(patch).length > 0) {
       backfills.set(paperId!, patch);
@@ -405,15 +463,49 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
   }
   await prisma.conferenceEntry.createMany({ data: links, skipDuplicates: true });
 
-  // Self-heal: collapse entries that list the same article twice — both the
-  // leftovers of pre-fix flip-flops and anything a future resolution change
-  // might introduce. Runs per venue-year touched by this feed.
+  // Both passes below work per venue-year touched by this feed.
   const venueYears = [
     ...new Map(entries.map((entry) => [`${entry.venue} ${entry.year}`, { venue: entry.venue, year: entry.year }])).values()
   ];
+  // Reconcile the editions this feed covers against what it actually lists.
+  const livePaperIds = new Map<string, Set<string>>();
+  for (const link of links) {
+    const key = `${link.venue} ${link.year}`;
+    const bucket = livePaperIds.get(key) ?? new Set<string>();
+    bucket.add(link.paperId);
+    livePaperIds.set(key, bucket);
+  }
+  let unlinkedStale = 0;
+  for (const { venue, year } of venueYears) {
+    const live = livePaperIds.get(`${venue} ${year}`);
+    // An edition that resolved to nothing means a parse or fetch problem, not
+    // an emptied program — refuse to unlink a whole venue-year on that.
+    if (!live || live.size === 0) continue;
+    const rows = await prisma.conferenceEntry.findMany({
+      where: { venue, year },
+      select: { id: true, paperId: true }
+    });
+    const stale = staleCatalogEntries(rows, live);
+    if (stale.length > 0) {
+      await prisma.conferenceEntry.deleteMany({ where: { id: { in: stale } } });
+      unlinkedStale += stale.length;
+    }
+  }
+
+  // Self-heal: collapse entries that list the same article twice — both the
+  // leftovers of pre-fix flip-flops and anything a future resolution change
+  // might introduce.
   const removedDuplicates = await dedupeConferenceEntries(venueYears);
 
-  return { entries: entries.length, createdPapers: toCreate.length, linkedExisting, skipped, removedDuplicates };
+  return {
+    entries: entries.length,
+    createdPapers: toCreate.length,
+    linkedExisting,
+    skipped,
+    removedDuplicates,
+    unlinkedStale,
+    refreshedAuthors
+  };
 }
 
 type GithubContentEntry = { type: string; name: string };
@@ -487,7 +579,9 @@ export async function syncConferencesFromSource(): Promise<ConferenceSyncResult>
     createdPapers: 0,
     linkedExisting: 0,
     skipped: 0,
-    removedDuplicates: 0
+    removedDuplicates: 0,
+    unlinkedStale: 0,
+    refreshedAuthors: 0
   };
 
   for (const path of paths) {
@@ -501,6 +595,8 @@ export async function syncConferencesFromSource(): Promise<ConferenceSyncResult>
     totals.linkedExisting += result.linkedExisting;
     totals.skipped += result.skipped;
     totals.removedDuplicates += result.removedDuplicates;
+    totals.unlinkedStale += result.unlinkedStale;
+    totals.refreshedAuthors += result.refreshedAuthors;
   }
 
   return totals;
