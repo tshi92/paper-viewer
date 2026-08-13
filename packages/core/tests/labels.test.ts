@@ -6,7 +6,8 @@ import {
   DEFAULT_HIGHLIGHT_COLOR,
   PAPER_LABEL_PALETTE,
   annotationColor,
-  labelChipColors
+  labelChipColors,
+  paletteColorFor
 } from "../src/labels";
 
 describe("labels", () => {
@@ -80,6 +81,45 @@ describe("labels", () => {
       expect(labelChipColors("#00f").text).toMatch(/^#[0-9a-f]{6}$/);
       const fallback = labelChipColors("not-a-color");
       expect(fallback.text).toBe("#1d2733");
+    });
+  });
+
+  describe("paletteColorFor", () => {
+    it("gives one seed the same color everywhere, whatever its casing or spacing", () => {
+      expect(paletteColorFor("kv cache")).toBe(paletteColorFor("KV Cache"));
+      expect(paletteColorFor("kv cache")).toBe(paletteColorFor("  kv   cache "));
+    });
+
+    it("only ever returns a palette color, including for an empty seed", () => {
+      const palette = new Set<string>(PAPER_LABEL_PALETTE);
+      for (const seed of ["", "a@example.com", "zoe@example.com", "分布式训练", "a", "🧪"]) {
+        expect(palette.has(paletteColorFor(seed))).toBe(true);
+      }
+    });
+
+    it("spreads a realistic set of seeds over most of the palette", () => {
+      // A single hue for everything would defeat the point: the colour is what
+      // tells two teammates apart in a dense thread.
+      const seeds = [
+        "kv cache",
+        "llm serving",
+        "scheduling",
+        "speculative decoding",
+        "inference",
+        "throughput",
+        "checkpointing",
+        "distributed training",
+        "fault tolerance",
+        "quantization",
+        "attention",
+        "memory management"
+      ];
+      const used = new Set(seeds.map(paletteColorFor));
+      expect(used.size).toBeGreaterThanOrEqual(6);
+    });
+
+    it("does not collapse anagrams onto one color", () => {
+      expect(paletteColorFor("cache")).not.toBe(paletteColorFor("chace"));
     });
   });
 });

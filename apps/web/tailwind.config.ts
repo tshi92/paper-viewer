@@ -6,11 +6,21 @@ const config: Config = {
     extend: {
       colors: {
         /* Structural separators only (dividers, card outlines) — decorative,
-           exempt from WCAG 1.4.11. Form controls use `control` instead. */
-        border: "#d8dee8",
+           exempt from WCAG 1.4.11. Form controls use `control` instead.
+           Deliberately faint: cards are separated from the page by tone
+           (white on `canvas`) plus a soft shadow, and a darker outline on top
+           of that reads as a second, competing separator. */
+        border: "#e4e9f1",
         /* Form-control borders: 3.02:1 on white, the 1.4.11 bar. */
         control: "#8a95a4",
+        /* The page ground. Darker than `surface` so a white card lifts off it
+           without needing an outline. */
+        canvas: "#f1f4f9",
+        /* Inset areas *inside* a white card: chips, code blocks, table heads. */
         surface: "#f7f8fb",
+        /* Loading placeholders. Darker than `border`, which is too faint to
+           read as a block of pending content on either ground. */
+        shimmer: "#dbe2ec",
         ink: "#1d2733",
         muted: "#657386",
         accent: "#256f8f",
@@ -23,11 +33,24 @@ const config: Config = {
         "success-surface": "#f0fdf4",
         "success-border": "#86efac"
       },
+      /* One radius scale for the whole app. `DEFAULT` is what ~150 call sites
+         already write as plain `rounded`, so it sets the app's overall
+         softness; `sm`/`md` exist for controls that would look inflated at
+         12px, `lg`/`xl` for chat bubbles and dialogs. */
+      borderRadius: {
+        sm: "0.375rem", // 6px
+        DEFAULT: "0.75rem", // 12px — cards, panels, buttons, inputs
+        md: "0.5rem", // 8px
+        lg: "1rem", // 16px
+        xl: "1.25rem" // 20px
+      },
       /* Shadows are ink-tinted (blue-gray), never neutral gray: tinted depth
-         reads as elevation, gray reads as dirt on a colored surface. */
+         reads as elevation, gray reads as dirt on a colored surface. They are
+         wide and faint rather than tight and dark — a card should look like it
+         rests on the page, not like it is outlined in gray. */
       boxShadow: {
-        card: "0 1px 2px -1px rgba(29,39,51,0.08), 0 1px 3px 0 rgba(29,39,51,0.05)",
-        raised: "0 2px 4px -2px rgba(29,39,51,0.10), 0 6px 16px -6px rgba(29,39,51,0.14)",
+        card: "0 1px 2px 0 rgba(29,39,51,0.04), 0 4px 12px -4px rgba(29,39,51,0.07)",
+        raised: "0 2px 6px -2px rgba(29,39,51,0.08), 0 12px 28px -10px rgba(29,39,51,0.14)",
         overlay: "0 4px 8px -4px rgba(29,39,51,0.16), 0 12px 32px -8px rgba(29,39,51,0.22)"
       },
       keyframes: {

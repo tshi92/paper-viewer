@@ -14,10 +14,10 @@ describe("permissions", () => {
     expect(canManageWorkspaceSettings(null)).toBe(false);
   });
 
-  it("lets only owner and admin remove a paper from the shared library", () => {
+  it("lets any member remove a paper from the shared library, but no outsider", () => {
     expect(canRemovePaper("owner")).toBe(true);
     expect(canRemovePaper("admin")).toBe(true);
-    expect(canRemovePaper("member")).toBe(false);
+    expect(canRemovePaper("member")).toBe(true);
     expect(canRemovePaper(null)).toBe(false);
   });
 

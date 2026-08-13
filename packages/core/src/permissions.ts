@@ -5,13 +5,15 @@ export function canManageWorkspaceSettings(role: WorkspaceRole | null): boolean 
 }
 
 /**
- * Removing a paper archives it for the whole workspace, taking it out of
- * everyone's library — so it is an admin action, not something a member can do
- * to a shared reading list. (Reading state, annotations and comments stay
- * per-user and remain writable by every member.)
+ * Saving a paper into the shared library and taking it back out are both open
+ * to every member: a reading list is curated by the people reading it, and
+ * removal only archives the row — annotations, comments and reading state
+ * survive, so the action is recoverable rather than destructive. What the check
+ * still enforces is membership: someone outside the workspace has no say over
+ * its library.
  */
 export function canRemovePaper(role: WorkspaceRole | null): boolean {
-  return role === "owner" || role === "admin";
+  return role !== null;
 }
 
 /** Authors alone may delete their annotations; admins and owners may not delete other people's. */

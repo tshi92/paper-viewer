@@ -288,15 +288,17 @@ test("hover previews appear on every pass and survive a trip into the card", asy
 
   const preview = page.getByTestId("annotation-hover-preview");
 
-  // The card carries the whole annotation: author, labels, the quoted text and
-  // the first comment — and the screenshot for an area.
+  // The card carries what the document does not show: author, labels and the
+  // first comment. Neither the quoted text nor the area screenshot appears —
+  // both reproduce what is already under the cursor.
   await hoverCenter(page, textPart);
   await expect(preview.getByText(/Annotations E2E/)).toBeVisible();
   await expect(preview.getByText("method")).toBeVisible();
-  await expect(preview.locator("blockquote")).toBeVisible();
+  await expect(preview.locator("blockquote")).toHaveCount(0);
   await page.mouse.move(2, 2);
   await hoverCenter(page, areaBox);
-  await expect(preview.locator("img")).toBeVisible();
+  await expect(preview.getByText("hover area note")).toBeVisible();
+  await expect(preview.locator("img")).toHaveCount(0);
   await page.mouse.move(2, 2);
   await expect(preview).toBeHidden();
 

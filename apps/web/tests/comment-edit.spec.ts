@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { prisma } from "@paper-viewer/db";
 import bcrypt from "bcryptjs";
 
@@ -107,13 +107,24 @@ async function signIn(page: Page, email: string): Promise<void> {
   await expect(page).toHaveURL(/\/(today)?$/);
 }
 
+/**
+ * Copy/edit/delete live behind each row's ⋮ menu. `scope` is the row (an
+ * article, or a locator narrowed to one comment); `index` picks which menu
+ * inside it when a thread carries several.
+ */
+async function openRowMenu(scope: Locator, index = 0): Promise<Locator> {
+  await scope.getByRole("button", { name: "更多操作" }).nth(index).click();
+  // Only one menu is open at a time, so the open panel is unambiguous.
+  return scope.getByRole("menu");
+}
+
 test("the author edits their own comment; the owner also sees moderation affordances", async ({ page }) => {
   await signIn(page, ownerEmail);
   await page.goto(`/papers/${paperId}`);
   await page.getByRole("button", { name: "评论", exact: true }).click();
 
   const mine = page.locator("article", { hasText: "owner original body" });
-  await mine.getByRole("button", { name: "编辑" }).click();
+  await (await openRowMenu(mine)).getByRole("menuitem", { name: "编辑" }).click();
 
   // Once it swaps into an editor the article no longer contains the old text.
   const editing = page.locator("article").filter({ has: page.locator("textarea") });
@@ -130,8 +141,9 @@ test("the author edits their own comment; the owner also sees moderation afforda
   // The owner moderates: someone else's comment carries the affordances too.
   const theirs = page.locator("article", { hasText: "member only comment" });
   await expect(theirs).toBeVisible();
-  await expect(theirs.getByRole("button", { name: "编辑" })).toHaveCount(1);
-  await expect(theirs.getByRole("button", { name: "删除" })).toHaveCount(1);
+  const theirsMenu = await openRowMenu(theirs);
+  await expect(theirsMenu.getByRole("menuitem", { name: "编辑" })).toHaveCount(1);
+  await expect(theirsMenu.getByRole("menuitem", { name: "删除" })).toHaveCount(1);
 });
 
 test("admins moderate anyone's comment; a plain member is refused", async ({ page }) => {
@@ -166,10 +178,8 @@ test("deleting a comment warns about its replies and takes the thread with it", 
   await page.goto(`/papers/${paperId}`);
   await page.getByRole("button", { name: "评论", exact: true }).click();
 
-  await page
-    .locator("article", { hasText: "owner parent with replies" })
-    .getByRole("button", { name: "删除" })
-    .click();
+  const parent = page.locator("article", { hasText: "owner parent with replies" });
+  await (await openRowMenu(parent)).getByRole("menuitem", { name: "删除" }).click();
 
   const dialog = page.getByRole("alertdialog");
   await expect(dialog).toContainText("2");
@@ -221,11 +231,12 @@ test("annotation threads share the same moderation rule", async ({ page }) => {
 
   const thread = page.locator("article", { hasText: "thread comment by owner" });
   await expect(thread).toBeVisible();
-  // Two comments in the thread; the owner moderates, so both carry an edit button.
-  await expect(thread.getByRole("button", { name: "编辑" })).toHaveCount(2);
+  // Three ⋮ menus: the annotation's own, then one per comment.
+  await expect(thread.getByRole("button", { name: "更多操作" })).toHaveCount(3);
 
-  // The owner's own comment was created first, so its editor comes first.
-  await thread.getByRole("button", { name: "编辑" }).first().click();
+  // Menu 0 belongs to the annotation; the owner's comment was created first, so
+  // its menu is the first comment menu.
+  await (await openRowMenu(thread, 1)).getByRole("menuitem", { name: "编辑" }).click();
   await page.locator("article textarea").fill("thread comment edited");
   await page.getByRole("article").getByRole("button", { name: "保存" }).click();
   await expect(page.locator("article textarea")).toHaveCount(0);
@@ -233,13 +244,9 @@ test("annotation threads share the same moderation rule", async ({ page }) => {
     "thread comment edited"
   );
 
-  // Exact name skips the annotation-level delete, whose accessible name is
-  // 删除标注; the owner's comment delete comes before the member's.
-  await page
-    .locator("article", { hasText: "thread comment edited" })
-    .getByRole("button", { name: "删除", exact: true })
-    .first()
-    .click();
+  // Menu 1 again: the annotation's own delete sits in menu 0.
+  const editedThread = page.locator("article", { hasText: "thread comment edited" });
+  await (await openRowMenu(editedThread, 1)).getByRole("menuitem", { name: "删除" }).click();
   await page.getByRole("alertdialog").getByRole("button", { name: "删除" }).click();
   await expect(page.getByText("thread comment edited")).toHaveCount(0);
   expect(await prisma.comment.findUnique({ where: { id: mineId } })).toBeNull();

@@ -141,7 +141,11 @@ test("a saved chat reply renders as markdown in the discussion and copies raw", 
     "model.fit(x_train_long_enough_to_need_a_scrollbar, y_train)"
   );
 
-  await comment.getByRole("button", { name: "复制" }).click();
+  // A comment's copy lives in its ⋮ menu; the chat bubble above keeps an
+  // inline copy button, which the first test covers.
+  await comment.getByRole("button", { name: "更多操作" }).click();
+  await comment.getByRole("menuitem", { name: "复制" }).click();
+  await expect(page.getByText("已复制")).toBeVisible();
   expect(await readClipboard(page)).toBe(assistantReply);
 
   await prisma.comment.delete({ where: { id: stored.id } });

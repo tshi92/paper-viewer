@@ -13,6 +13,7 @@ import { DownloadPdfButton } from "./download-pdf-button";
 import { AnnotationSidebar } from "./annotation-sidebar";
 import { PaperLabelPicker } from "./paper-label-picker";
 import { RemovePaperButton } from "./remove-paper-button";
+import { TopicChip } from "./topic-chip";
 import type { CreateAnnotationInput } from "./pdf-annotator";
 import type { ReadingState } from "@paper-viewer/core/paper-status";
 import { canRemovePaper, type WorkspaceRole } from "@paper-viewer/core/permissions";
@@ -62,7 +63,11 @@ type PaperData = {
 type SidebarTab = "annotations" | "analysis" | "chat" | "comments";
 
 /** Errors are stored as message keys, not rendered strings, so the banner follows the locale. */
-type WorkspaceErrorKey = "errorAnnotationCreate" | "errorAnnotationDelete" | "errorReply";
+type WorkspaceErrorKey =
+  | "errorAnnotationCreate"
+  | "errorAnnotationUpdate"
+  | "errorAnnotationDelete"
+  | "errorReply";
 
 // 简介 leads: opening a paper starts with what it's about; clicking a
 // highlight in the PDF still switches to 标注 automatically.
@@ -159,7 +164,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
 
   /**
    * Edits and deletes of thread comments are author-only server-side; the sidebar
-   * only offers them on the caller's own comments, and `CommentBody` reports a
+   * only offers them on the caller's own comments, and `CommentRow` reports a
    * rejection inline, so failures do not need the workspace-wide banner.
    */
   const mutateComment = useCallback(
@@ -185,6 +190,29 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
   const handleDeleteComment = useCallback(
     (commentId: string) => mutateComment(commentId, { method: "DELETE" }),
     [mutateComment]
+  );
+
+  /**
+   * Re-labelling an annotation. Author-only server-side; the sidebar only
+   * offers the action on the caller's own annotations. A rejection throws so
+   * the picker stays open with the selection intact, and shows in the banner.
+   */
+  const handleUpdateLabels = useCallback(
+    async (annotationId: string, labelIds: string[]) => {
+      const response = await fetch(`/api/papers/${paper.id}/annotations/${annotationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ labelIds })
+      });
+      if (!response.ok) {
+        setActionError("errorAnnotationUpdate");
+        throw new Error("annotation label update failed");
+      }
+      bumpMutation();
+      setActionError(null);
+      await refreshAnnotations();
+    },
+    [paper.id, refreshAnnotations]
   );
 
   const handleDeleteAnnotation = useCallback(
@@ -301,6 +329,18 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
               </>
             ) : null}
           </p>
+          {/* Topics belong with the paper's other metadata, not inside the
+              intro: they describe the paper, and the reader wants them while
+              looking at the title — the intro panel can be on another tab. On
+              their own line, above the labels: the model writes these, the
+              reader chooses those, and mixing the two rows read as one set. */}
+          {paper.analysis && paper.analysis.keywords.length > 0 ? (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {paper.analysis.keywords.map((keyword) => (
+                <TopicChip key={keyword} topic={keyword} size="sm" />
+              ))}
+            </div>
+          ) : null}
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <PaperLabelPicker
               paperId={paper.id}
@@ -418,6 +458,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             onReply={handleReply}
             onEditComment={handleEditComment}
             onDeleteComment={handleDeleteComment}
+            onUpdateLabels={handleUpdateLabels}
             onDelete={handleDeleteAnnotation}
           />
         ) : activeTab === "analysis" ? (

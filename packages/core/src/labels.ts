@@ -31,6 +31,25 @@ export function annotationColor(labels: ReadonlyArray<{ color: string }>): strin
   return labels[0]?.color ?? DEFAULT_HIGHLIGHT_COLOR;
 }
 
+/**
+ * A stable palette colour for something that has none of its own — today, a
+ * person's avatar, keyed on their email so one teammate keeps one colour across
+ * the app and survives a rename.
+ *
+ * Case- and space-insensitive, so a seed cannot drift on capitalisation alone.
+ */
+export function paletteColorFor(seed: string): string {
+  const normalized = seed.trim().toLowerCase().replace(/\s+/g, " ");
+  // FNV-1a: short, stable across runtimes, and well spread for the short
+  // strings topics are. A plain sum would map anagrams to the same color.
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < normalized.length; i++) {
+    hash ^= normalized.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return PAPER_LABEL_PALETTE[hash % PAPER_LABEL_PALETTE.length]!;
+}
+
 const INK: readonly [number, number, number] = [29, 39, 51]; // #1d2733
 
 function parseHex(color: string): [number, number, number] | null {
@@ -48,6 +67,20 @@ function parseHex(color: string): [number, number, number] | null {
 
 function toHex(rgb: readonly [number, number, number]): string {
   return `#${rgb.map((c) => c.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/**
+ * The color as a translucent wash, for surfaces that should read as marker on
+ * paper rather than as a filled block: the quoted text on an annotation card,
+ * carrying the same hue the passage is highlighted with in the document.
+ *
+ * Text on top must be `ink` — the wash is a fraction of the hue over white, so
+ * ink clears AA on any color, while the hue's own dark tone does not at low
+ * alphas. Unparseable input washes toward ink, which is visible but neutral.
+ */
+export function tintColor(color: string, alpha: number): string {
+  const rgb = parseHex(color) ?? INK;
+  return `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`;
 }
 
 /**
@@ -77,7 +110,7 @@ export function labelChipColors(color: string): {
     ]
   );
   return {
-    background: `rgba(${rgb[0]}, ${rgb[1]}, ${rgb[2]}, ${alpha})`,
+    background: tintColor(color, alpha),
     text: parseHex(color) ? text : toHex(INK),
     alpha
   };

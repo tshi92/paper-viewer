@@ -6,8 +6,10 @@ import { requireCurrentUser } from "@/lib/auth";
 import { DiscoverButton } from "@/components/discover-button";
 import { DigestProgressBanner } from "@/components/digest-progress-banner";
 import { InLibraryLink } from "@/components/in-library-link";
+import { MarkdownBody } from "@/components/markdown-body";
 import { ReadingStateChips } from "@/components/reading-state-chips";
 import { SaveToLibraryButton } from "@/components/save-to-library-button";
+import { TopicChip } from "@/components/topic-chip";
 
 const HISTORY_DAYS = 7;
 
@@ -72,6 +74,11 @@ export default async function TodayPage() {
   const digestTotal = pendingDigest?.paperIds.length ?? 0;
   const digestDone = pendingDigest ? digestTotal - pendingDigest.pendingPaperIds.length : 0;
 
+  const todayDigestPapers = (todayDigest?.paperIds ?? [])
+    .map((id) => papersById.get(id))
+    .filter((paper): paper is NonNullable<typeof paper> => Boolean(paper));
+  const savedCount = todayDigestPapers.filter((paper) => paper.workspacePapers.length > 0).length;
+
   const dateFormat = new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "long",
@@ -124,63 +131,81 @@ export default async function TodayPage() {
       ) : null}
 
       {todayDigest ? (
-        <section className="space-y-3">
-          <div className="rounded border border-border bg-white shadow-card p-5">
-            <h2 className="text-sm font-semibold uppercase text-muted">
-              {t("digestMeta", {
-                date: dateFormat.format(new Date(todayDigest.date)),
-                count: todayDigest.paperIds.length
-              })}
-            </h2>
-            {todayDigest.overviewSummary ? (
-              <div className="mt-3 whitespace-pre-line text-sm leading-relaxed">
-                {todayDigest.overviewSummary}
+        /* The briefing leads and takes the wide column: it is what the day is
+           read through, and the papers are what it points at. The list is the
+           narrower, quieter column — a title and its authors, enough to decide
+           whether to open one; the summary and topics wait on the paper page.
+           Below `lg` the two stack, briefing first. */
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+          {/* `lg:flex-1`, not `flex-1`: while the two are stacked the container
+              is a column, where flex-basis:0 would collapse this card's height
+              to nothing. */}
+          <section className="w-full min-w-0 lg:flex-1">
+            <div className="rounded bg-white shadow-card">
+              <div className="border-b border-border px-5 py-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                  {t("overviewTitle")}
+                </p>
+                {/* The date at full size: this page is one day's edition, and
+                    which day it is should not have to be inferred. */}
+                <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+                  {dateFormat.format(new Date(todayDigest.date))}
+                </h2>
+                <p className="mt-1 text-xs text-muted">
+                  {t("digestCount", { count: todayDigestPapers.length })}
+                  {savedCount > 0 ? ` · ${t("savedCount", { count: savedCount })}` : ""}
+                </p>
               </div>
-            ) : null}
-          </div>
+              {todayDigest.overviewSummary ? (
+                // The model writes the briefing in markdown — headings for each
+                // trend, lists for the papers worth reading — and rendering it
+                // as plain text left the asterisks and hyphens on screen.
+                <div className="px-5 py-4">
+                  <MarkdownBody className="text-[15px] leading-[1.9]">
+                    {todayDigest.overviewSummary}
+                  </MarkdownBody>
+                </div>
+              ) : null}
+            </div>
+          </section>
 
-          {todayDigest.paperIds
-            .map((id) => papersById.get(id))
-            .filter((paper): paper is NonNullable<typeof paper> => Boolean(paper))
-            .map((paper, index, digestPapers) => {
-              const analysis = paper.analyses[0];
-              const workspacePaper = paper.workspacePapers[0];
-              const readingState = workspacePaper?.readingStates[0]?.state ?? "new";
+          {/* Sticky: the list is the shorter column, so it stays in reach while
+              the briefing scrolls. */}
+          <aside className="w-full lg:sticky lg:top-16 lg:w-[22rem] lg:shrink-0">
+            <div className="divide-y divide-border rounded bg-white shadow-card lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
+              {todayDigestPapers.map((paper, index) => {
+                const workspacePaper = paper.workspacePapers[0];
+                const readingState = workspacePaper?.readingStates[0]?.state ?? "new";
 
-              return (
-                <div
-                  key={paper.id}
-                  className="rounded border border-border bg-white shadow-card p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-raised"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    {/* Only the content column links out, so the actions on the
-                        right stay clickable without nesting buttons in an <a>.
-                        Cards are deliberately slim — a two-line summary and the
-                        keywords; the full analysis lives on the paper page. */}
-                    <Link href={`/papers/${paper.id}?from=today`} className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-accent">
-                          {index + 1}/{digestPapers.length}
-                        </span>
-                        <h3 className="font-semibold">{paper.title}</h3>
-                      </div>
-                      <p className="mt-1 line-clamp-1 text-sm text-muted">
-                        {Array.isArray(paper.authors) ? paper.authors.join(", ") : ""}
-                      </p>
-                      {analysis ? (
-                        <div className="mt-2 space-y-2 text-sm">
-                          <p className="line-clamp-2">{analysis.summary}</p>
-                          {analysis.keywords.length > 0 ? (
-                            <div className="flex flex-wrap gap-1.5">
-                              {analysis.keywords.map((kw) => (
-                                <span key={kw} className="rounded bg-surface px-2 py-0.5 text-xs text-muted">{kw}</span>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
+                return (
+                  <div key={paper.id} className="px-4 py-3 transition-colors duration-150 hover:bg-surface">
+                    <div className="flex items-start gap-2.5">
+                      <span
+                        aria-hidden
+                        className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-surface text-[11px] font-semibold text-muted"
+                      >
+                        {index + 1}
+                      </span>
+                      {/* Only the content column links out, so the actions below
+                          stay clickable without nesting buttons in an <a>. */}
+                      <Link href={`/papers/${paper.id}?from=today`} className="min-w-0 flex-1">
+                        <h3 className="text-sm font-medium leading-snug">{paper.title}</h3>
+                        <p className="mt-0.5 line-clamp-1 text-xs text-muted">
+                          {Array.isArray(paper.authors) ? paper.authors.join(", ") : ""}
+                        </p>
+                      </Link>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center justify-end gap-2 pl-7">
+                      {paper.arxivId ? (
+                        <a
+                          href={`https://arxiv.org/abs/${paper.arxivId}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mr-auto text-[11px] text-muted hover:text-accent hover:underline"
+                        >
+                          arXiv:{paper.arxivId} ↗
+                        </a>
                       ) : null}
-                    </Link>
-                    <div className="flex flex-col items-end gap-2">
                       {workspacePaper ? (
                         <>
                           <InLibraryLink paperId={paper.id} />
@@ -192,22 +217,13 @@ export default async function TodayPage() {
                       ) : (
                         <SaveToLibraryButton paperId={paper.id} />
                       )}
-                      {paper.arxivId ? (
-                        <a
-                          href={`https://arxiv.org/abs/${paper.arxivId}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-muted hover:text-accent hover:underline"
-                        >
-                          arXiv:{paper.arxivId} ↗
-                        </a>
-                      ) : null}
                     </div>
                   </div>
-                </div>
-              );
-            })}
-        </section>
+                );
+              })}
+            </div>
+          </aside>
+        </div>
       ) : null}
 
       {pastDigests.map((digest, digestIndex) => {
