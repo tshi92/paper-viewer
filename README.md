@@ -38,7 +38,7 @@ It is self-hosted, runs on Vercel and Neon free tiers, and stores everything in 
 
 Each workspace configures its own research topics and keywords. On every weekday, the digest job searches arXiv, ranks the new papers against those interests, and produces the day's list.
 
-- **Structured AI intros** — each paper gets motivation, problem, method, key findings, and why it matters, as separate fields rather than a restated abstract. Generated in the workspace's language.
+- **Structured AI intros** — each paper gets motivation, problem, method, key findings, and why it matters, as separate fields rather than a restated abstract. Written in the workspace's chosen output language (Settings → LLM), which is independent of each reader's interface language.
 - **Daily overview** — one short summary covering the whole batch, shown above the list.
 - **Feishu (Lark) push** — with a webhook and a push hour configured, the digest card is sent to the group chat at that hour, at most once per day.
 - **Digest papers are not library papers** — they open as a read-only preview until someone saves one explicitly, so the daily list does not change the shared library on its own.
