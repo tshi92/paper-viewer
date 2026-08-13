@@ -366,6 +366,7 @@
     "syncFailed": "同步失败，请重试",
     "syncNotConfigured": "数据源链接无效（需要 github.com 仓库地址）",
     "syncDone": "同步完成：共 {entries} 条，新增 {created} 篇",
+    "syncUnlinked": "，移除 {removed} 条已失效的会议关联",
     "truncatedNotice": "结果过多，仅显示前 {max} 条，请用筛选缩小范围。",
     "emptyFiltered": "当前筛选下没有匹配的论文。",
     "clearFilters": "清除筛选",
