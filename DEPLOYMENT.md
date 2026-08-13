@@ -101,6 +101,14 @@ Everything else is configured in the UI, not in environment variables:
 | **Settings → Labels** | Your shared label vocabulary |
 | **Conferences → Sync** | First catalog sync (a few thousand papers; takes a minute) |
 
+<table>
+  <tr>
+    <td width="33%"><img src="assets/screenshots/settings2.png" alt="Settings, LLM: base URL, model, API key and the AI output language" /></td>
+    <td width="33%"><img src="assets/screenshots/settings1.png" alt="Settings, Preferences: research topics, keywords, arXiv categories and papers per day" /></td>
+    <td width="33%"><img src="assets/screenshots/settings3.png" alt="Settings, Notifications: the Feishu webhook and the daily push hour" /></td>
+  </tr>
+</table>
+
 > **Model concurrency matters.** The digest analyses papers one after another and the same key serves in-app chat. On a plan limited to one concurrent request, a running digest will make chat fail until it finishes.
 
 ## 8. Make the daily push punctual (optional)
