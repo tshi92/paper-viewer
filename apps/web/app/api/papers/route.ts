@@ -24,6 +24,23 @@ function parseArxivId(url: string): string | null {
   return m ? m[1]! : null;
 }
 
+/**
+ * Publisher sites whose bot protection rejects every server-side download
+ * (403 regardless of user agent — verified against dl.acm.org). A human in a
+ * browser can open these fine, so the client turns this into an actionable
+ * "download it yourself and upload the file" message instead of a bare 403.
+ */
+const BLOCKED_PDF_HOSTS = ["dl.acm.org", "ieeexplore.ieee.org"];
+
+function isBlockedPdfHost(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return BLOCKED_PDF_HOSTS.some((blocked) => host === blocked || host.endsWith(`.${blocked}`));
+  } catch {
+    return false;
+  }
+}
+
 async function fetchPdfFromUrl(url: string): Promise<{ bytes: Uint8Array; fileName: string; arxivId: string | null; sourceUrl: string }> {
   let pdfUrl = url;
   const arxivId = parseArxivId(url);
@@ -173,6 +190,10 @@ export async function POST(request: Request) {
     const url = body.url?.trim();
     if (!url) {
       return new Response("URL is required", { status: 400 });
+    }
+
+    if (isBlockedPdfHost(url)) {
+      return Response.json({ error: "publisher_blocked" }, { status: 400 });
     }
 
     try {

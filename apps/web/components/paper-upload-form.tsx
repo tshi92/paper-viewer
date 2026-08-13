@@ -65,7 +65,16 @@ export function PaperUploadForm() {
         }
       } else {
         const text = await res.text();
-        setError(text || t("urlFailed"));
+        let message = text || t("urlFailed");
+        try {
+          // Structured errors carry a code the UI can turn into an actionable
+          // hint; anything else stays the server's plain-text message.
+          const body = JSON.parse(text) as { error?: string };
+          if (body.error === "publisher_blocked") message = t("publisherBlocked");
+        } catch {
+          // plain-text error, keep as is
+        }
+        setError(message);
       }
       router.refresh();
     } finally {

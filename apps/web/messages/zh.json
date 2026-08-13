@@ -94,7 +94,8 @@
     "urlPlaceholder": "或粘贴 arXiv / PDF 链接",
     "add": "添加",
     "urlFailed": "无法从该链接添加论文",
-    "duplicateMerged": "该论文已在文库中，已为你打开现有条目。"
+    "duplicateMerged": "该论文已在文库中，已为你打开现有条目。",
+    "publisherBlocked": "该出版商网站（ACM/IEEE）拒绝服务器抓取。请在浏览器中打开链接下载 PDF，再用「上传 PDF」上传。"
   },
   "workspace": {
     "tabAnnotations": "标注",

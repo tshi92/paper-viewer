@@ -1,0 +1,55 @@
+# Punctual trigger for the daily digest.
+#
+# Vercel Hobby cron precision is per-hour (±59 min), so the in-repo schedules in
+# vercel.json can fire the 9:00 Beijing digest as late as 9:59. This workflow
+# hits the same endpoint at the top of every hour on weekdays; the endpoint
+# itself gates on each workspace's configured pushHour and is fully idempotent
+# (digest lock, skipped_done, single Feishu push), so extra triggers are
+# harmless no-ops and the Vercel crons can stay as a fallback.
+#
+# GitHub's own scheduler delays minute-0 jobs the most, so the schedule fires at
+# :50 and the job sleeps until the top of the next hour before calling.
+#
+# Required repository secret: CRON_SECRET — the same value as the Vercel env var.
+name: digest-trigger
+
+on:
+  schedule:
+    - cron: "50 * * * 1-5"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Trigger the digest cron endpoint at the top of the hour
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          ENDPOINT: https://paper-viewer-five.vercel.app/api/cron/daily-digest
+        run: |
+          set -u
+          # The :50 schedule absorbs GitHub's dispatch delay. If we still start
+          # before the hour boundary, wait for it; if dispatch was so late that
+          # we are already past it, call immediately.
+          now=$(date -u +%s)
+          if [ $(( (now % 3600) / 60 )) -ge 50 ]; then
+            target=$(( (now / 3600 + 1) * 3600 ))
+            while [ "$(date -u +%s)" -lt "$target" ]; do sleep 10; done
+          fi
+
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              --max-time 300 "$ENDPOINT" || echo "000")
+            echo "attempt $attempt: HTTP $code"
+            head -c 500 /tmp/resp.json || true; echo
+            if [ "$code" = "200" ]; then
+              exit 0
+            fi
+            sleep 60
+          done
+          echo "digest trigger failed after 5 attempts" >&2
+          exit 1
