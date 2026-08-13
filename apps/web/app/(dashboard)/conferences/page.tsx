@@ -225,10 +225,9 @@ export default async function ConferencesPage({
                           href={paper.externalUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex h-6 items-center gap-1 rounded-md bg-surface px-2.5 text-xs text-muted transition-colors duration-150 hover:bg-border hover:text-ink"
+                          className="flex h-6 items-center rounded-md bg-surface px-2.5 text-xs font-medium text-muted transition-colors duration-150 hover:bg-border hover:text-ink"
                         >
-                          {tCommon("sourceLink")}
-                          <span aria-hidden className="text-[10px] leading-none">↗</span>
+                          {t("sourceChip")}
                         </a>
                       ) : null}
                       {/* The publisher page and Scholar answer different
