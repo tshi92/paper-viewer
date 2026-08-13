@@ -13,6 +13,7 @@ import { DownloadPdfButton } from "./download-pdf-button";
 import { AnnotationSidebar } from "./annotation-sidebar";
 import { PaperLabelPicker } from "./paper-label-picker";
 import { RemovePaperButton } from "./remove-paper-button";
+import { ScholarIcon } from "./scholar-icon";
 import { TopicChip } from "./topic-chip";
 import type { CreateAnnotationInput } from "./pdf-annotator";
 import type { ReadingState } from "@paper-viewer/core/paper-status";
@@ -292,43 +293,54 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           {/* Prev/next stays keyboard-only (j/k): the header links duplicated
               it and competed with the title for attention. */}
           <h1 className="text-lg font-semibold leading-snug">{paper.title}</h1>
-          <p className="mt-1 text-xs text-muted">
-            {paper.authors.join(", ")}
+          <p className="mt-1 text-xs text-muted">{paper.authors.join(", ")}</p>
+          {/* The links get their own line. A long author list would otherwise
+              wrap them one at a time, leaving a lone icon on a line of its own. */}
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
             {paper.arxivId ? (
-              <>
-                {" · "}
+              <span className="flex items-center gap-1.5">
                 <a
                   href={`https://arxiv.org/abs/${paper.arxivId}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="whitespace-nowrap text-accent hover:underline"
                 >
-                  arXiv:{paper.arxivId} ↗
+                  arXiv:{paper.arxivId}
                 </a>
                 {paper.pdfIsPreprint ? (
                   <span
                     title={tCommon("preprintNote")}
-                    className="ml-1.5 rounded bg-surface px-1.5 py-0.5 text-[11px] text-muted"
+                    className="rounded-md bg-surface px-1.5 py-0.5 text-[11px] text-muted"
                   >
                     {tCommon("preprint")}
                   </span>
                 ) : null}
-              </>
+              </span>
             ) : null}
             {paper.externalUrl ? (
-              <>
-                {" · "}
-                <a
-                  href={paper.externalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="whitespace-nowrap text-accent hover:underline"
-                >
-                  {tCommon("sourceLink")} ↗
-                </a>
-              </>
+              <a
+                href={paper.externalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="whitespace-nowrap text-accent hover:underline"
+              >
+                {tCommon("sourceLink")}
+              </a>
             ) : null}
-          </p>
+            {/* Always, alongside whatever else is known: Scholar answers a
+                different question — what else is out there, who cites it, is
+                there another version. */}
+            <a
+              href={`https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={tCommon("searchScholar")}
+              title={tCommon("searchScholar")}
+              className="inline-flex items-center"
+            >
+              <ScholarIcon />
+            </a>
+          </div>
           {/* Topics belong with the paper's other metadata, not inside the
               intro: they describe the paper, and the reader wants them while
               looking at the title — the intro panel can be on another tab. On

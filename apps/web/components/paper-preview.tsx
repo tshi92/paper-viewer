@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { BackButton } from "./back-button";
 import { SaveToLibraryButton } from "./save-to-library-button";
+import { ScholarIcon } from "./scholar-icon";
 import { TopicChip } from "./topic-chip";
 import type { AnalysisView } from "./analysis-panel";
 
@@ -69,33 +70,45 @@ export async function PaperPreview({
           <p className="mt-1 text-xs text-muted">
             {paper.authors.join(", ")}
             {paper.conference ? ` · ${paper.conference.venue} ${paper.conference.year}` : ""}
+          </p>
+          {/* The links get their own line. A long author list would otherwise
+              wrap them one at a time, leaving a lone icon on a line of its own. */}
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
             {paper.arxivId ? (
-              <>
-                {" · "}
-                <a
-                  href={`https://arxiv.org/abs/${paper.arxivId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="whitespace-nowrap text-accent hover:underline"
-                >
-                  arXiv:{paper.arxivId} ↗
-                </a>
-              </>
+              <a
+                href={`https://arxiv.org/abs/${paper.arxivId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="whitespace-nowrap text-accent hover:underline"
+              >
+                arXiv:{paper.arxivId}
+              </a>
             ) : null}
             {externalUrl ? (
-              <>
-                {" · "}
-                <a
-                  href={externalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="whitespace-nowrap text-accent hover:underline"
-                >
-                  {tCommon("sourceLink")} ↗
-                </a>
-              </>
+              <a
+                href={externalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="whitespace-nowrap text-accent hover:underline"
+              >
+                {tCommon("sourceLink")}
+              </a>
             ) : null}
-          </p>
+            {/* Always, alongside whatever else is known: Scholar answers a
+                different question — what else is out there, who cites it, is
+                there another version — and until now it only appeared as a
+                stand-in for a missing publisher link. */}
+            <a
+              href={scholarUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={t("searchScholar")}
+              title={t("searchScholar")}
+              className="inline-flex items-center"
+            >
+              <ScholarIcon />
+            </a>
+          </div>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <SaveToLibraryButton paperId={paper.id} />
             <span className="text-xs text-muted">{t("readOnlyNotice")}</span>
@@ -125,7 +138,7 @@ export async function PaperPreview({
               rel="noopener noreferrer"
               className="text-accent hover:underline"
             >
-              {externalUrl ? tCommon("sourceLink") : t("searchScholar")} ↗
+              {externalUrl ? tCommon("sourceLink") : t("searchScholar")}
             </a>
           </p>
         )}

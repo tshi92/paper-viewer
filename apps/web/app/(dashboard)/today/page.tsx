@@ -212,7 +212,7 @@ export default async function TodayPage() {
                           rel="noopener noreferrer"
                           className="mr-auto text-[11px] text-muted hover:text-accent hover:underline"
                         >
-                          arXiv:{paper.arxivId} ↗
+                          arXiv:{paper.arxivId}
                         </a>
                       ) : null}
                       {workspacePaper ? (

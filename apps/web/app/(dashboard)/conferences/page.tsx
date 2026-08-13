@@ -193,8 +193,7 @@ export default async function ConferencesPage({
                         with a trailing arrow and a bare icon — three weights for
                         three things, repeated down a long list. They are all
                         secondary to the save action at the end of the row, so
-                        none of them takes the accent colour; the trailing arrow
-                        is what marks the two that leave the app. */}
+                        none of them takes the accent colour. */}
                     <div className="flex shrink-0 items-center gap-1.5">
                       {/* Signals before the click that the paper page will show
                           the full text inline; absent when it can't. Papers with
@@ -213,13 +212,6 @@ export default async function ConferencesPage({
                           {isPreprintPdf(paper) ? <ArxivIcon className="ml-1.5 h-3.5 w-auto" /> : null}
                         </Link>
                       ) : null}
-                      {/* The publisher's page when the catalog knows one, and a
-                          Scholar lookup either way: the two answer different
-                          questions — "read the version of record" against "what
-                          else is there, who cites it, is there a preprint" — so
-                          the second is worth having even when the first exists.
-                          It travels as the mark rather than the word, since a
-                          row is already dense with text. */}
                       {paper.externalUrl ? (
                         <a
                           href={paper.externalUrl}
@@ -230,11 +222,10 @@ export default async function ConferencesPage({
                           {t("sourceChip")}
                         </a>
                       ) : null}
-                      {/* The publisher page and Scholar answer different
-                          questions — read the version of record, against what
-                          else is out there and who cites it — so both are
-                          offered, rather than Scholar standing in only when
-                          there is no publisher link. */}
+                      {/* Offered even when the publisher page exists: the two
+                          answer different questions, one being "read the version
+                          of record" and the other "what else is out there, who
+                          cites it, is there a preprint". */}
                       <a
                         href={`https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}`}
                         target="_blank"
