@@ -24,6 +24,8 @@ export async function PaperPreview({
     doi: string | null;
     abstract: string | null;
     hasPdf: boolean;
+    /** The inline PDF is an arXiv preprint while the version of record is the conference's. */
+    pdfIsPreprint: boolean;
     analysis: AnalysisView | null;
     conference: { venue: string; year: number } | null;
   };

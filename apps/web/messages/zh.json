@@ -338,7 +338,9 @@
     "dismiss": "关闭",
     "loading": "加载中…",
     "back": "返回",
-    "sourceLink": "原文链接"
+    "sourceLink": "原文链接",
+    "preprint": "预印本",
+    "preprintNote": "站内显示的 PDF 是 arXiv 预印本，内容可能与会议正式版有差异。"
   },
   "preview": {
     "readOnlyNotice": "预览模式：存入文库后即可标注、评论与讨论。",

@@ -1,4 +1,5 @@
 import { prisma } from "@paper-viewer/db";
+import { isUniqueViolation } from "@/lib/daily-digest";
 import { normalizeTitle } from "@/lib/paper-identity";
 
 /**
@@ -142,7 +143,9 @@ export function parseConferenceFeed(raw: unknown): ConferenceFeedParseResult {
       pdfUrl: asPdfUrl(explicitPdf) ?? asPdfUrl(rawUrl),
       externalUrl: rawUrl ?? (doi ? `https://doi.org/${doi}` : null),
       doi,
-      arxivId: asTrimmedString(record.arxivId ?? record.arxiv) ?? arxivFromUrl
+      // csconf-papers ships arxiv_id since 2026-08 (Semantic Scholar DOI-batch
+      // match, exact by construction); the camelCase variants are older shapes.
+      arxivId: asTrimmedString(record.arxiv_id ?? record.arxivId ?? record.arxiv) ?? arxivFromUrl
     });
   }
   return { entries, skipped };
@@ -355,7 +358,7 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
   const conferenceRows = new Map(
     existing.filter((p) => p.source === "conference").map((p) => [p.id, p])
   );
-  const backfills = new Map<string, { externalUrl?: string; pdfUrl?: string }>();
+  const backfills = new Map<string, { externalUrl?: string; pdfUrl?: string; arxivId?: string }>();
   for (const entry of entries) {
     const paperId = resolve(entry);
     const row = paperId ? conferenceRows.get(paperId) : undefined;
@@ -367,13 +370,29 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
     if (entry.pdfUrl && !row.pdfUrl && !patch.pdfUrl) {
       patch.pdfUrl = entry.pdfUrl;
     }
+    if (entry.arxivId && !row.arxivId && !patch.arxivId) {
+      patch.arxivId = entry.arxivId;
+    }
     if (Object.keys(patch).length > 0) {
       backfills.set(paperId!, patch);
     }
   }
   for (const batch of chunk([...backfills.entries()], 25)) {
     await Promise.all(
-      batch.map(([paperId, data]) => prisma.paper.update({ where: { id: paperId }, data }))
+      batch.map(([paperId, data]) =>
+        prisma.paper.update({ where: { id: paperId }, data }).catch(async (error) => {
+          // Paper.arxivId is unique: when a digest/import twin already owns the
+          // id, keep the rest of the patch and leave the id with the twin —
+          // identity resolution merges the two on the next sync anyway.
+          if (!isUniqueViolation(error)) {
+            throw error;
+          }
+          const { arxivId: _conflicting, ...rest } = data;
+          if (Object.keys(rest).length > 0) {
+            await prisma.paper.update({ where: { id: paperId }, data: rest });
+          }
+        })
+      )
     );
   }
 

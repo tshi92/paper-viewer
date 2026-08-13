@@ -208,3 +208,23 @@ describe("pdf_url ingestion", () => {
     expect(entry.pdfUrl).toBe("https://arxiv.org/pdf/2608.10402");
   });
 });
+
+describe("arxiv_id ingestion", () => {
+  it("maps the source repo's arxiv_id field onto the entry", () => {
+    const { entries } = parseConferenceFeed({
+      meta: { venue: "ASPLOS", year: 2026 },
+      papers: [{ title: "P", authors: ["A"], doi: "10.1145/1", arxiv_id: "2607.01234" }]
+    });
+    expect(entries[0]!.arxivId).toBe("2607.01234");
+  });
+
+  it("prefers the explicit field over a derived url id", () => {
+    const { entries } = parseConferenceFeed({
+      meta: { venue: "ASPLOS", year: 2026 },
+      papers: [
+        { title: "P", authors: ["A"], arxiv_id: "2607.01234", url: "https://arxiv.org/abs/9999.99999" }
+      ]
+    });
+    expect(entries[0]!.arxivId).toBe("2607.01234");
+  });
+});
