@@ -18,7 +18,7 @@
   "settingsGeneral": {
     "title": "General",
     "languageHeading": "Interface language",
-    "languageDescription": "Affects the interface text only, not AI-generated content — paper intros and the daily overview follow Settings → LLM. Stored in this browser only, so it does not affect your teammates.",
+    "languageDescription": "Applies to interface text only, and is stored in this browser alone, so it does not affect your teammates. AI-generated content — paper intros and the daily overview — follows the AI output language in Settings → LLM.",
     "languageSystemLabel": "Follow system",
     "languageSystemDescription": "Use the language your browser asks for.",
     "languageZhDescription": "Always show the interface in Chinese.",
@@ -244,7 +244,7 @@
     "title": "LLM settings",
     "description": "Configure the model endpoint, model name, and API Key this workspace uses.",
     "outputLanguageLabel": "AI output language",
-    "outputLanguageHint": "Paper intros and the daily digest overview are written in this language. The interface language is set separately; topic tags stay English, and AI chat follows the language you ask in.",
+    "outputLanguageHint": "Paper intros and the daily digest overview are written in this language. The interface language is set separately under Settings → General.",
     "outputLanguageZh": "\u4e2d\u6587",
     "outputLanguageEn": "English",
     "adminOnly": "LLM settings are visible to admins only. Ask a workspace admin if you need them changed.",
