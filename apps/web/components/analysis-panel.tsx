@@ -2,7 +2,9 @@
 
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "@/components/toast";
+import { endFlight, startFlight, useFlight } from "@/lib/async-flight";
 import type { PdfOutlineEntry } from "@/lib/pdf-outline";
 
 export type AnalysisView = {
@@ -90,8 +92,13 @@ export function AnalysisPanel({
 }) {
   const t = useTranslations("workspace");
   const router = useRouter();
-  const [generating, setGenerating] = useState(false);
-  const [failed, setFailed] = useState(false);
+  // Generation state lives in the module-level flight store, keyed per paper:
+  // it takes minutes, and the "Generating…" indicator must survive navigating
+  // away and back while the server keeps working. Failures surface as sticky
+  // toasts for the same reason.
+  const flightKey = `analysis:${paperId}`;
+  const generating = useFlight(flightKey);
+  const autoFired = useRef(false);
   const outlineBlock =
     outline && outline.length > 0 && onJumpToPage ? (
       <OutlineBlock outline={outline} onJumpToPage={onJumpToPage} />
@@ -102,28 +109,31 @@ export function AnalysisPanel({
   // source of truth: while generating, poll the server props — the analysis
   // appearing there is what ends the wait, whatever happened to the fetch.
   useEffect(() => {
-    if (!generating || analysis) return;
+    if (!generating) return;
+    if (analysis) {
+      endFlight(flightKey);
+      return;
+    }
     const interval = setInterval(() => router.refresh(), 5_000);
     // Give up after the server's own time limit (300s) plus one poll.
     const deadline = setTimeout(() => {
-      setGenerating(false);
-      setFailed(true);
+      endFlight(flightKey);
+      toast.error(t("analysisGenerateFailed"));
     }, 305_000);
     return () => {
       clearInterval(interval);
       clearTimeout(deadline);
     };
-  }, [generating, analysis, router]);
+  }, [generating, analysis, router, flightKey, t]);
 
   async function generate() {
     if (generating) return;
-    setGenerating(true);
-    setFailed(false);
+    startFlight(flightKey);
     try {
       const res = await fetch(`/api/papers/${paperId}/analyze`, { method: "POST" });
       if (!res.ok) {
-        setGenerating(false);
-        setFailed(true);
+        endFlight(flightKey);
+        toast.error(t("analysisGenerateFailed"));
         return;
       }
       // Pull the fresh server props in right away; the polling effect stays on
@@ -134,6 +144,20 @@ export function AnalysisPanel({
       // polling effect running; it either finds the analysis or times out.
     }
   }
+
+  // A library paper without an intro starts generating on open, no click
+  // needed: the post-save generation can die silently when the LLM's only
+  // concurrency slot is busy (digest run), and this heals it. Once per mount —
+  // if it fails, the button stays for a manual retry.
+  // NEXT_PUBLIC_AUTO_GENERATE_INTRO=off opts out (set in dev/E2E .env so test
+  // runs and local browsing do not burn real LLM calls on fixture papers).
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_AUTO_GENERATE_INTRO === "off") return;
+    if (analysis || generating || autoFired.current) return;
+    autoFired.current = true;
+    void generate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [analysis, generating]);
 
   if (!analysis) {
     return (
@@ -149,7 +173,6 @@ export function AnalysisPanel({
         >
           {generating ? t("analysisGenerating") : t("analysisGenerate")}
         </button>
-        {failed ? <p role="alert" className="text-xs text-danger">{t("analysisGenerateFailed")}</p> : null}
         </section>
       </div>
     );
