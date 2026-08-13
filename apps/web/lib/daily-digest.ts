@@ -376,6 +376,17 @@ async function processPaper(params: {
 
   const analysis = await analyzeSinglePaper(llm, toArxivPaper(paper), topics);
 
+  // A concurrent generation may have landed while the model ran (two members
+  // opening the same intro-less paper triggers two on-demand runs; the route's
+  // pre-check cannot cover a minutes-long window). First writer wins.
+  const alreadyAnalyzed = await prisma.paperAnalysis.findFirst({
+    where: { workspaceId, paperId },
+    select: { id: true }
+  });
+  if (alreadyAnalyzed) {
+    return;
+  }
+
   await prisma.paperAnalysis.create({
     data: {
       paperId,

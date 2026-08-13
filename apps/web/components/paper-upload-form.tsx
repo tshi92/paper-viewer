@@ -4,41 +4,67 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "@/components/toast";
+import { endFlight, startFlight, useFlight } from "@/lib/async-flight";
+
+/**
+ * The processing flag lives in the module-level flight store, not component
+ * state: metadata extraction takes tens of seconds and users navigate away in
+ * the meantime — the button must still say "processing" when they come back.
+ * Failures go through sticky toasts for the same reason.
+ */
+const UPLOAD_FLIGHT = "paper-upload";
 
 export function PaperUploadForm() {
   const t = useTranslations("upload");
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [loading, setLoading] = useState(false);
+  const loading = useFlight(UPLOAD_FLIGHT);
   const [url, setUrl] = useState("");
-  const [error, setError] = useState("");
+
+  function handleResult(data: { paperId?: string; duplicate?: boolean }) {
+    if (!data.paperId) {
+      router.refresh();
+      return;
+    }
+    // A duplicate points at the library's existing row (with this PDF
+    // attached when that row had none) — say so instead of silently landing there.
+    if (data.duplicate) toast.info(t("duplicateMerged"));
+    router.push(`/papers/${data.paperId}`);
+  }
+
+  async function handleFailure(res: Response) {
+    const text = await res.text();
+    let message = text || t("uploadFailed");
+    try {
+      // Structured errors carry a code the UI can turn into an actionable
+      // hint; anything else stays the server's plain-text message.
+      const body = JSON.parse(text) as { error?: string };
+      if (body.error === "publisher_blocked") message = t("publisherBlocked");
+    } catch {
+      // plain-text error, keep as is
+    }
+    toast.error(message);
+  }
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || loading) return;
 
-    setLoading(true);
-    setError("");
+    startFlight(UPLOAD_FLIGHT);
     const formData = new FormData();
     formData.append("pdf", file);
 
     try {
       const res = await fetch("/api/papers", { method: "POST", body: formData });
       if (res.ok) {
-        const data = (await res.json()) as { paperId?: string; duplicate?: boolean };
-        if (data.paperId) {
-          // A duplicate points at the library's existing row (with this PDF
-          // attached when that row had none) — say so instead of silently landing there.
-          if (data.duplicate) toast.info(t("duplicateMerged"));
-          router.push(`/papers/${data.paperId}`);
-          return;
-        }
+        handleResult((await res.json()) as { paperId?: string; duplicate?: boolean });
       } else {
-        setError(await res.text());
+        await handleFailure(res);
       }
-      router.refresh();
+    } catch {
+      toast.error(t("uploadFailed"));
     } finally {
-      setLoading(false);
+      endFlight(UPLOAD_FLIGHT);
       if (fileRef.current) fileRef.current.value = "";
     }
   }
@@ -47,9 +73,7 @@ export function PaperUploadForm() {
     const trimmed = url.trim();
     if (!trimmed || loading) return;
 
-    setLoading(true);
-    setError("");
-
+    startFlight(UPLOAD_FLIGHT);
     try {
       const res = await fetch("/api/papers", {
         method: "POST",
@@ -57,28 +81,14 @@ export function PaperUploadForm() {
         body: JSON.stringify({ url: trimmed })
       });
       if (res.ok) {
-        const data = (await res.json()) as { paperId?: string; duplicate?: boolean };
-        if (data.paperId) {
-          if (data.duplicate) toast.info(t("duplicateMerged"));
-          router.push(`/papers/${data.paperId}`);
-          return;
-        }
+        handleResult((await res.json()) as { paperId?: string; duplicate?: boolean });
       } else {
-        const text = await res.text();
-        let message = text || t("urlFailed");
-        try {
-          // Structured errors carry a code the UI can turn into an actionable
-          // hint; anything else stays the server's plain-text message.
-          const body = JSON.parse(text) as { error?: string };
-          if (body.error === "publisher_blocked") message = t("publisherBlocked");
-        } catch {
-          // plain-text error, keep as is
-        }
-        setError(message);
+        await handleFailure(res);
       }
-      router.refresh();
+    } catch {
+      toast.error(t("urlFailed"));
     } finally {
-      setLoading(false);
+      endFlight(UPLOAD_FLIGHT);
       setUrl("");
     }
   }
@@ -99,7 +109,7 @@ export function PaperUploadForm() {
           className="w-56 rounded border border-control px-2 py-1.5 text-sm placeholder:text-muted"
           placeholder={t("urlPlaceholder")} aria-label={t("urlPlaceholder")}
           value={url}
-          onChange={(e) => { setUrl(e.target.value); setError(""); }}
+          onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => {
             // Skip the IME's confirm-candidate Enter (double-submit guard).
             if (e.nativeEvent.isComposing || e.keyCode === 229) return;
@@ -115,7 +125,6 @@ export function PaperUploadForm() {
           {t("add")}
         </button>
       </div>
-      {error ? <span role="alert" className="text-xs text-danger">{error}</span> : null}
     </div>
   );
 }
