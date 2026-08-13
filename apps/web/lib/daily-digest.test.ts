@@ -99,6 +99,18 @@ describe("summaryLineOf", () => {
     expect(summaryLineOf("а".repeat(200))).toHaveLength(81);
   });
 
+  it("ends an English sentence at its period, but not mid-number", () => {
+    // The workspace can ask for English intros, so the line has to end
+    // somewhere sensible in Latin script too.
+    expect(summaryLineOf("Reuses KV cache across requests. Tested on a trace.")).toBe(
+      "Reuses KV cache across requests."
+    );
+    expect(summaryLineOf("Throughput rises 2.1x with no accuracy loss. Details follow.")).toBe(
+      "Throughput rises 2.1x with no accuracy loss."
+    );
+    expect(summaryLineOf("Does it help? Yes, on every trace.")).toBe("Does it help?");
+  });
+
   it("returns an empty string for missing summaries", () => {
     expect(summaryLineOf(null)).toBe("");
     expect(summaryLineOf(undefined)).toBe("");

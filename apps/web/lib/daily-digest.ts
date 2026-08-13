@@ -117,7 +117,9 @@ export function summaryLineOf(summary: string | null | undefined): string {
   if (!text) {
     return "";
   }
-  const sentenceEnd = text.search(/[。！？]/);
+  // Latin enders only count when a space or the end follows, so "2.1x" and
+  // "Fig. 1" do not read as the end of a sentence.
+  const sentenceEnd = text.search(/[。！？]|[.!?](?=\s|$)/);
   if (sentenceEnd >= 0 && sentenceEnd < MAX_SUMMARY_LINE) {
     return text.slice(0, sentenceEnd + 1);
   }

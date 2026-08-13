@@ -362,6 +362,7 @@
     "loading": "加载中…",
     "back": "返回",
     "sourceLink": "原文链接",
+    "searchScholar": "在 Google Scholar 中查找",
     "preprint": "预印本",
     "preprintNote": "站内显示的 PDF 是 arXiv 预印本，内容可能与会议正式版有差异。"
   },
@@ -394,8 +395,8 @@
     "emptyFiltered": "当前筛选下没有匹配的论文。",
     "clearFilters": "清除筛选",
     "pdfBadge": "PDF",
-    "pdfBadgeArxiv": "PDF · arXiv",
     "pdfBadgeTitle": "点击可在线预览 PDF 全文",
-    "scholarLinkTitle": "在 Google Scholar 中查找这篇论文"
+    "sourceChip": "原文",
+    "scholarLink": "Google Scholar"
   }
 }

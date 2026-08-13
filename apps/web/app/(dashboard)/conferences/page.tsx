@@ -7,6 +7,7 @@ import { ConferenceSyncButton } from "@/components/conference-sync-button";
 import { InLibraryLink } from "@/components/in-library-link";
 import { LibrarySearch } from "@/components/library-search";
 import { SaveToLibraryButton } from "@/components/save-to-library-button";
+import { ArxivIcon } from "@/components/arxiv-icon";
 import { ScholarIcon } from "@/components/scholar-icon";
 import { canRenderPdf, isPreprintPdf } from "@/lib/paper-pdf";
 
@@ -187,7 +188,13 @@ export default async function ConferencesPage({
                         {Array.isArray(paper.authors) ? (paper.authors as string[]).join(", ") : ""}
                       </p>
                     </div>
-                    <div className="flex shrink-0 items-center gap-3">
+                    {/* One set of chips, all the same height, radius and tone.
+                        The row used to end in a ring-outlined badge, a text link
+                        with a trailing arrow and a bare icon — three weights for
+                        three things, repeated down a long list. They are all
+                        secondary to the save action at the end of the row, so
+                        none of them takes the accent colour. */}
+                    <div className="flex shrink-0 items-center gap-1.5">
                       {/* Signals before the click that the paper page will show
                           the full text inline; absent when it can't. Papers with
                           no publisher PDF are served from arXiv, so the badge
@@ -196,41 +203,46 @@ export default async function ConferencesPage({
                         <Link
                           href={`/papers/${paper.id}?from=conferences`}
                           title={isPreprintPdf(paper) ? tCommon("preprintNote") : t("pdfBadgeTitle")}
-                          className="rounded px-1.5 py-0.5 text-xs font-medium text-accent ring-1 ring-inset ring-accent/30 transition-colors duration-150 hover:bg-accent/5"
+                          className="flex h-6 items-center rounded-md bg-surface px-2.5 text-xs font-medium text-muted transition-colors duration-150 hover:bg-border hover:text-ink"
                         >
-                          {isPreprintPdf(paper) ? t("pdfBadgeArxiv") : t("pdfBadge")}
+                          {t("pdfBadge")}
+                          {/* Served from arXiv rather than by the conference:
+                              the mark says it in the space of a glyph, and the
+                              link's title still explains what it implies. */}
+                          {isPreprintPdf(paper) ? <ArxivIcon className="ml-1.5 h-3.5 w-auto" /> : null}
                         </Link>
                       ) : null}
-                      {/* Two different destinations: the publisher's own page
-                          when the catalog knows one, otherwise a Scholar
-                          lookup — which travels as the mark rather than the
-                          word, since a row is already dense with text. */}
                       {paper.externalUrl ? (
                         <a
                           href={paper.externalUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="whitespace-nowrap text-xs text-accent hover:underline"
+                          className="flex h-6 items-center rounded-md bg-surface px-2.5 text-xs font-medium text-muted transition-colors duration-150 hover:bg-border hover:text-ink"
                         >
-                          {tCommon("sourceLink")} ↗
+                          {t("sourceChip")}
                         </a>
-                      ) : (
-                        <a
-                          href={`https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={t("scholarLinkTitle")}
-                          title={t("scholarLinkTitle")}
-                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150 hover:bg-surface"
-                        >
-                          <ScholarIcon />
-                        </a>
-                      )}
-                      {saved ? (
-                        <InLibraryLink paperId={paper.id} />
-                      ) : (
-                        <SaveToLibraryButton paperId={paper.id} />
-                      )}
+                      ) : null}
+                      {/* Offered even when the publisher page exists: the two
+                          answer different questions, one being "read the version
+                          of record" and the other "what else is out there, who
+                          cites it, is there a preprint". */}
+                      <a
+                        href={`https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={t("scholarLink")}
+                        title={t("scholarLink")}
+                        className="flex h-6 w-6 items-center justify-center rounded-md bg-surface transition-colors duration-150 hover:bg-border"
+                      >
+                        <ScholarIcon />
+                      </a>
+                      <span className="ml-1">
+                        {saved ? (
+                          <InLibraryLink paperId={paper.id} />
+                        ) : (
+                          <SaveToLibraryButton paperId={paper.id} />
+                        )}
+                      </span>
                     </div>
                   </div>
                 );

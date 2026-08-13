@@ -36,7 +36,7 @@ export function DownloadPdfButton({ paperId, arxivId }: { paperId: string; arxiv
 
   return (
     <button
-      className="rounded border border-border px-3 py-1.5 text-sm hover:bg-surface disabled:opacity-50"
+      className="rounded border border-accent/40 px-3 py-1.5 text-sm font-medium text-accent transition-colors duration-150 hover:bg-accent/10 disabled:opacity-50"
       onClick={handleDownload}
       disabled={loading}
     >

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
 import { isReadingState } from "@paper-viewer/core/paper-status";
+import { summaryLineOf } from "@/lib/daily-digest";
 import { requireCurrentUser } from "@/lib/auth";
 import { DiscoverButton } from "@/components/discover-button";
 import { DigestProgressBanner } from "@/components/digest-progress-banner";
@@ -96,7 +97,7 @@ export default async function TodayPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{t("title")}</h1>
         <div className="flex gap-2">
-          <Link href="/settings/preferences" className="rounded border border-border px-3 py-2 text-sm">
+          <Link href="/settings/preferences" className="rounded border border-accent/40 px-3 py-2 text-sm font-medium text-accent transition-colors duration-150 hover:bg-accent/10">
             {t("preferencesLink")}
           </Link>
           <DiscoverButton />
@@ -174,6 +175,7 @@ export default async function TodayPage() {
           <aside className="w-full lg:sticky lg:top-16 lg:w-[22rem] lg:shrink-0">
             <div className="divide-y divide-border rounded bg-white shadow-card lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
               {todayDigestPapers.map((paper, index) => {
+                const summaryLine = summaryLineOf(paper.analyses[0]?.summary);
                 const workspacePaper = paper.workspacePapers[0];
                 const readingState = workspacePaper?.readingStates[0]?.state ?? "new";
 
@@ -193,6 +195,13 @@ export default async function TodayPage() {
                         <p className="mt-0.5 line-clamp-1 text-xs text-muted">
                           {Array.isArray(paper.authors) ? paper.authors.join(", ") : ""}
                         </p>
+                        {/* One sentence, the same one the Feishu card carries:
+                            enough to tell whether this is the paper you want
+                            without turning the column back into a wall of
+                            summaries. */}
+                        {summaryLine ? (
+                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed">{summaryLine}</p>
+                        ) : null}
                       </Link>
                     </div>
                     <div className="mt-2 flex flex-wrap items-center justify-end gap-2 pl-7">
@@ -203,7 +212,7 @@ export default async function TodayPage() {
                           rel="noopener noreferrer"
                           className="mr-auto text-[11px] text-muted hover:text-accent hover:underline"
                         >
-                          arXiv:{paper.arxivId} ↗
+                          arXiv:{paper.arxivId}
                         </a>
                       ) : null}
                       {workspacePaper ? (
