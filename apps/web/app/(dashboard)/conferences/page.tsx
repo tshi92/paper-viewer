@@ -7,7 +7,7 @@ import { ConferenceSyncButton } from "@/components/conference-sync-button";
 import { InLibraryLink } from "@/components/in-library-link";
 import { LibrarySearch } from "@/components/library-search";
 import { SaveToLibraryButton } from "@/components/save-to-library-button";
-import { RowMenu } from "@/components/row-menu";
+import { ArxivIcon } from "@/components/arxiv-icon";
 import { ScholarIcon } from "@/components/scholar-icon";
 import { canRenderPdf, isPreprintPdf } from "@/lib/paper-pdf";
 
@@ -188,14 +188,13 @@ export default async function ConferencesPage({
                         {Array.isArray(paper.authors) ? (paper.authors as string[]).join(", ") : ""}
                       </p>
                     </div>
-                    {/* Two visible actions and a menu. The row used to end in a
-                        badge, a text link with a trailing arrow and an icon —
-                        three weights for three things, on every row of a long
-                        list. What stays out is what the reader came for: open it
-                        here, or put it in the library. Where else to find the
-                        paper is a question asked occasionally, so it moves into
-                        the overflow menu where each destination gets a name. */}
-                    <div className="flex shrink-0 items-center gap-2">
+                    {/* One set of chips, all the same height and radius. The
+                        row used to end in a badge, a text link with a trailing
+                        arrow and a bare icon — three weights for three things,
+                        repeated down a long list. Only the destination differs
+                        now: the accent chip opens the paper here, the muted ones
+                        lead out. */}
+                    <div className="flex shrink-0 items-center gap-1.5">
                       {/* Signals before the click that the paper page will show
                           the full text inline; absent when it can't. Papers with
                           no publisher PDF are served from arXiv, so the badge
@@ -206,7 +205,11 @@ export default async function ConferencesPage({
                           title={isPreprintPdf(paper) ? tCommon("preprintNote") : t("pdfBadgeTitle")}
                           className="flex h-6 items-center rounded-md bg-accent/10 px-2.5 text-xs font-medium text-accent transition-colors duration-150 hover:bg-accent/20"
                         >
-                          {isPreprintPdf(paper) ? t("pdfBadgeArxiv") : t("pdfBadge")}
+                          {t("pdfBadge")}
+                          {/* Served from arXiv rather than by the conference:
+                              the mark says it in the space of a glyph, and the
+                              link's title still explains what it implies. */}
+                          {isPreprintPdf(paper) ? <ArxivIcon className="ml-1.5 h-3.5 w-auto" /> : null}
                         </Link>
                       ) : null}
                       {/* The publisher's page when the catalog knows one, and a
@@ -216,23 +219,38 @@ export default async function ConferencesPage({
                           the second is worth having even when the first exists.
                           It travels as the mark rather than the word, since a
                           row is already dense with text. */}
-                      {saved ? (
-                        <InLibraryLink paperId={paper.id} />
-                      ) : (
-                        <SaveToLibraryButton paperId={paper.id} />
-                      )}
-                      <RowMenu
-                        items={[
-                          ...(paper.externalUrl
-                            ? [{ label: tCommon("sourceLink"), href: paper.externalUrl }]
-                            : []),
-                          {
-                            label: t("scholarLink"),
-                            href: `https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}`,
-                            icon: <ScholarIcon className="h-3.5 w-3.5 shrink-0" />
-                          }
-                        ]}
-                      />
+                      {paper.externalUrl ? (
+                        <a
+                          href={paper.externalUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex h-6 items-center rounded-md bg-surface px-2.5 text-xs text-muted transition-colors duration-150 hover:bg-border hover:text-ink"
+                        >
+                          {tCommon("sourceLink")}
+                        </a>
+                      ) : null}
+                      {/* The publisher page and Scholar answer different
+                          questions — read the version of record, against what
+                          else is out there and who cites it — so both are
+                          offered, rather than Scholar standing in only when
+                          there is no publisher link. */}
+                      <a
+                        href={`https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={t("scholarLink")}
+                        title={t("scholarLink")}
+                        className="flex h-6 w-6 items-center justify-center rounded-md bg-surface transition-colors duration-150 hover:bg-border"
+                      >
+                        <ScholarIcon />
+                      </a>
+                      <span className="ml-1">
+                        {saved ? (
+                          <InLibraryLink paperId={paper.id} />
+                        ) : (
+                          <SaveToLibraryButton paperId={paper.id} />
+                        )}
+                      </span>
                     </div>
                   </div>
                 );

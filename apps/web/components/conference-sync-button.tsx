@@ -56,7 +56,7 @@ export function ConferenceSyncButton() {
   return (
     <button
       type="button"
-      className="rounded border border-border px-3 py-2 text-sm transition-colors duration-150 hover:bg-surface disabled:opacity-50"
+      className="rounded border border-accent/40 px-3 py-2 text-sm font-medium text-accent transition-colors duration-150 hover:bg-accent/10 disabled:opacity-50"
       onClick={() => void sync()}
       disabled={busy}
     >

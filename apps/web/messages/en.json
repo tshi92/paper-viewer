@@ -394,7 +394,6 @@
     "emptyFiltered": "No papers match the current filters.",
     "clearFilters": "Clear filters",
     "pdfBadge": "PDF",
-    "pdfBadgeArxiv": "PDF · arXiv",
     "pdfBadgeTitle": "Opens with an inline PDF preview",
     "scholarLink": "Google Scholar"
   }
