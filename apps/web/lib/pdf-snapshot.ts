@@ -3,6 +3,7 @@ import { put } from "@vercel/blob";
 import { prisma } from "@paper-viewer/db";
 import { createPdfObjectKey, createS3Client, putPdfObject } from "@paper-viewer/storage/pdf-storage";
 import { getEnv, getS3Config } from "@/lib/env";
+import { hasStoredPdf } from "@/lib/paper-pdf";
 
 const MIN_PDF_BYTES = 1024;
 const PDF_MAGIC = "%PDF";
@@ -80,7 +81,7 @@ export async function ensurePdfSnapshot(paperId: string, workspaceId: string): P
   if (!paper) {
     return false;
   }
-  if (paper.files.length > 0 || paper.blobUrl) {
+  if (hasStoredPdf(paper)) {
     return true;
   }
 

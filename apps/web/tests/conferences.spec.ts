@@ -115,7 +115,8 @@ test("catalog lists entries by venue, previews before save, saves into the libra
   // Save from the catalog card.
   await page.goto(`/conferences?venue=${venueA}`);
   await sectionA.getByRole("button", { name: "存入文库" }).click();
-  await expect(sectionA.getByText("已在文库")).toBeVisible();
+  // Saved papers swap the save button for a link into the library.
+  await expect(sectionA.getByRole("link", { name: "在文库中显示" })).toBeVisible();
 
   await page.goto("/library");
   await expect(page.getByText(`Conference Fixture Alpha ${run}`)).toBeVisible();

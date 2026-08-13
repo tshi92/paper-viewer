@@ -148,7 +148,7 @@ test("the paper page is a read-only preview and saving unlocks the workspace", a
   await page.goto("/library");
   await expect(page.getByText(`Digest Only Paper ${run}`)).toBeVisible();
   await page.goto("/today");
-  await expect(page.getByText("已在文库")).toBeVisible();
+  await expect(page.getByRole("link", { name: "在文库中显示" })).toBeVisible();
 });
 
 test("papers outside the workspace's digests cannot be previewed or saved", async ({ page }) => {

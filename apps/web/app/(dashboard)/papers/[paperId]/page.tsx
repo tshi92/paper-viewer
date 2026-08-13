@@ -5,6 +5,7 @@ import { PaperWorkspace } from "@/components/paper-workspace";
 import type { LabelView } from "@/lib/annotation-types";
 import { requireCurrentUser } from "@/lib/auth";
 import { canAccessPaper } from "@/lib/paper-access";
+import { hasStoredPdf, isPreprintPdf } from "@/lib/paper-pdf";
 import { ensurePdfSnapshot } from "@/lib/pdf-snapshot";
 
 export default async function PaperPage({ params }: { params: Promise<{ paperId: string }> }) {
@@ -60,7 +61,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
       notFound();
     }
 
-    let previewHasPdf = previewPaper.files.length > 0 || Boolean(previewPaper.blobUrl);
+    let previewHasPdf = hasStoredPdf(previewPaper);
     if (!previewHasPdf) {
       try {
         previewHasPdf = await ensurePdfSnapshot(paperId, user.workspaceId);
@@ -82,12 +83,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
           doi: previewPaper.doi,
           abstract: previewPaper.abstract,
           hasPdf: previewHasPdf,
-          // The inline PDF comes from arXiv while the version of record is the
-          // conference's — the reader should know it may differ.
-          pdfIsPreprint:
-            previewPaper.source === "conference" &&
-            Boolean(previewPaper.arxivId) &&
-            !previewPaper.pdfUrl,
+          pdfIsPreprint: isPreprintPdf(previewPaper),
           conference: previewPaper.conferenceEntries[0] ?? null,
           analysis: previewAnalysis
             ? {
@@ -114,7 +110,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
   // workspace.
   // Pinning the PDF snapshot on first open keeps annotation coordinates from
   // drifting when the upstream version changes.
-  let hasPdf = paper.files.length > 0 || Boolean(paper.blobUrl);
+  let hasPdf = hasStoredPdf(paper);
   if (!hasPdf) {
     try {
       hasPdf = await ensurePdfSnapshot(paperId, user.workspaceId);
@@ -182,7 +178,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
         externalUrl: paper.externalUrl,
         abstract: paper.abstract,
         hasPdf,
-        pdfIsPreprint: paper.source === "conference" && Boolean(paper.arxivId) && !paper.pdfUrl,
+        pdfIsPreprint: isPreprintPdf(paper),
         analysis: analysis
           ? {
               summary: analysis.summary,

@@ -1,18 +1,16 @@
 export type WorkspaceRole = "owner" | "admin" | "member";
 
-export function canReadWorkspace(role: WorkspaceRole | null): boolean {
-  return role === "owner" || role === "admin" || role === "member";
-}
-
-export function canWritePaper(role: WorkspaceRole | null): boolean {
-  return role === "owner" || role === "admin" || role === "member";
-}
-
-export function canManageWorkspace(role: WorkspaceRole | null): boolean {
-  return role === "owner";
-}
-
 export function canManageWorkspaceSettings(role: WorkspaceRole | null): boolean {
+  return role === "owner" || role === "admin";
+}
+
+/**
+ * Removing a paper archives it for the whole workspace, taking it out of
+ * everyone's library — so it is an admin action, not something a member can do
+ * to a shared reading list. (Reading state, annotations and comments stay
+ * per-user and remain writable by every member.)
+ */
+export function canRemovePaper(role: WorkspaceRole | null): boolean {
   return role === "owner" || role === "admin";
 }
 

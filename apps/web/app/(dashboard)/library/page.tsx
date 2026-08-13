@@ -3,12 +3,12 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
 import { isReadingState, readingStates } from "@paper-viewer/core/paper-status";
 import { PaperUploadForm } from "@/components/paper-upload-form";
-import { RemovePaperButton } from "@/components/remove-paper-button";
 import { MoreTopics } from "@/components/more-topics";
 import { LibrarySearch } from "@/components/library-search";
 import { FilterDropdown } from "@/components/filter-dropdown";
 import { LabelChip } from "@/components/label-chip";
 import { requireCurrentUser } from "@/lib/auth";
+import { hasStoredPdf } from "@/lib/paper-pdf";
 
 /** Filter keys map to a translation key plus the window they select. */
 const TIME_FILTERS: Record<string, { labelKey: string; days: number }> = {
@@ -256,8 +256,8 @@ export default async function LibraryPage({
       </div>
 
       <div className="divide-y divide-border">
-        {workspacePapers.map(({ paper, tags, labelLinks, createdAt, id: wpId }) => (
-          <div className="flex items-center justify-between px-4 py-4 transition-colors duration-150 hover:bg-surface group" key={paper.id}>
+        {workspacePapers.map(({ paper, tags, labelLinks, createdAt }) => (
+          <div className="flex items-center justify-between px-4 py-4 transition-colors duration-150 hover:bg-surface" key={paper.id}>
             <Link className="min-w-0 flex-1" href={`/papers/${paper.id}`}>
               <h2 className="font-medium">{paper.title}</h2>
               <p className="mt-1 text-sm text-muted">{Array.isArray(paper.authors) ? paper.authors.join(", ") : ""}</p>
@@ -266,8 +266,7 @@ export default async function LibraryPage({
                   {dateFormat.format(createdAt)}
                   {" · "}
                   {paper.source === "arxiv" || paper.source === "hermes" ? `arXiv:${paper.arxivId ?? ""}` : sourceLabel(paper.source)}
-                  {/* Kept consistent with the hasPdf check on the paper detail page: a Blob snapshot counts as having a PDF */}
-                  {paper.files.length > 0 || paper.blobUrl ? ` · ${t("pdfBadge")}` : ""}
+                  {hasStoredPdf(paper) ? ` · ${t("pdfBadge")}` : ""}
                 </span>
                 {tags.length > 0 ? (
                   <div className="flex gap-1">
@@ -278,14 +277,14 @@ export default async function LibraryPage({
                 ) : null}
               </div>
             </Link>
-            {/* Row actions stay minimal: reading state is changed on the paper
-                page itself, and the meta line already names the arXiv id.
-                Labels sit here on the right, where the freed-up space is. */}
+            {/* The row carries no actions at all: reading state, removal and the
+                arXiv link all live on the paper page, one click away, where they
+                cannot be hit by accident on a dense list. Only the labels show
+                here, on the right where the freed-up space is. */}
             <div className="flex shrink-0 items-center gap-2">
               {labelLinks.map(({ label: paperLabel }) => (
                 <LabelChip key={paperLabel.id} name={paperLabel.name} color={paperLabel.color} />
               ))}
-              <RemovePaperButton workspacePaperId={wpId} paperTitle={paper.title} />
             </div>
           </div>
         ))}

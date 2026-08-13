@@ -11,6 +11,8 @@
 # :50 and the job sleeps until the top of the next hour before calling.
 #
 # Required repository secret: CRON_SECRET — the same value as the Vercel env var.
+# Repository variable APP_URL points the trigger at your own deployment; forks
+# must set it, otherwise this workflow calls someone else's site.
 name: digest-trigger
 
 on:
@@ -28,7 +30,7 @@ jobs:
       - name: Trigger the digest cron endpoint at the top of the hour
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          ENDPOINT: https://paper-viewer-five.vercel.app/api/cron/daily-digest
+          APP_URL: ${{ vars.APP_URL || 'https://paper-viewer-five.vercel.app' }}
         run: |
           set -u
           # The :50 schedule absorbs GitHub's dispatch delay. If we still start
@@ -43,7 +45,7 @@ jobs:
           for attempt in 1 2 3 4 5; do
             code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
               -H "Authorization: Bearer $CRON_SECRET" \
-              --max-time 300 "$ENDPOINT" || echo "000")
+              --max-time 300 "${APP_URL%/}/api/cron/daily-digest" || echo "000")
             echo "attempt $attempt: HTTP $code"
             head -c 500 /tmp/resp.json || true; echo
             if [ "$code" = "200" ]; then
