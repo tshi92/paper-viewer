@@ -27,3 +27,17 @@ export async function canAccessPaper(workspaceId: string, paperId: string): Prom
   });
   return conference !== null;
 }
+
+/**
+ * Whether this workspace met the paper through a daily digest. The digest run
+ * writes an intro for every paper it picks, so a digest paper with no intro
+ * means the run failed on it — which is a different thing to say than "save it
+ * to the library and one will be generated".
+ */
+export async function isDigestPaper(workspaceId: string, paperId: string): Promise<boolean> {
+  const digest = await prisma.dailyDigest.findFirst({
+    where: { workspaceId, paperIds: { has: paperId } },
+    select: { id: true }
+  });
+  return digest !== null;
+}

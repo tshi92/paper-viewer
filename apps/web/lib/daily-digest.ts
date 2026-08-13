@@ -89,6 +89,15 @@ type AnalysisRow = {
 // ---------------------------------------------------------------- pure helpers
 
 /** A digest counts as fully complete only when there are no pending papers, the overview has been generated, and anything that should have been pushed has been pushed. */
+/**
+ * Stands in for the briefing when not one paper could be analysed — an LLM
+ * outage, or an account that is rate-limited for the whole run. Recognisable on
+ * sight so a later run can tell it apart from a real overview and replace it.
+ */
+export function placeholderOverview(count: number): string {
+  return `今日推荐 ${count} 篇论文。`;
+}
+
 export function isDigestComplete(
   digest: Pick<DigestRow, "overviewSummary" | "pendingPaperIds" | "feishuSentAt">,
   hasWebhook: boolean
@@ -432,6 +441,27 @@ export async function analysisTags(workspaceId: string, paperId: string): Promis
   return latest?.keywords.slice(0, MAX_TAGS) ?? [];
 }
 
+/**
+ * Digest papers with no analysis, in the digest's own order — the papers a run
+ * dropped on the floor and a later run should pick back up.
+ */
+export function papersToRequeue(
+  paperIds: string[],
+  analysedPaperIds: ReadonlySet<string>
+): string[] {
+  return paperIds.filter((paperId) => !analysedPaperIds.has(paperId));
+}
+
+/** papersToRequeue against what this workspace has actually analysed. */
+async function papersMissingAnalysis(workspaceId: string, paperIds: string[]): Promise<string[]> {
+  if (paperIds.length === 0) return [];
+  const rows = await prisma.paperAnalysis.findMany({
+    where: { workspaceId, paperId: { in: paperIds } },
+    select: { paperId: true }
+  });
+  return papersToRequeue(paperIds, new Set(rows.map((row) => row.paperId)));
+}
+
 async function loadAnalyses(workspaceId: string, paperIds: string[]): Promise<Map<string, AnalysisRow>> {
   const rows = await prisma.paperAnalysis.findMany({
     where: { workspaceId, paperId: { in: paperIds } },
@@ -522,6 +552,24 @@ export async function runDailyDigest(
   let digest: DigestRow | null = await prisma.dailyDigest.findUnique({
     where: { workspaceId_date: { workspaceId, date } }
   });
+
+  // A paper whose analysis threw is dequeued so one bad paper cannot block the
+  // digest forever — but that also meant a day where every call failed (an LLM
+  // outage, a rate-limited account) was marked complete with no analyses and no
+  // way back: the placeholder overview is non-empty, so isDigestComplete said
+  // done and every later run skipped it. Re-queue what is still missing, so the
+  // next run retries it. A paper that keeps failing costs one call per run
+  // rather than being lost.
+  if (digest && digest.pendingPaperIds.length === 0) {
+    const missing = await papersMissingAnalysis(workspaceId, digest.paperIds);
+    if (missing.length > 0) {
+      digest = await prisma.dailyDigest.update({
+        where: { id: digest.id },
+        data: { pendingPaperIds: missing }
+      });
+    }
+  }
+
   if (digest && isDigestComplete(digest, Boolean(webhookUrl))) {
     return { status: "skipped_done", processed: 0, remaining: 0 };
   }
@@ -595,8 +643,12 @@ async function advanceDigest(params: {
   const papers = new Map(paperRows.map((paper) => [paper.id, paper]));
   const analyses = await loadAnalyses(workspaceId, digest.paperIds);
 
-  if (!digest.overviewSummary.trim()) {
-    let overviewSummary = `今日推荐 ${digest.paperIds.length} 篇论文。`;
+  // The placeholder counts as "no overview": it is what a run writes when every
+  // analysis failed, and a later run that recovers them must be able to replace
+  // it. (The Feishu card is not re-sent — feishuSentAt guards against a second
+  // push — so the improved text only lands in the app.)
+  if (!digest.overviewSummary.trim() || digest.overviewSummary === placeholderOverview(digest.paperIds.length)) {
+    let overviewSummary = placeholderOverview(digest.paperIds.length);
     const results = digest.paperIds.flatMap((paperId) => {
       const paper = papers.get(paperId);
       const analysis = analyses.get(paperId);

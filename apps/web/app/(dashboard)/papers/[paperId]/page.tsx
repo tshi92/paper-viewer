@@ -4,7 +4,7 @@ import { PaperPreview } from "@/components/paper-preview";
 import { PaperWorkspace } from "@/components/paper-workspace";
 import type { LabelView } from "@/lib/annotation-types";
 import { requireCurrentUser } from "@/lib/auth";
-import { canAccessPaper } from "@/lib/paper-access";
+import { canAccessPaper, isDigestPaper } from "@/lib/paper-access";
 import { hasStoredPdf, isPreprintPdf } from "@/lib/paper-pdf";
 import { ensurePdfSnapshot } from "@/lib/pdf-snapshot";
 
@@ -73,6 +73,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
     const previewAnalysis = previewPaper.analyses[0];
     return (
       <PaperPreview
+        fromDigest={await isDigestPaper(user.workspaceId, paperId)}
         paper={{
           id: previewPaper.id,
           title: previewPaper.title,
