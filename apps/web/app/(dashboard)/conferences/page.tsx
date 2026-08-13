@@ -201,10 +201,13 @@ export default async function ConferencesPage({
                           {isPreprintPdf(paper) ? t("pdfBadgeArxiv") : t("pdfBadge")}
                         </Link>
                       ) : null}
-                      {/* Two different destinations: the publisher's own page
-                          when the catalog knows one, otherwise a Scholar
-                          lookup — which travels as the mark rather than the
-                          word, since a row is already dense with text. */}
+                      {/* The publisher's page when the catalog knows one, and a
+                          Scholar lookup either way: the two answer different
+                          questions — "read the version of record" against "what
+                          else is there, who cites it, is there a preprint" — so
+                          the second is worth having even when the first exists.
+                          It travels as the mark rather than the word, since a
+                          row is already dense with text. */}
                       {paper.externalUrl ? (
                         <a
                           href={paper.externalUrl}
@@ -214,18 +217,17 @@ export default async function ConferencesPage({
                         >
                           {tCommon("sourceLink")} ↗
                         </a>
-                      ) : (
-                        <a
-                          href={`https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={t("scholarLinkTitle")}
-                          title={t("scholarLinkTitle")}
-                          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150 hover:bg-surface"
-                        >
-                          <ScholarIcon />
-                        </a>
-                      )}
+                      ) : null}
+                      <a
+                        href={`https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={t("scholarLinkTitle")}
+                        title={t("scholarLinkTitle")}
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150 hover:bg-surface"
+                      >
+                        <ScholarIcon />
+                      </a>
                       {saved ? (
                         <InLibraryLink paperId={paper.id} />
                       ) : (
