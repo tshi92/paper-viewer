@@ -57,7 +57,7 @@
     "emptyGuideBody": "设置研究偏好后，每个工作日会自动挑选相关论文，更新在这里并推送到飞书群。",
     "emptyGuideBodyReady": "研究偏好已设置。到推送时间这里会自动更新，也可以点击「发现论文」立即试一次。",
     "emptyGuideCta": "设置研究偏好",
-    "savedBadge": "已在文库",
+    "showInLibrary": "在文库中显示",
     "digestRunning": "正在生成今日推送……可以离开此页，完成后会自动显示在这里。",
     "digestRunningProgress": "正在生成今日推送（已完成 {done}/{total} 篇）……完成后会自动显示在这里。"
   },
@@ -84,8 +84,6 @@
     "empty": "暂无论文。",
     "emptyFiltered": "当前筛选条件下没有论文。",
     "emptySearch": "没有匹配的论文。",
-    "remove": "移除",
-    "removeDialogMessage": "从文库移除《{title}》？\n论文将被归档，标注与评论数据保留。",
     "clearFilters": "清除筛选"
   },
   "upload": {
@@ -122,7 +120,10 @@
     "analysisGenerating": "生成中…",
     "analysisGenerateFailed": "生成失败，请重试。",
     "outlineHeading": "目录",
-    "downloadFailed": "下载失败"
+    "downloadFailed": "下载失败",
+    "remove": "从文库移除",
+    "removeDialogMessage": "从文库移除《{title}》？\n所有成员的文库都将不再显示它，标注与评论数据保留。",
+    "removeFailed": "移除失败，请重试。"
   },
   "paperLabels": {
     "label": "标签：",

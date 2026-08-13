@@ -5,6 +5,7 @@ import { isReadingState } from "@paper-viewer/core/paper-status";
 import { requireCurrentUser } from "@/lib/auth";
 import { DiscoverButton } from "@/components/discover-button";
 import { DigestProgressBanner } from "@/components/digest-progress-banner";
+import { InLibraryLink } from "@/components/in-library-link";
 import { ReadingStateChips } from "@/components/reading-state-chips";
 import { SaveToLibraryButton } from "@/components/save-to-library-button";
 
@@ -182,9 +183,7 @@ export default async function TodayPage() {
                     <div className="flex flex-col items-end gap-2">
                       {workspacePaper ? (
                         <>
-                          <span className="rounded bg-surface px-2 py-0.5 text-xs text-muted">
-                            {t("savedBadge")}
-                          </span>
+                          <InLibraryLink paperId={paper.id} />
                           <ReadingStateChips
                             paperId={paper.id}
                             state={isReadingState(readingState) ? readingState : "new"}
@@ -248,9 +247,7 @@ export default async function TodayPage() {
                       {paper.title}
                     </Link>
                     {workspacePaper ? (
-                      <span className="shrink-0 rounded bg-surface px-2 py-0.5 text-xs text-muted">
-                        {t("savedBadge")}
-                      </span>
+                      <InLibraryLink paperId={paper.id} className="shrink-0" />
                     ) : (
                       <SaveToLibraryButton paperId={paper.id} />
                     )}

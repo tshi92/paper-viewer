@@ -57,7 +57,7 @@
     "emptyGuideBody": "Once research preferences are set, relevant papers are picked every weekday, listed here and pushed to the Feishu group.",
     "emptyGuideBodyReady": "Research preferences are set. This page updates automatically at push time, or click “Discover papers” to try right now.",
     "emptyGuideCta": "Set research preferences",
-    "savedBadge": "In library",
+    "showInLibrary": "Show in library",
     "digestRunning": "Generating today's digest… You can leave this page; results appear here automatically when it finishes.",
     "digestRunningProgress": "Generating today's digest ({done}/{total} papers done)… Results appear here automatically when it finishes."
   },
@@ -84,8 +84,6 @@
     "empty": "No papers found.",
     "emptyFiltered": "No papers found with current filters.",
     "emptySearch": "No matching papers.",
-    "remove": "Remove",
-    "removeDialogMessage": "Remove \"{title}\" from the library?\nThe paper is archived; annotation and comment data are kept.",
     "clearFilters": "Clear filters"
   },
   "upload": {
@@ -122,7 +120,10 @@
     "analysisGenerating": "Generating…",
     "analysisGenerateFailed": "Generation failed. Please try again.",
     "outlineHeading": "Contents",
-    "downloadFailed": "Download failed"
+    "downloadFailed": "Download failed",
+    "remove": "Remove from library",
+    "removeDialogMessage": "Remove \"{title}\" from the library?\nIt disappears from every member's library; annotations and comments are kept.",
+    "removeFailed": "Could not remove this paper."
   },
   "paperLabels": {
     "label": "Labels:",

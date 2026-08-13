@@ -2,9 +2,7 @@
   "name": "@paper-viewer/core",
   "private": true,
   "type": "module",
-  "main": "./src/validation.ts",
   "exports": {
-    ".": "./src/validation.ts",
     "./permissions": "./src/permissions.ts",
     "./labels": "./src/labels.ts",
     "./llm-config": "./src/llm-config.ts",

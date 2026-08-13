@@ -1,6 +1,7 @@
 import { prisma } from "@paper-viewer/db";
 import { isUniqueViolation } from "@/lib/daily-digest";
 import { normalizeTitle } from "@/lib/paper-identity";
+import { canRenderPdf } from "@/lib/paper-pdf";
 
 /**
  * The conference catalog source: a GitHub repo (default: RealZST/csconf-papers)
@@ -191,8 +192,7 @@ export type CatalogEntryRow = {
 
 /** Rows that can render an inline PDF outrank bare metadata; a source link breaks ties. */
 function catalogRowScore(row: CatalogEntryRow): number {
-  const pdfCapable = row.paper.arxivId || row.paper.pdfUrl || row.paper.blobUrl;
-  return (pdfCapable ? 2 : 0) + (row.paper.externalUrl ? 1 : 0);
+  return (canRenderPdf(row.paper) ? 2 : 0) + (row.paper.externalUrl ? 1 : 0);
 }
 
 /**

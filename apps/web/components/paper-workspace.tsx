@@ -12,9 +12,10 @@ import { ReadingStateChips } from "./reading-state-chips";
 import { DownloadPdfButton } from "./download-pdf-button";
 import { AnnotationSidebar } from "./annotation-sidebar";
 import { PaperLabelPicker } from "./paper-label-picker";
+import { RemovePaperButton } from "./remove-paper-button";
 import type { CreateAnnotationInput } from "./pdf-annotator";
 import type { ReadingState } from "@paper-viewer/core/paper-status";
-import type { WorkspaceRole } from "@paper-viewer/core/permissions";
+import { canRemovePaper, type WorkspaceRole } from "@paper-viewer/core/permissions";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
 import type { PdfOutlineEntry } from "@/lib/pdf-outline";
 
@@ -308,6 +309,13 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
             />
             {!paper.hasPdf && paper.arxivId ? (
               <DownloadPdfButton paperId={paper.id} arxivId={paper.arxivId} />
+            ) : null}
+            {/* Destructive and workspace-wide, so it sits apart from the
+                per-paper controls, at the far end of the row. */}
+            {canRemovePaper(paper.currentUserRole) ? (
+              <span className="ml-auto">
+                <RemovePaperButton paperId={paper.id} paperTitle={paper.title} />
+              </span>
             ) : null}
           </div>
         </div>

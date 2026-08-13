@@ -4,8 +4,10 @@ import { prisma } from "@paper-viewer/db";
 import { canManageWorkspaceSettings } from "@paper-viewer/core/permissions";
 import { requireCurrentUser } from "@/lib/auth";
 import { ConferenceSyncButton } from "@/components/conference-sync-button";
+import { InLibraryLink } from "@/components/in-library-link";
 import { LibrarySearch } from "@/components/library-search";
 import { SaveToLibraryButton } from "@/components/save-to-library-button";
+import { canRenderPdf } from "@/lib/paper-pdf";
 
 // A single program never comes close to this; only a broad search can, and
 // the truncation is announced in the UI, never silent.
@@ -24,7 +26,6 @@ export default async function ConferencesPage({
 }) {
   const user = await requireCurrentUser();
   const t = await getTranslations("conferences");
-  const tHome = await getTranslations("home");
   const tCommon = await getTranslations("common");
   const { venue: rawVenue, year: rawYear, q } = await searchParams;
   const query = (q ?? "").trim().toLowerCase();
@@ -185,7 +186,7 @@ export default async function ConferencesPage({
                     <div className="flex shrink-0 items-center gap-3">
                       {/* Signals before the click that the paper page will show
                           the full text inline; absent when it can't. */}
-                      {paper.pdfUrl || paper.arxivId || paper.blobUrl ? (
+                      {canRenderPdf(paper) ? (
                         <Link
                           href={`/papers/${paper.id}?from=conferences`}
                           title={t("pdfBadgeTitle")}
@@ -207,9 +208,7 @@ export default async function ConferencesPage({
                         {paper.externalUrl ? tCommon("sourceLink") : t("scholarLink")} ↗
                       </a>
                       {saved ? (
-                        <span className="rounded bg-surface px-2 py-0.5 text-xs text-muted">
-                          {tHome("savedBadge")}
-                        </span>
+                        <InLibraryLink paperId={paper.id} />
                       ) : (
                         <SaveToLibraryButton paperId={paper.id} />
                       )}
