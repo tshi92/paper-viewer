@@ -29,6 +29,8 @@ export async function PaperPreview({
     doi: string | null;
     abstract: string | null;
     hasPdf: boolean;
+    /** Whether anything exists to write an intro from — an abstract or a readable PDF. */
+    canGenerateIntro: boolean;
     /** The inline PDF is an arXiv preprint while the version of record is the conference's. */
     pdfIsPreprint: boolean;
     analysis: AnalysisView | null;
@@ -174,8 +176,12 @@ export async function PaperPreview({
             // missing the run failed on it — telling that reader to "save it
             // first" would be wrong. A catalog paper genuinely has none until
             // someone saves it.
-            <p className="mt-3 text-sm text-muted">
-              {fromDigest ? t("introDigestMissing") : t("introAfterSave")}
+            <p className="mt-3 text-sm leading-relaxed text-muted">
+              {!paper.canGenerateIntro
+                ? t("introNoSource")
+                : fromDigest
+                  ? t("introDigestMissing")
+                  : t("introAfterSave")}
             </p>
           )}
         </section>

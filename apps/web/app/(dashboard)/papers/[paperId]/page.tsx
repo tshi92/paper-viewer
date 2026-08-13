@@ -84,6 +84,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
           doi: previewPaper.doi,
           abstract: previewPaper.abstract,
           hasPdf: previewHasPdf,
+          canGenerateIntro: Boolean(previewPaper.abstract?.trim()) || previewHasPdf,
           pdfIsPreprint: isPreprintPdf(previewPaper),
           conference: previewPaper.conferenceEntries[0] ?? null,
           analysis: previewAnalysis
@@ -179,6 +180,9 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
         externalUrl: paper.externalUrl,
         abstract: paper.abstract,
         hasPdf,
+        // An abstract, or a PDF whose text can be read: without either there is
+        // nothing to write an intro from.
+        canGenerateIntro: Boolean(paper.abstract?.trim()) || hasPdf,
         pdfIsPreprint: isPreprintPdf(paper),
         analysis: analysis
           ? {

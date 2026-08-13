@@ -114,6 +114,7 @@
     "downloadingPdf": "下载中…",
     "analysisHeading": "简介",
     "analysisEmpty": "暂无简介。",
+    "analysisNoSource": "这条记录只有标题和作者：目录没有提供摘要，也没有可读取的 PDF，所以没有内容可以据此写导读。在文库页用「上传 PDF」上传这篇论文的 PDF，会自动附到这条记录上，之后就能生成。",
     "analysisMotivation": "1. 动机：",
     "analysisProblem": "2. 问题：",
     "analysisMethod": "3. 方法：",
@@ -377,6 +378,7 @@
     "saveDone": "已存入文库",
     "introAfterSave": "存入文库后会自动生成 AI 简介。",
     "introDigestMissing": "这篇的 AI 简介在每日推送时生成失败了（通常是模型接口限流）。下次推送会自动重试，也可以存入文库后手动重新生成。",
+    "introNoSource": "这条记录只有标题和作者，目录没有提供摘要，也没有可读取的 PDF，所以暂时无法生成导读。存入文库后上传这篇论文的 PDF 即可。",
     "searchScholar": "在 Google Scholar 查找"
   },
   "conferences": {

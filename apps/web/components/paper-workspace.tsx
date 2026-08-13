@@ -36,6 +36,11 @@ type PaperData = {
   externalUrl: string | null;
   abstract: string | null;
   hasPdf: boolean;
+  /**
+   * Whether there is anything to write an intro from: an abstract, or a PDF
+   * whose text can be read. A catalog entry that never got a PDF has neither.
+   */
+  canGenerateIntro: boolean;
   /** The inline PDF is an arXiv preprint while the version of record is the conference's. */
   pdfIsPreprint: boolean;
   analysis: AnalysisView | null;
@@ -477,6 +482,7 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           <AnalysisPanel
             analysis={paper.analysis}
             paperId={paper.id}
+            canGenerate={paper.canGenerateIntro}
             outline={outline}
             onJumpToPage={(page) => scrollToPage.current?.(page)}
           />

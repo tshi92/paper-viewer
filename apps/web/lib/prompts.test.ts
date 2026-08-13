@@ -63,6 +63,31 @@ describe("analysisPrompt", () => {
   });
 });
 
+describe("analysisPrompt source material", () => {
+  it("defaults to the paper's own abstract", () => {
+    expect(analysisPrompt("en", paper, []).user).toContain(paper.abstract);
+  });
+
+  it("takes full text instead, and says the paper has no abstract", () => {
+    const prompt = analysisPrompt("en", paper, [], {
+      kind: "fullText",
+      text: "1 Introduction\nThe system reuses KV cache blocks."
+    });
+    expect(prompt.user).toContain("The system reuses KV cache blocks.");
+    expect(prompt.user).toContain("this paper has no abstract on file");
+    // The abstract must not travel too: a catalog paper's is empty anyway, and
+    // two source blocks would leave the model deciding which one to trust.
+    expect(prompt.user).not.toContain(`Abstract: ${paper.abstract}`);
+  });
+
+  it("truncates full text, so one 40-page PDF cannot become the whole prompt", () => {
+    const long = "x".repeat(60_000);
+    const prompt = analysisPrompt("zh", paper, [], { kind: "fullText", text: long });
+    expect(prompt.user).toContain("x".repeat(1000));
+    expect(prompt.user.length).toBeLessThan(50_000);
+  });
+});
+
 describe("overviewPrompt", () => {
   it("names the language and its length guidance, staying in English", () => {
     const chinese = overviewPrompt("zh", [analysis], ["llm serving"]);

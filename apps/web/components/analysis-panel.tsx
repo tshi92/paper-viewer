@@ -81,11 +81,18 @@ function OutlineBlock({
 export function AnalysisPanel({
   analysis,
   paperId,
+  canGenerate,
   outline,
   onJumpToPage
 }: {
   analysis: AnalysisView | null;
   paperId: string;
+  /**
+   * Whether the paper carries anything to write an intro from — an abstract, or
+   * a PDF whose text can be read. A catalog entry has neither: the upstream
+   * feed is titles and authors only.
+   */
+  canGenerate: boolean;
   /** Embedded PDF bookmarks; null while loading, [] when the PDF has none. */
   outline?: PdfOutlineEntry[] | null;
   onJumpToPage?: (page: number) => void;
@@ -136,6 +143,14 @@ export function AnalysisPanel({
         toast.error(t("analysisGenerateFailed"));
         return;
       }
+      // The server found nothing to work from — a PDF that yields no text, say,
+      // which cannot be known before trying. Stop waiting and say why.
+      const body = (await res.json().catch(() => ({}))) as { generated?: boolean };
+      if (body.generated === false) {
+        endFlight(flightKey);
+        toast.error(t("analysisNoSource"));
+        return;
+      }
       // Pull the fresh server props in right away; the polling effect stays on
       // as the backstop until the analysis actually shows up in them.
       router.refresh();
@@ -153,7 +168,7 @@ export function AnalysisPanel({
   // runs and local browsing do not burn real LLM calls on fixture papers).
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_AUTO_GENERATE_INTRO === "off") return;
-    if (analysis || generating || autoFired.current) return;
+    if (analysis || generating || autoFired.current || !canGenerate) return;
     autoFired.current = true;
     void generate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,15 +179,23 @@ export function AnalysisPanel({
       <div className="flex h-full min-h-0 flex-col gap-3">
         {outlineBlock}
         <section className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto rounded border border-border bg-white shadow-card p-4 text-center text-sm text-muted">
-        <p>{t("analysisEmpty")}</p>
-        <button
-          type="button"
-          className="rounded bg-accent transition-transform duration-150 active:scale-[0.98] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-          onClick={() => void generate()}
-          disabled={generating}
-        >
-          {generating ? t("analysisGenerating") : t("analysisGenerate")}
-        </button>
+        {canGenerate ? (
+          <>
+            <p>{t("analysisEmpty")}</p>
+            <button
+              type="button"
+              className="rounded border border-accent/40 px-3 py-1.5 text-sm font-medium text-accent transition-colors duration-150 hover:bg-accent/10 disabled:opacity-50"
+              onClick={() => void generate()}
+              disabled={generating}
+            >
+              {generating ? t("analysisGenerating") : t("analysisGenerate")}
+            </button>
+          </>
+        ) : (
+          // No button at all: there is nothing to press it against, and the way
+          // out is to give the paper a PDF.
+          <p className="max-w-xs leading-relaxed">{t("analysisNoSource")}</p>
+        )}
         </section>
       </div>
     );

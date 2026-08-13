@@ -114,6 +114,7 @@
     "downloadingPdf": "Downloading…",
     "analysisHeading": "Intro",
     "analysisEmpty": "No intro yet.",
+    "analysisNoSource": "This entry has only a title and authors: the catalog provides no abstract and there is no readable PDF, so there is nothing to write an intro from. Upload the paper's PDF from the Library page — it attaches to this entry, and the intro can be generated after that.",
     "analysisMotivation": "1. Motivation:",
     "analysisProblem": "2. Problem:",
     "analysisMethod": "3. Method:",
@@ -377,6 +378,7 @@
     "saveDone": "Saved to library",
     "introAfterSave": "The AI intro is generated automatically after this paper is saved to the library.",
     "introDigestMissing": "The AI intro failed to generate during the daily run, usually because the model endpoint was rate-limited. The next run retries it; saving the paper to the library also lets you regenerate it by hand.",
+    "introNoSource": "This entry has only a title and authors — no abstract from the catalog and no readable PDF — so an intro cannot be written yet. Save it to the library and upload the paper's PDF.",
     "searchScholar": "Search on Google Scholar"
   },
   "conferences": {
