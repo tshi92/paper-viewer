@@ -3,6 +3,8 @@ import {
   isDigestComplete,
   isUniqueViolation,
   latestAnalysisPerPaper,
+  papersToRequeue,
+  placeholderOverview,
   summaryLineOf,
   toArxivPaper
 } from "./daily-digest";
@@ -33,6 +35,45 @@ describe("isDigestComplete", () => {
   it("waits for the feishu push when a webhook is configured", () => {
     expect(isDigestComplete(digest(), true)).toBe(false);
     expect(isDigestComplete(digest({ feishuSentAt: new Date("2026-08-11T01:00:00Z") }), true)).toBe(true);
+  });
+});
+
+describe("placeholderOverview", () => {
+  // A run where every analysis failed writes this instead of a briefing. It has
+  // to be recognisable by value, because that is how a later run knows the text
+  // is a stand-in it may replace rather than a real overview.
+  it("is stable for a given paper count, so a later run can recognise it", () => {
+    expect(placeholderOverview(4)).toBe(placeholderOverview(4));
+    expect(placeholderOverview(4)).not.toBe(placeholderOverview(3));
+  });
+
+  it("is non-empty, which is why isDigestComplete alone could not catch it", () => {
+    const stub = placeholderOverview(4);
+    expect(stub.trim()).not.toBe("");
+    expect(
+      isDigestComplete({ overviewSummary: stub, pendingPaperIds: [], feishuSentAt: null }, false)
+    ).toBe(true);
+  });
+});
+
+describe("papersToRequeue", () => {
+  it("returns the papers with no analysis, in the digest's order", () => {
+    expect(papersToRequeue(["p1", "p2", "p3"], new Set(["p2"]))).toEqual(["p1", "p3"]);
+  });
+
+  it("returns nothing once every paper has one", () => {
+    expect(papersToRequeue(["p1", "p2"], new Set(["p1", "p2"]))).toEqual([]);
+    expect(papersToRequeue([], new Set())).toEqual([]);
+  });
+
+  it("returns every paper when a whole run failed", () => {
+    // The case this exists for: an LLM outage or a rate-limited account fails
+    // all of them, and each one is dequeued so it cannot block the digest.
+    expect(papersToRequeue(["p1", "p2", "p3"], new Set())).toEqual(["p1", "p2", "p3"]);
+  });
+
+  it("ignores analyses of papers outside this digest", () => {
+    expect(papersToRequeue(["p1"], new Set(["p9"]))).toEqual(["p1"]);
   });
 });
 

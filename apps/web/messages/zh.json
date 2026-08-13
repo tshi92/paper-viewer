@@ -375,6 +375,7 @@
     "duplicateView": "查看",
     "saveDone": "已存入文库",
     "introAfterSave": "存入文库后会自动生成 AI 简介。",
+    "introDigestMissing": "这篇的 AI 简介在每日推送时生成失败了（通常是模型接口限流）。下次推送会自动重试，也可以存入文库后手动重新生成。",
     "searchScholar": "在 Google Scholar 查找"
   },
   "conferences": {

@@ -375,6 +375,7 @@
     "duplicateView": "View",
     "saveDone": "Saved to library",
     "introAfterSave": "The AI intro is generated automatically after this paper is saved to the library.",
+    "introDigestMissing": "The AI intro failed to generate during the daily run, usually because the model endpoint was rate-limited. The next run retries it; saving the paper to the library also lets you regenerate it by hand.",
     "searchScholar": "Search on Google Scholar"
   },
   "conferences": {

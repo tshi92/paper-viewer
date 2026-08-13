@@ -13,8 +13,11 @@ import type { AnalysisView } from "./analysis-panel";
  * link-out (publisher page, Scholar search) instead of a wall of empty boxes.
  */
 export async function PaperPreview({
-  paper
+  paper,
+  fromDigest
 }: {
+  /** Whether the paper reached this workspace through a daily digest. */
+  fromDigest: boolean;
   paper: {
     id: string;
     title: string;
@@ -153,8 +156,14 @@ export async function PaperPreview({
               ) : null}
             </div>
           ) : (
-            // Not a defect, a lifecycle note: the intro appears after saving.
-            <p className="mt-3 text-sm text-muted">{t("introAfterSave")}</p>
+            // Two different lifecycle notes, not a defect either way. A digest
+            // paper's intro is written during the nightly run, so if it is
+            // missing the run failed on it — telling that reader to "save it
+            // first" would be wrong. A catalog paper genuinely has none until
+            // someone saves it.
+            <p className="mt-3 text-sm text-muted">
+              {fromDigest ? t("introDigestMissing") : t("introAfterSave")}
+            </p>
           )}
         </section>
       </aside>
