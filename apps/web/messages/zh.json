@@ -18,7 +18,7 @@
   "settingsGeneral": {
     "title": "通用",
     "languageHeading": "界面语言",
-    "languageDescription": "只影响界面文字，不影响 AI 生成的内容（论文导读、每日总结的语言在 设置 → LLM 中设置）。该设置只保存在当前浏览器，不会影响其他成员。",
+    "languageDescription": "只影响界面文字，且只保存在当前浏览器，不会影响其他成员。AI 生成的内容（论文导读、每日总结）语言另有设置，在 设置 → LLM 中。",
     "languageSystemLabel": "跟随系统",
     "languageSystemDescription": "使用浏览器请求的语言。",
     "languageZhDescription": "界面始终显示中文。",
@@ -244,7 +244,7 @@
     "title": "LLM 配置",
     "description": "配置工作区使用的大模型服务地址、模型名与 API Key。",
     "outputLanguageLabel": "AI 生成语言",
-    "outputLanguageHint": "论文导读和每日推送总结用这个语言撰写。界面语言另行设置；主题标签始终为英文，AI 对话跟随你的提问语言。",
+    "outputLanguageHint": "论文导读和每日推送总结用这个语言撰写。界面语言在 设置 → 通用 中单独设置。",
     "outputLanguageZh": "中文",
     "outputLanguageEn": "English",
     "adminOnly": "LLM 配置仅管理员可见。如需修改，请联系工作区管理员。",
