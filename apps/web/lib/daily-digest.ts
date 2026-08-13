@@ -20,6 +20,7 @@ import { fetchArxivPapers, type ArxivPaper } from "@/lib/arxiv";
 import { getEnv } from "@/lib/env";
 import { buildDigestCard, sendFeishuCard, type DigestPaper } from "@/lib/feishu";
 import { analyzeSinglePaper, generateOverview, selectPapers, type PaperAnalysisResult } from "@/lib/llm";
+import { toOutputLanguage, type OutputLanguage } from "@paper-viewer/core/llm-config";
 import { resolveLlmConfig, type LlmRuntimeConfig } from "@/lib/llm-config";
 import { ensurePdfSnapshot } from "@/lib/pdf-snapshot";
 
@@ -229,6 +230,8 @@ type Preferences = {
   papersPerDay: number;
   arxivCategories: string[];
   feishuWebhookUrl: string | null;
+  /** Raw column value; `toOutputLanguage` narrows it at the point of use. */
+  outputLanguage: string;
 };
 
 /**
@@ -346,7 +349,13 @@ async function revertFeishuSend(digestId: string): Promise<void> {
 export async function analyzePaperOnDemand(workspaceId: string, paperId: string): Promise<void> {
   const llm = await resolveLlmConfig(workspaceId);
   const prefs = await prisma.researchPreferences.findUnique({ where: { workspaceId } });
-  await processPaper({ workspaceId, paperId, llm, topics: prefs?.topics ?? [] });
+  await processPaper({
+    workspaceId,
+    paperId,
+    llm,
+    topics: prefs?.topics ?? [],
+    language: toOutputLanguage(prefs?.outputLanguage)
+  });
 }
 
 /** Full processing of one paper: pin the PDF → LLM analysis → persist + tag. */
@@ -355,8 +364,9 @@ async function processPaper(params: {
   paperId: string;
   llm: LlmRuntimeConfig;
   topics: string[];
+  language: OutputLanguage;
 }): Promise<void> {
-  const { workspaceId, paperId, llm, topics } = params;
+  const { workspaceId, paperId, llm, topics, language } = params;
 
   const paper = await prisma.paper.findUnique({ where: { id: paperId } });
   if (!paper) {
@@ -374,7 +384,7 @@ async function processPaper(params: {
     console.error("[daily-digest] pdf snapshot failed", paperId, error);
   }
 
-  const analysis = await analyzeSinglePaper(llm, toArxivPaper(paper), topics);
+  const analysis = await analyzeSinglePaper(llm, toArxivPaper(paper), topics, language);
 
   // A concurrent generation may have landed while the model ran (two members
   // opening the same intro-less paper triggers two on-demand runs; the route's
@@ -475,12 +485,14 @@ async function notifyFeishu(params: {
   date: string;
   digest: DigestRow;
   papers: DigestPaper[];
+  language: OutputLanguage;
 }): Promise<boolean> {
   const card = buildDigestCard({
     date: params.date,
     overview: params.digest.overviewSummary,
     papers: params.papers,
-    appUrl: getEnv().APP_URL
+    appUrl: getEnv().APP_URL,
+    language: params.language
   });
   return sendFeishuCard(params.webhookUrl, card);
 }
@@ -556,6 +568,7 @@ async function advanceDigest(params: {
   opts: { deadline: number };
 }): Promise<DigestRunResult> {
   const { workspaceId, prefs, llm, today, webhookUrl, opts } = params;
+  const language = toOutputLanguage(prefs.outputLanguage);
   let digest = params.digest;
 
   let processed = 0;
@@ -565,7 +578,7 @@ async function advanceDigest(params: {
     }
     const paperId: string = digest.pendingPaperIds[0]!;
     try {
-      await processPaper({ workspaceId, paperId, llm, topics: prefs.topics });
+      await processPaper({ workspaceId, paperId, llm, topics: prefs.topics, language });
       processed += 1;
     } catch (error) {
       // Dequeue even when the analysis failed, otherwise this paper would block
@@ -591,7 +604,7 @@ async function advanceDigest(params: {
     });
     if (results.length > 0) {
       try {
-        overviewSummary = await generateOverview(llm, results, prefs.topics);
+        overviewSummary = await generateOverview(llm, results, prefs.topics, language);
       } catch (error) {
         console.error("[daily-digest] overview failed", error);
       }
@@ -609,7 +622,8 @@ async function advanceDigest(params: {
       webhookUrl,
       date: today,
       digest,
-      papers: digestPapers(digest.paperIds, papers, analyses)
+      papers: digestPapers(digest.paperIds, papers, analyses),
+      language
     });
     if (!sent) {
       // On a failed push, clear the timestamp again and leave it for the next

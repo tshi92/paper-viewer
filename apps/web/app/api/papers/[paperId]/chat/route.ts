@@ -64,11 +64,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ pap
   const messages = [
     {
       role: "system",
-      content: `你是一个学术论文阅读助手。以下是用户正在阅读的论文全文。请基于论文内容回答用户的问题，用通俗易懂的中文。如果用户问的问题在论文中找不到答案，请诚实说明。
+      // Chat is the one generated surface with no fixed language: it is a
+      // conversation, so it answers in whichever language the question was
+      // asked in. (Intros and the daily overview are stored artefacts the whole
+      // workspace reads, which is why those follow the workspace setting.)
+      //
+      // The instruction is written in English on purpose: a prompt written in
+      // one language pulls the reply towards that language, which is exactly
+      // what must not happen here.
+      content: `You are a research-paper reading assistant. Below is the full text of the paper the user is reading. Answer their questions from the paper's own content, in plain language. If the paper does not answer the question, say so honestly rather than guessing.
 
-论文标题：${wp.paper.title}
+Always reply in the same language the user wrote their question in.
 
-论文内容：
+Title: ${wp.paper.title}
+
+Full text:
 ${paperContent.slice(0, 60000)}`
     },
     ...history.map((m) => ({

@@ -7,7 +7,7 @@ import { ConferenceSyncButton } from "@/components/conference-sync-button";
 import { InLibraryLink } from "@/components/in-library-link";
 import { LibrarySearch } from "@/components/library-search";
 import { SaveToLibraryButton } from "@/components/save-to-library-button";
-import { canRenderPdf } from "@/lib/paper-pdf";
+import { canRenderPdf, isPreprintPdf } from "@/lib/paper-pdf";
 
 // A single program never comes close to this; only a broad search can, and
 // the truncation is announced in the UI, never silent.
@@ -65,6 +65,9 @@ export default async function ConferencesPage({
               pdfUrl: true,
               arxivId: true,
               blobUrl: true,
+              // Tells the badge whether the inline PDF is the conference's own
+              // file or an arXiv preprint standing in for it.
+              source: true,
               // Present only once someone saved the paper to the library.
               workspacePapers: { where: { workspaceId: user.workspaceId }, select: { id: true } }
             }
@@ -185,14 +188,16 @@ export default async function ConferencesPage({
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
                       {/* Signals before the click that the paper page will show
-                          the full text inline; absent when it can't. */}
+                          the full text inline; absent when it can't. Papers with
+                          no publisher PDF are served from arXiv, so the badge
+                          says so rather than implying the version of record. */}
                       {canRenderPdf(paper) ? (
                         <Link
                           href={`/papers/${paper.id}?from=conferences`}
-                          title={t("pdfBadgeTitle")}
+                          title={isPreprintPdf(paper) ? tCommon("preprintNote") : t("pdfBadgeTitle")}
                           className="rounded px-1.5 py-0.5 text-xs font-medium text-accent ring-1 ring-inset ring-accent/30 transition-colors duration-150 hover:bg-accent/5"
                         >
-                          {t("pdfBadge")}
+                          {isPreprintPdf(paper) ? t("pdfBadgeArxiv") : t("pdfBadge")}
                         </Link>
                       ) : null}
                       <a

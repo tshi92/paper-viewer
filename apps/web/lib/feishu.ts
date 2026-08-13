@@ -7,6 +7,8 @@
  * code is a non-zero business error code.
  */
 
+import type { OutputLanguage } from "@paper-viewer/core/llm-config";
+
 export type DigestPaper = {
   id: string;
   title: string;
@@ -16,11 +18,13 @@ export type DigestPaper = {
 export type DigestCardInput = {
   /** YYYY-MM-DD */
   date: string;
-  /** Chinese overview; may be an empty string (in which case no blank paragraph is generated) */
+  /** The generated overview; may be an empty string (in which case no blank paragraph is generated) */
   overview: string;
   papers: DigestPaper[];
   /** Site root address, with or without a trailing slash */
   appUrl: string;
+  /** Matches the language the overview and summaries were generated in, so the card does not mix scripts. */
+  language: OutputLanguage;
 };
 
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -52,6 +56,13 @@ function paperElement(paper: DigestPaper, index: number, appUrl: string) {
   };
 }
 
+/** The one piece of card chrome we write ourselves; everything else is model output. */
+function cardTitle(input: DigestCardInput): string {
+  return input.language === "en"
+    ? `📄 Today's papers · ${input.papers.length} (${input.date})`
+    : `📄 今日论文 · ${input.papers.length} 篇（${input.date}）`;
+}
+
 export function buildDigestCard(input: DigestCardInput): object {
   const appUrl = stripTrailingSlashes(input.appUrl);
   const overview = input.overview.trim();
@@ -67,7 +78,7 @@ export function buildDigestCard(input: DigestCardInput): object {
       template: "blue",
       title: {
         tag: "plain_text",
-        content: `📄 今日论文 · ${input.papers.length} 篇（${input.date}）`
+        content: cardTitle(input)
       }
     },
     elements: [...overviewElements, ...paperElements]

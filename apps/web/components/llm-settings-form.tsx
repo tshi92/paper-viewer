@@ -2,6 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
+import { outputLanguages, type OutputLanguage } from "@paper-viewer/core/llm-config";
+import { toast } from "@/components/toast";
 
 type ConfigSource = "db" | "env" | "none";
 
@@ -10,6 +12,7 @@ type ConfigView = {
   baseUrl: string;
   model: string;
   apiKeyMasked: string;
+  outputLanguage: OutputLanguage;
 };
 
 type TestResult =
@@ -39,6 +42,30 @@ export function LlmSettingsForm() {
     setConfig(next);
     setBaseUrl(next.baseUrl);
     setModel(next.model);
+  }
+
+  /**
+   * Saved on change rather than behind the form's Save button: it has its own
+   * endpoint (the key/model form demands an API key on first save, which would
+   * block a workspace running on the env-level model from picking a language).
+   */
+  async function handleLanguageChange(next: OutputLanguage) {
+    const previous = config?.outputLanguage;
+    setConfig((current) => (current ? { ...current, outputLanguage: next } : current));
+    try {
+      const res = await fetch("/api/settings/llm", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ outputLanguage: next })
+      });
+      if (!res.ok) throw new Error("language save failed");
+      toast.success(t("saved"));
+    } catch {
+      // Put the select back where it was; a silently reverted setting is worse
+      // than none at all.
+      if (previous) setConfig((current) => (current ? { ...current, outputLanguage: previous } : current));
+      toast.error(t("saveFailed"));
+    }
   }
 
   useEffect(() => {
@@ -189,6 +216,23 @@ export function LlmSettingsForm() {
           onChange={(event) => setApiKey(event.target.value)}
           placeholder={apiKeyPlaceholder}
         />
+      </div>
+
+      <div>
+        <label className="text-sm font-medium" htmlFor="outputLanguage">{t("outputLanguageLabel")}</label>
+        <p className="text-xs text-muted">{t("outputLanguageHint")}</p>
+        <select
+          className="mt-1 w-48 rounded border border-control bg-white px-3 py-2"
+          id="outputLanguage"
+          value={config.outputLanguage}
+          onChange={(event) => void handleLanguageChange(event.target.value as OutputLanguage)}
+        >
+          {outputLanguages.map((language) => (
+            <option key={language} value={language}>
+              {t(language === "zh" ? "outputLanguageZh" : "outputLanguageEn")}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex items-center gap-3">

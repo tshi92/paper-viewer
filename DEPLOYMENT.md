@@ -94,7 +94,7 @@ Everything else is configured in the UI, not in environment variables:
 
 | Where | What to set |
 |---|---|
-| **Settings → LLM** | Your API key, base URL and model. Stored per workspace, changeable any time |
+| **Settings → LLM** | Your API key, base URL and model, plus the AI output language for paper intros and the daily overview. Stored per workspace, changeable any time |
 | **Settings → Preferences** | Research topics and keywords — these drive the daily digest |
 | **Settings → Notifications** | Feishu webhook and the push hour (Beijing time, 0–23) |
 | **Settings → Members** | Invite the rest of the group |

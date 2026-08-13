@@ -94,7 +94,7 @@ Paper Viewer 就是照着免费额度设计的：**Vercel Hobby** 跑应用和�
 
 | 位置 | 配什么 |
 |---|---|
-| **Settings → LLM** | API key、base URL 和模型。按工作区存库，随时可换 |
+| **Settings → LLM** | API key、base URL 和模型，以及论文导读与每日总结的「AI 生成语言」。按工作区存库，随时可换 |
 | **Settings → Preferences** | 研究方向和关键词——每日推送就是按这个来的 |
 | **Settings → Notifications** | 飞书 webhook 和推送时间（北京时间 0–23 点） |
 | **Settings → Members** | 把组里其他人拉进来 |

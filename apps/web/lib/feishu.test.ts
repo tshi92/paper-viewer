@@ -16,6 +16,7 @@ function buildCard(overrides: Partial<DigestCardInput> = {}): Card {
       { id: "p2", title: "Flash Attention", summaryLine: "用分块 IO 感知算法加速注意力。" }
     ],
     appUrl: "https://paper-viewer-five.vercel.app",
+    language: "zh",
     ...overrides
   }) as Card;
 }

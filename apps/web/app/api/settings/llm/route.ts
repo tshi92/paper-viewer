@@ -1,7 +1,12 @@
 import { prisma } from "@paper-viewer/db";
 import { z } from "zod";
 import { canManageWorkspaceSettings } from "@paper-viewer/core/permissions";
-import { maskApiKey } from "@paper-viewer/core/llm-config";
+import {
+  isOutputLanguage,
+  maskApiKey,
+  toOutputLanguage,
+  type OutputLanguage
+} from "@paper-viewer/core/llm-config";
 import { requireCurrentUser, type CurrentUser } from "@/lib/auth";
 import { getEnv } from "@/lib/env";
 
@@ -20,6 +25,21 @@ type ConfigView = {
   model: string;
   apiKeyMasked: string;
 };
+
+/**
+ * The output language is surfaced on this page but stored on
+ * ResearchPreferences, not LlmConfig: a workspace running on the env-level
+ * model has no LlmConfig row at all, and it must still be able to choose a
+ * language. It therefore has its own PATCH rather than riding along with the
+ * key/model form, whose first save requires an API key.
+ */
+async function loadOutputLanguage(workspaceId: string): Promise<OutputLanguage> {
+  const prefs = await prisma.researchPreferences.findUnique({
+    where: { workspaceId },
+    select: { outputLanguage: true }
+  });
+  return toOutputLanguage(prefs?.outputLanguage);
+}
 
 const TEST_TIMEOUT_MS = 15_000;
 const MAX_LISTED_MODELS = 10;
@@ -107,8 +127,37 @@ export async function GET() {
     return Response.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const config = await loadEffectiveConfig(user.workspaceId);
-  return Response.json(toConfigView(config));
+  const [config, outputLanguage] = await Promise.all([
+    loadEffectiveConfig(user.workspaceId),
+    loadOutputLanguage(user.workspaceId)
+  ]);
+  return Response.json({ ...toConfigView(config), outputLanguage });
+}
+
+export async function PATCH(request: Request) {
+  const user = await resolveCurrentUser();
+  if (!user) {
+    return Response.json({ error: "Authentication required" }, { status: 401 });
+  }
+  if (!canManageWorkspaceSettings(user.role)) {
+    return Response.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body = (await request.json()) as { outputLanguage?: unknown };
+  if (!isOutputLanguage(body.outputLanguage)) {
+    return Response.json({ error: "Unsupported output language" }, { status: 400 });
+  }
+  const outputLanguage = body.outputLanguage;
+
+  // Only this column is written, so saving a language can never clear the
+  // research topics the same row carries.
+  await prisma.researchPreferences.upsert({
+    where: { workspaceId: user.workspaceId },
+    update: { outputLanguage },
+    create: { workspaceId: user.workspaceId, outputLanguage }
+  });
+
+  return Response.json({ outputLanguage });
 }
 
 export async function PUT(request: Request) {
