@@ -188,12 +188,13 @@ export default async function ConferencesPage({
                         {Array.isArray(paper.authors) ? (paper.authors as string[]).join(", ") : ""}
                       </p>
                     </div>
-                    {/* One set of chips, all the same height and radius. The
-                        row used to end in a badge, a text link with a trailing
-                        arrow and a bare icon — three weights for three things,
-                        repeated down a long list. Only the destination differs
-                        now: the accent chip opens the paper here, the muted ones
-                        lead out. */}
+                    {/* One set of chips, all the same height, radius and tone.
+                        The row used to end in a ring-outlined badge, a text link
+                        with a trailing arrow and a bare icon — three weights for
+                        three things, repeated down a long list. They are all
+                        secondary to the save action at the end of the row, so
+                        none of them takes the accent colour; the trailing arrow
+                        is what marks the two that leave the app. */}
                     <div className="flex shrink-0 items-center gap-1.5">
                       {/* Signals before the click that the paper page will show
                           the full text inline; absent when it can't. Papers with
@@ -203,7 +204,7 @@ export default async function ConferencesPage({
                         <Link
                           href={`/papers/${paper.id}?from=conferences`}
                           title={isPreprintPdf(paper) ? tCommon("preprintNote") : t("pdfBadgeTitle")}
-                          className="flex h-6 items-center rounded-md bg-accent/10 px-2.5 text-xs font-medium text-accent transition-colors duration-150 hover:bg-accent/20"
+                          className="flex h-6 items-center rounded-md bg-surface px-2.5 text-xs font-medium text-muted transition-colors duration-150 hover:bg-border hover:text-ink"
                         >
                           {t("pdfBadge")}
                           {/* Served from arXiv rather than by the conference:
