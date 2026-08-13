@@ -197,15 +197,6 @@ export function AnalysisPanel({
             </div>
           );
         })}
-        {analysis.keywords.length > 0 ? (
-          <div className="flex flex-wrap gap-1.5 pt-1">
-            {analysis.keywords.map((keyword) => (
-              <span key={keyword} className="rounded bg-surface px-2 py-0.5 text-xs text-muted">
-                {keyword}
-              </span>
-            ))}
-          </div>
-        ) : null}
       </div>
       </section>
     </div>

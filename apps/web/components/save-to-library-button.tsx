@@ -53,7 +53,9 @@ export function SaveToLibraryButton({ paperId }: { paperId: string }) {
   return (
     <button
       type="button"
-      className="rounded bg-accent transition-transform duration-150 active:scale-[0.98] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+      // Outlined, not filled: this button repeats on every row of a long list,
+      // and a solid block per row turns the page into a column of colour.
+      className="rounded-md border border-accent/40 px-2.5 py-1 text-xs font-medium text-accent transition-colors duration-150 hover:bg-accent/10 disabled:opacity-50"
       onClick={() => void save()}
       disabled={busy}
     >

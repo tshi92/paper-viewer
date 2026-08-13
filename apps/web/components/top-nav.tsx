@@ -37,7 +37,13 @@ export function TopNav({ items }: { items: TopNavItem[] }) {
         return (
           <Link
             aria-current={isActive ? "page" : undefined}
-            className={isActive ? "font-medium text-accent" : "text-muted hover:text-ink"}
+            // A tinted pill instead of only a color change: on a four-item bar
+            // the active tab should be findable without comparing shades.
+            className={`rounded-md px-2.5 py-1.5 transition-colors duration-150 ${
+              isActive
+                ? "bg-accent/10 font-medium text-accent"
+                : "text-muted hover:bg-surface hover:text-ink"
+            }`}
             href={item.href}
             key={item.href}
           >

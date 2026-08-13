@@ -9,7 +9,7 @@
 body {
   margin: 0;
   /* theme() keeps tailwind.config.ts the single source for every color. */
-  background: theme(colors.surface);
+  background: theme(colors.canvas);
   color: theme(colors.ink);
   /* Explicit CJK fallbacks: `ui-sans-serif` resolution is unreliable on
      Windows, which would drop Chinese text into a default serif. */
@@ -41,8 +41,8 @@ a {
   outline-offset: 2px;
 }
 
-/* Route-level loading placeholders. Shimmer colors come from the same border/
-   surface tokens as the real chrome, so the swap-in does not flash. The global
+/* Route-level loading placeholders. Shimmer colors come from the same tokens
+   as the real chrome, so the swap-in does not flash. The global
    prefers-reduced-motion rule above freezes the sweep to a static block. */
 @keyframes pv-shimmer {
   from {
@@ -57,9 +57,9 @@ a {
   border-radius: theme(borderRadius.DEFAULT);
   background: linear-gradient(
     90deg,
-    theme(colors.border) 25%,
+    theme(colors.shimmer) 25%,
     theme(colors.surface) 50%,
-    theme(colors.border) 75%
+    theme(colors.shimmer) 75%
   );
   background-size: 200% 100%;
   animation: pv-shimmer 1.8s linear infinite;

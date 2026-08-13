@@ -275,29 +275,15 @@ function toHighlight(annotation: AnnotationView): IHighlight {
 }
 
 
-function AnnotationPreview({ annotation, color }: AnnotationEntry) {
+function AnnotationPreview({ annotation }: { annotation: AnnotationView }) {
   const t = useTranslations("annotations");
   const firstComment = annotation.comments[0];
   return (
     <div className="max-w-[260px] rounded border border-border bg-white p-2 text-xs shadow-overlay">
       <p className="text-muted">{annotation.author.name ?? annotation.author.email}</p>
-      {annotation.areaImageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- small API-served thumbnail
-        <img
-          src={annotation.areaImageUrl}
-          alt={t("areaImageAlt")}
-          loading="lazy"
-          className="mt-1 max-h-16 w-auto rounded border border-border"
-        />
-      ) : null}
-      {annotation.quotedText ? (
-        <blockquote
-          className="mt-1 border-l-2 pl-2 text-xs italic text-muted line-clamp-2"
-          style={{ borderColor: color }}
-        >
-          &ldquo;{annotation.quotedText}&rdquo;
-        </blockquote>
-      ) : null}
+      {/* Neither the quoted text nor the area screenshot: both reproduce what
+          is already under the cursor. The preview carries only what the
+          document cannot show — the labels and the discussion. */}
       {annotation.labels.length > 0 ? (
         <div className="mt-1 flex flex-wrap gap-1">
           {annotation.labels.map((label) => (
@@ -314,12 +300,15 @@ function SelectionTip({
   labels,
   onConfirm,
   onCancel,
-  onMount
+  onMount,
+  onOpenChange
 }: {
   labels: LabelView[];
   onConfirm: (labelIds: string[], firstComment?: string) => Promise<void>;
   onCancel: () => void;
   onMount: () => void;
+  /** Reports the tip's lifetime so the container can suspend hover previews. */
+  onOpenChange: (open: boolean) => void;
 }) {
   const t = useTranslations("annotations");
   const [selectedLabelIds, setSelectedLabelIds] = useState<string[]>([]);
@@ -327,10 +316,14 @@ function SelectionTip({
   const [saving, setSaving] = useState(false);
   const mountRef = useRef(onMount);
   mountRef.current = onMount;
+  const openChangeRef = useRef(onOpenChange);
+  openChangeRef.current = onOpenChange;
 
   // Freeze the selection as a ghost highlight while the user picks labels.
   useEffect(() => {
     mountRef.current();
+    openChangeRef.current(true);
+    return () => openChangeRef.current(false);
   }, []);
 
   function toggleLabel(id: string) {
@@ -491,6 +484,21 @@ export function PdfAnnotator({
     setHoverPreview(null);
   }, []);
 
+  /** Whether the create-annotation tip is on screen; read inside a rAF callback. */
+  const tipOpenRef = useRef(false);
+  const setTipOpen = useCallback(
+    (open: boolean) => {
+      tipOpenRef.current = open;
+      // A preview already on screen when the tip opens has to go too.
+      if (open) {
+        lastHitIdRef.current = null;
+        cancelPreviewClose();
+        closePreview();
+      }
+    },
+    [cancelPreviewClose, closePreview]
+  );
+
   const openPreview = useCallback(
     (annotationId: string, wrapper: HTMLElement) => {
       cancelPreviewClose();
@@ -545,6 +553,14 @@ export function PdfAnnotator({
         if (buttons !== 0) {
           lastHitIdRef.current = null;
           schedulePreviewClose();
+          return;
+        }
+        // The create-annotation tip is open. The reader is picking labels and
+        // typing a first comment, and the tip covers the passage they just
+        // selected — a preview for whatever highlight happens to sit under the
+        // pointer would land on top of the form they are using.
+        if (tipOpenRef.current) {
+          lastHitIdRef.current = null;
           return;
         }
         if (target?.closest?.('[data-testid="annotation-hover-preview"]')) {
@@ -661,6 +677,7 @@ export function PdfAnnotator({
         labels={annotationLabels}
         onCancel={hideTipAndSelection}
         onMount={transformSelection}
+        onOpenChange={setTipOpen}
         onConfirm={async (labelIds, firstComment) => {
           await onCreate({
             type: content.image ? "area" : "highlight",
@@ -677,7 +694,7 @@ export function PdfAnnotator({
         }}
       />
     ),
-    [annotationLabels, onCreate]
+    [annotationLabels, onCreate, setTipOpen]
   );
 
   const renderHighlight = useCallback(
@@ -798,7 +815,7 @@ export function PdfAnnotator({
           onMouseEnter={cancelPreviewClose}
           onMouseLeave={schedulePreviewClose}
         >
-          <AnnotationPreview annotation={previewEntry.annotation} color={previewEntry.color} />
+          <AnnotationPreview annotation={previewEntry.annotation} />
         </div>
       ) : null}
     </div>

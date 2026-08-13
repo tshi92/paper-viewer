@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { canModifyComment, type WorkspaceRole } from "@paper-viewer/core/permissions";
-import { CommentBody } from "./comment-body";
+import { CommentRow } from "./comment-row";
 import { TimeStamp } from "./time-stamp";
 
 type CommentView = {
@@ -171,36 +171,34 @@ export function CommentPanel({
         {visibleThreads.map(({ root, replies }) => (
           <div className="px-4 py-3" key={root.id}>
             <article>
-              <div className="flex items-center gap-2 text-xs text-muted">
-                <span>{authorName(root)}</span>
-                {root.pageNumber ? (
-                  <span className="rounded bg-surface px-1.5 py-0.5">
-                    {t("pageBadge", { page: root.pageNumber })}
-                  </span>
-                ) : null}
-                <TimeStamp value={root.createdAt} className="ml-auto text-[11px] text-muted" />
-              </div>
               {root.quotedText ? (
-                <blockquote className="mt-1.5 border-l-2 border-accent/30 pl-3 text-xs italic text-muted">
+                <blockquote className="mb-1.5 border-l-2 border-accent/30 pl-3 text-xs italic text-muted">
                   &ldquo;{root.quotedText}&rdquo;
                 </blockquote>
               ) : null}
-              <div className="mt-1.5">
-                <CommentBody
-                  body={root.body}
-                  canModify={canModifyComment(currentUserRole, root.author.id === currentUserId)}
-                  replyCount={descendants.get(root.id) ?? 0}
-                  onReply={() => setReplyTo(replyTo === root.id ? null : root.id)}
-                  onEdit={(body) =>
-                    mutate(root.id, {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ body })
-                    })
-                  }
-                  onDelete={() => mutate(root.id, { method: "DELETE" })}
-                />
-              </div>
+              <CommentRow
+                author={root.author}
+                createdAt={root.createdAt}
+                body={root.body}
+                canModify={canModifyComment(currentUserRole, root.author.id === currentUserId)}
+                replyCount={descendants.get(root.id) ?? 0}
+                headerExtra={
+                  root.pageNumber ? (
+                    <span className="shrink-0 rounded-sm bg-surface px-1.5 text-[11px] text-muted">
+                      {t("pageBadge", { page: root.pageNumber })}
+                    </span>
+                  ) : null
+                }
+                onReply={() => setReplyTo(replyTo === root.id ? null : root.id)}
+                onEdit={(body) =>
+                  mutate(root.id, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ body })
+                  })
+                }
+                onDelete={() => mutate(root.id, { method: "DELETE" })}
+              />
               {replyTo === root.id ? (
                 <ReplyComposer
                   placeholder={t("replyPlaceholder", { name: authorName(root) })}
@@ -214,29 +212,27 @@ export function CommentPanel({
                 className="ml-5 mt-2 border-l-2 border-border pl-3"
                 key={reply.id}
               >
-                <div className="flex items-center gap-2 text-xs text-muted">
-                  <span>{authorName(reply)}</span>
-                  <TimeStamp value={reply.createdAt} className="ml-auto text-[11px] text-muted" />
-                </div>
-                <div className="mt-1">
-                  {repliedToName(reply) ? (
-                    <p className="text-xs font-medium text-accent">@{repliedToName(reply)}</p>
-                  ) : null}
-                  <CommentBody
-                    body={reply.body}
-                    canModify={canModifyComment(currentUserRole, reply.author.id === currentUserId)}
-                    replyCount={descendants.get(reply.id) ?? 0}
-                    onReply={() => setReplyTo(replyTo === reply.id ? null : reply.id)}
-                    onEdit={(body) =>
-                      mutate(reply.id, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ body })
-                      })
-                    }
-                    onDelete={() => mutate(reply.id, { method: "DELETE" })}
-                  />
-                </div>
+                <CommentRow
+                  author={reply.author}
+                  createdAt={reply.createdAt}
+                  body={reply.body}
+                  canModify={canModifyComment(currentUserRole, reply.author.id === currentUserId)}
+                  replyCount={descendants.get(reply.id) ?? 0}
+                  bodyPrefix={
+                    repliedToName(reply) ? (
+                      <p className="text-xs font-medium text-accent">@{repliedToName(reply)}</p>
+                    ) : null
+                  }
+                  onReply={() => setReplyTo(replyTo === reply.id ? null : reply.id)}
+                  onEdit={(body) =>
+                    mutate(reply.id, {
+                      method: "PATCH",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ body })
+                    })
+                  }
+                  onDelete={() => mutate(reply.id, { method: "DELETE" })}
+                />
                 {replyTo === reply.id ? (
                   <ReplyComposer
                     placeholder={t("replyPlaceholder", { name: authorName(reply) })}

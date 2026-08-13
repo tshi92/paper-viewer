@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { BackButton } from "./back-button";
 import { SaveToLibraryButton } from "./save-to-library-button";
+import { TopicChip } from "./topic-chip";
 import type { AnalysisView } from "./analysis-panel";
 
 /**
@@ -146,9 +147,7 @@ export async function PaperPreview({
               {paper.analysis.keywords.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {paper.analysis.keywords.map((keyword) => (
-                    <span key={keyword} className="rounded bg-surface px-2 py-0.5 text-xs text-muted">
-                      {keyword}
-                    </span>
+                    <TopicChip key={keyword} topic={keyword} />
                   ))}
                 </div>
               ) : null}

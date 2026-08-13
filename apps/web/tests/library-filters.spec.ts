@@ -89,6 +89,18 @@ test.beforeAll(async () => {
     }
   }
 
+  // Saved by the other member: everyone may save into the shared library, so
+  // the row names who did and the filter offers them.
+  const theirPaper = await prisma.paper.create({
+    data: {
+      title: title("Saved By Them"),
+      authors: ["Filter Fixture"],
+      source: "manual",
+      workspacePapers: { create: { workspaceId, importedById: otherUserId } }
+    }
+  });
+  paperIds.push(theirPaper.id);
+
   // Only the other member marked this one; for our user it must still read as unread.
   await prisma.readingStateRecord.create({
     data: { workspaceId, paperId: paperIds[4]!, userId: otherUserId, state: "reading" }
@@ -150,8 +162,10 @@ test("unread covers papers with no reading state record of their own", async ({ 
   await page.goto("/library?state=new");
 
   // "Never Opened" has no record at all and "Read By Someone Else" only has another
-  // member's; both belong under 未读 alongside the explicitly-new one.
+  // member's; both belong under 未读 alongside the explicitly-new one. ("Saved By
+  // Them" was created last and has no record either, so it heads the list.)
   await expect(listedTitles(page)).toHaveText([
+    title("Saved By Them"),
     title("Read By Someone Else"),
     title("Never Opened"),
     title("Explicitly New")
@@ -216,4 +230,18 @@ test("library rows carry no inline reading-state chips or arXiv button", async (
   await expect(row).toBeVisible();
   await expect(row.getByRole("radio")).toHaveCount(0);
   await expect(row.getByRole("link", { name: "arXiv", exact: true })).toHaveCount(0);
+});
+
+// Anyone may save a paper into the shared library, so a row says who did and
+// the filter narrows to one person's saves.
+test("rows name who saved the paper, and the saved-by filter narrows to them", async ({ page }) => {
+  await signIn(page);
+
+  const theirRow = page.locator("div.divide-y > div", { hasText: title("Saved By Them") });
+  await expect(theirRow).toContainText("Other member");
+
+  await openDropdown(page, /存入者/);
+  await page.getByRole("listbox", { name: "存入者：" }).getByRole("option", { name: /Other member/ }).click();
+
+  await expect(listedTitles(page)).toHaveText([title("Saved By Them")]);
 });
