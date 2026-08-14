@@ -52,6 +52,9 @@ const noop = () => {};
  */
 const SCROLL_RETRY_DELAY_MS = 300;
 
+/** Matches the library's own wait, so a drag-resize still settles once. */
+const REFIT_DEBOUNCE_MS = 500;
+
 /**
  * `PdfHighlighter` cannot survive being mounted twice, which is exactly what
  * React StrictMode — Next's dev default — does. `componentDidMount` runs `init()`
@@ -69,10 +72,66 @@ const SCROLL_RETRY_DELAY_MS = 300;
  */
 class StablePdfHighlighter extends PdfHighlighter<IHighlight> {
   private initialised = false;
+  private refitTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Set once the reader zooms by hand; cleared by fit-to-width. */
+  private scaleIsManual = false;
+
+  /**
+   * Re-fits the page to the pane, unless the reader has chosen a scale.
+   *
+   * The library re-applies `pdfScaleValue` ("page-width") whenever its
+   * container is resized, unconditionally — which quietly undid zooming in.
+   * Enlarging the page past the pane's width brings up a horizontal scrollbar,
+   * and where scrollbars take layout space (Windows, Linux, macOS set to always
+   * show them) that shrinks the container, which trips the observer, which puts
+   * the scale back half a second later. Zooming out never adds a scrollbar, so
+   * it appeared to work; on macOS's overlay scrollbars nothing resized and both
+   * directions did.
+   *
+   * Whether the reader chose the scale is tracked here rather than read back
+   * off the viewer: pdf.js already holds a numeric `currentScaleValue` by the
+   * time the document is ready, so "the value is a number" would also suppress
+   * the very first fit and leave the document unrendered.
+   */
+  private refitToWidth = () => {
+    if (this.scaleIsManual) return;
+    const { viewer } = this;
+    if (!viewer) return;
+    viewer.currentScaleValue = this.props.pdfScaleValue;
+  };
+
+  /** Zoom the page a step, and stop following the pane's width. */
+  zoomBy(direction: "in" | "out") {
+    this.scaleIsManual = true;
+    zoomViewer(this.viewer, direction);
+  }
+
+  /** Back to filling the pane, and to re-fitting whenever it changes size. */
+  zoomToFitWidth() {
+    this.scaleIsManual = false;
+    fitViewerToWidth(this.viewer);
+  }
 
   componentDidMount() {
     if (!this.initialised) {
       this.initialised = true;
+      // Both the window listener and the container observer have to be pointed
+      // at the guarded version, and the base debounced and captured the
+      // original in its constructor — so replacing the method alone would leave
+      // the observer still calling the one that ignores a manual scale.
+      this.handleScaleValue = this.refitToWidth;
+      this.debouncedScaleValue = () => {
+        if (this.refitTimer !== null) clearTimeout(this.refitTimer);
+        this.refitTimer = setTimeout(() => {
+          this.refitTimer = null;
+          this.refitToWidth();
+        }, REFIT_DEBOUNCE_MS);
+      };
+      this.resizeObserver?.disconnect();
+      this.resizeObserver =
+        typeof ResizeObserver === "undefined"
+          ? null
+          : new ResizeObserver(this.debouncedScaleValue);
       super.componentDidMount();
       return;
     }
@@ -88,6 +147,12 @@ class StablePdfHighlighter extends PdfHighlighter<IHighlight> {
     // scroll callback out again by hand.
     if (viewer.pagesCount > 0) this.onDocumentReady();
     this.onTextLayerRendered();
+  }
+
+  componentWillUnmount() {
+    if (this.refitTimer !== null) clearTimeout(this.refitTimer);
+    this.refitTimer = null;
+    super.componentWillUnmount();
   }
 
   /** Page-level jump for the outline panel (highlight jumps go via scrollRef). */
@@ -992,9 +1057,9 @@ export function PdfAnnotator({
     >
       <style>{HIGHLIGHT_STYLES}</style>
       <PdfControls
-        onZoomIn={() => zoomViewer(highlighterRef.current?.viewer, "in")}
-        onFitWidth={() => fitViewerToWidth(highlighterRef.current?.viewer)}
-        onZoomOut={() => zoomViewer(highlighterRef.current?.viewer, "out")}
+        onZoomIn={() => highlighterRef.current?.zoomBy("in")}
+        onFitWidth={() => highlighterRef.current?.zoomToFitWidth()}
+        onZoomOut={() => highlighterRef.current?.zoomBy("out")}
         areaMode={areaMode}
         onToggleAreaMode={() => setAreaMode((armed) => !armed)}
       />
