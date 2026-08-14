@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import { EventBus, LinkTarget, PDFLinkService, PDFViewer } from "pdfjs-dist/web/pdf_viewer.mjs";
 import "pdfjs-dist/web/pdf_viewer.css";
-import { PdfZoomControls } from "./pdf-zoom-controls";
-import { MAX_SCALE, MIN_SCALE, PDF_WORKER_SRC, ZOOM_STEP } from "@/lib/pdf-viewer";
+import { PdfControls } from "./pdf-controls";
+import { FIT_WIDTH, fitViewerToWidth, PDF_WORKER_SRC, zoomViewer } from "@/lib/pdf-viewer";
 
 /**
  * Read-only PDF viewer for papers that are not in the library yet.
@@ -61,7 +61,7 @@ export function PdfReader({ url, title }: { url: string; title: string }) {
     eventBus.on(
       "pagesinit",
       () => {
-        viewer.currentScaleValue = "page-width";
+        fitViewerToWidth(viewer);
         setStatus("ready");
       },
       { signal }
@@ -71,7 +71,7 @@ export function PdfReader({ url, title }: { url: string; title: string }) {
     // resized window re-fits — unless the reader has zoomed by hand, whose
     // numeric scale must survive.
     const resizeObserver = new ResizeObserver(() => {
-      if (viewer.currentScaleValue === "page-width") viewer.currentScaleValue = "page-width";
+      if (viewer.currentScaleValue === FIT_WIDTH) fitViewerToWidth(viewer);
     });
     resizeObserver.observe(container);
 
@@ -97,13 +97,6 @@ export function PdfReader({ url, title }: { url: string; title: string }) {
     };
   }, [url]);
 
-  const zoomBy = useCallback((factor: number) => {
-    const viewer = viewerRef.current;
-    if (!viewer) return;
-    // pdf.js re-rasterises at the new scale, so the text stays sharp. The clamp
-    // keeps a runaway tap from rendering a 10× canvas.
-    viewer.currentScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, viewer.currentScale * factor));
-  }, []);
 
   return (
     <div
@@ -111,13 +104,10 @@ export function PdfReader({ url, title }: { url: string; title: string }) {
       aria-label={title}
       role="document"
     >
-      <PdfZoomControls
-        onZoomOut={() => zoomBy(1 / ZOOM_STEP)}
-        onFitWidth={() => {
-          const viewer = viewerRef.current;
-          if (viewer) viewer.currentScaleValue = "page-width";
-        }}
-        onZoomIn={() => zoomBy(ZOOM_STEP)}
+      <PdfControls
+        onZoomIn={() => zoomViewer(viewerRef.current, "in")}
+        onFitWidth={() => fitViewerToWidth(viewerRef.current)}
+        onZoomOut={() => zoomViewer(viewerRef.current, "out")}
       />
       {/* pdf.js requires an absolutely positioned scroll container whose first
           child is the `.pdfViewer` page stack, and populates that stack itself. */}

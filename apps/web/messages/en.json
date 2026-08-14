@@ -180,7 +180,7 @@
     "moreComments": "+{count, plural, =1 {# more comment} other {# more comments}}",
     "fewerComments": "Show less",
     "deleteConfirm": "{count, plural, =0 {Delete this annotation?} =1 {Delete this annotation? Its # comment will be deleted as well.} other {Delete this annotation? Its # comments will be deleted as well.}}",
-    "empty": "No annotations yet. Select text, or hold ⌥ and drag, to create one.",
+    "empty": "No annotations yet. Select some text, or box a region with the area tool on the left.",
     "tipCommentPlaceholder": "First comment (optional)",
     "tipCancel": "Cancel",
     "tipSave": "Save annotation",
@@ -198,7 +198,9 @@
     "zoomIn": "Zoom in",
     "zoomOut": "Zoom out",
     "zoomFitWidth": "Fit page width",
-    "zoomFitWidthShort": "Fit"
+    "zoomFitWidthShort": "Fit",
+    "areaSelect": "Select an area",
+    "areaSelectHint": "Drag to box a region — with a mouse you can also just hold ⌥ / Alt and drag"
   },
   "chat": {
     "heading": "Chat with Paper",
