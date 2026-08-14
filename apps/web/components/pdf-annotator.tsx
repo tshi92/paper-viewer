@@ -9,14 +9,14 @@ import type {
   ReactElement
 } from "react";
 import { Highlight, PdfHighlighter, PdfLoader } from "react-pdf-highlighter";
-import type { Content, IHighlight, LTWHP, Position, ScaledPosition } from "react-pdf-highlighter";
+import type { Content, IHighlight, LTWH, LTWHP, Position, ScaledPosition } from "react-pdf-highlighter";
 import "react-pdf-highlighter/dist/style.css";
 import { annotationColor, DEFAULT_HIGHLIGHT_COLOR } from "@paper-viewer/core/labels";
 import { LabelChip } from "./label-chip";
 import { PdfControls } from "./pdf-controls";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
 import { extractPdfOutline, type OutlineCapableDocument, type PdfOutlineEntry } from "@/lib/pdf-outline";
-import { fitViewerToWidth, PDF_WORKER_SRC, zoomViewer } from "@/lib/pdf-viewer";
+import { canvasCropRect, fitViewerToWidth, PDF_WORKER_SRC, zoomViewer } from "@/lib/pdf-viewer";
 
 export type CreateAnnotationInput = {
   type: "highlight" | "area";
@@ -93,6 +93,47 @@ class StablePdfHighlighter extends PdfHighlighter<IHighlight> {
   /** Page-level jump for the outline panel (highlight jumps go via scrollRef). */
   scrollToPage(pageNumber: number) {
     this.viewer?.scrollPageIntoView({ pageNumber });
+  }
+
+  /**
+   * Crops an area annotation's thumbnail out of the page's canvas.
+   *
+   * The library's version multiplies the region by `window.devicePixelRatio` to
+   * index into the canvas. pdf.js does not render at that ratio unconditionally
+   * — it caps canvas area, so a large page on a high-ratio screen is rasterised
+   * smaller — and when the two disagree the read runs past the canvas and
+   * `drawImage` returns transparent pixels. Nothing fails: the annotation
+   * saves, with a thumbnail that is simply blank. Measuring the scale off the
+   * canvas is correct whatever pdf.js decided, and the clamp keeps a region
+   * that overhangs the page from silently becoming empty.
+   */
+  screenshot(position: LTWH, pageNumber: number): string {
+    const canvas = this.viewer?.getPageView(pageNumber - 1)?.canvas;
+    if (!canvas || !canvas.clientWidth) return "";
+
+    const scale = canvas.width / canvas.clientWidth;
+    const source = canvasCropRect(position, scale, canvas.width, canvas.height);
+    if (!source) return "";
+
+    const target = document.createElement("canvas");
+    // Sized in CSS pixels, as the library's own crop is: the thumbnail is shown
+    // a couple of centimetres wide, and the API refuses screenshots over 500KB.
+    target.width = Math.max(1, Math.round(source.width / scale));
+    target.height = Math.max(1, Math.round(source.height / scale));
+    const context = target.getContext("2d");
+    if (!context) return "";
+    context.drawImage(
+      canvas,
+      source.left,
+      source.top,
+      source.width,
+      source.height,
+      0,
+      0,
+      target.width,
+      target.height
+    );
+    return target.toDataURL("image/png");
   }
 
   /**
