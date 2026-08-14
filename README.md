@@ -193,7 +193,7 @@ Then visit `/bootstrap` to create the owner account.
 ```bash
 pnpm lint          # tsc across every package
 pnpm test          # unit tests (vitest)
-pnpm test:e2e      # Playwright; needs the dev stack running and .env exported
+pnpm test:e2e      # Playwright; needs the dev stack running
 ```
 
 ### Project layout

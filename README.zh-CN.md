@@ -193,7 +193,7 @@ pnpm dev                                 # http://localhost:3000
 ```bash
 pnpm lint          # 全部包跑 tsc
 pnpm test          # 单元测试（vitest）
-pnpm test:e2e      # Playwright，需要开发环境已启动且 .env 已导出
+pnpm test:e2e      # Playwright，需要开发环境已启动
 ```
 
 ### 目录结构
