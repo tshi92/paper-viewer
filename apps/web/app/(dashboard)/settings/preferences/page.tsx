@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { AdminOnlyNote } from "@/components/admin-only-note";
 import { canManageWorkspaceSettings } from "@paper-viewer/core/permissions";
 import { prisma } from "@paper-viewer/db";
 import { requireCurrentUser } from "@/lib/auth";
@@ -42,7 +43,8 @@ export default async function PreferencesPage() {
   return (
     <div className="max-w-2xl">
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
-      <p className="mt-1 text-sm text-muted">{t("description")}</p>
+      <AdminOnlyNote />
+      <p className="mt-2 text-sm text-muted">{t("description")}</p>
 
       {canEdit ? (
         <form className="mt-6 grid gap-5" action="/api/settings/preferences" method="post">
@@ -115,9 +117,6 @@ export default async function PreferencesPage() {
         </form>
       ) : (
         <div className="mt-6 grid gap-5">
-          <p className="rounded border border-border bg-surface px-4 py-3 text-sm text-muted">
-            {t("adminOnly")}
-          </p>
           <ReadOnlyList label={t("topicsLabel")} values={prefs?.topics ?? []} emptyLabel={t("notSet")} />
           <ReadOnlyList label={t("keywordsLabel")} values={prefs?.keywords ?? []} emptyLabel={t("notSet")} />
           <ReadOnlyList label={t("categoriesLabel")} values={prefs?.arxivCategories ?? []} emptyLabel={t("notSet")} />

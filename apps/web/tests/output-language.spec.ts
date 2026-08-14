@@ -111,6 +111,38 @@ test("the interface language setting says it is the interface only", async ({ pa
   await expect(page.getByText("只影响界面文字", { exact: false })).toBeVisible();
 });
 
+/**
+ * Four settings pages are workspace-wide and gated on `canManageWorkspaceSettings`.
+ * The marker is shown to everyone, not only to the members who are refused: an
+ * admin needs to know the change lands on the whole workspace, and a member
+ * needs to know why there is no save button before hunting for one.
+ */
+test("the workspace-wide settings pages are marked as admin-only", async ({ page }) => {
+  // Six routes, each compiled on first hit by `next dev`.
+  test.setTimeout(120_000);
+  await signIn(page, ownerEmail);
+
+  for (const path of ["/settings/preferences", "/settings/llm", "/settings/notifications", "/settings/members"]) {
+    await page.goto(path);
+    await expect(page.getByText("仅管理员可修改"), path).toBeVisible();
+  }
+
+  // Not on the two anyone may edit — a marker everywhere would say nothing.
+  for (const path of ["/settings/general", "/settings/labels"]) {
+    await page.goto(path);
+    await expect(page.getByText("仅管理员可修改"), path).toHaveCount(0);
+  }
+});
+
+test("a member sees the marker on the pages they may read but not change", async ({ page }) => {
+  await signIn(page, memberEmail);
+
+  for (const path of ["/settings/preferences", "/settings/llm"]) {
+    await page.goto(path);
+    await expect(page.getByText("仅管理员可修改"), path).toBeVisible();
+  }
+});
+
 test("a plain member cannot read or change the output language", async ({ page }) => {
   await signIn(page, memberEmail);
 
