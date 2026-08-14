@@ -152,10 +152,17 @@ export function AnalysisPanel({
     };
   }, [generating, analysis, router, flightKey, t]);
 
-  function stopWaiting(messageKey: "analysisGenerateFailed" | "analysisNoSource") {
+  /**
+   * `reason` is the server's account of what went wrong — a rate limit, a
+   * timeout, a model that rejected the request. Naming it costs one line and
+   * turns "try again", which does not work twice in a row, into something the
+   * reader can act on or report; without it the cause is only in the platform
+   * logs, which nobody using this app can reach.
+   */
+  function stopWaiting(messageKey: "analysisGenerateFailed" | "analysisNoSource", reason?: string) {
     regenBaselines.delete(flightKey);
     endFlight(flightKey);
-    toast.error(t(messageKey));
+    toast.error(reason ? `${t(messageKey)} (${reason})` : t(messageKey));
   }
 
   async function generate(regenerate = false) {
@@ -169,7 +176,8 @@ export function AnalysisPanel({
         body: JSON.stringify({ regenerate })
       });
       if (!res.ok) {
-        stopWaiting("analysisGenerateFailed");
+        const failure = (await res.json().catch(() => ({}))) as { error?: string };
+        stopWaiting("analysisGenerateFailed", failure.error);
         return;
       }
       // The server found nothing to work from — a PDF that yields no text, say,
