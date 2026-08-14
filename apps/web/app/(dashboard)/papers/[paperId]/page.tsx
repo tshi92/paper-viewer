@@ -28,6 +28,14 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
             where: { workspaceId: user.workspaceId },
             orderBy: { createdAt: "desc" },
             take: 1
+          },
+          // The edition the paper was accepted at, which the library row already
+          // names; newest first, so a paper listed in more than one edition
+          // shows the current one.
+          conferenceEntries: {
+            orderBy: [{ year: "desc" }],
+            take: 1,
+            select: { venue: true, year: true }
           }
         }
       },
@@ -202,6 +210,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
         // nothing to write an intro from.
         canGenerateIntro: Boolean(paper.abstract?.trim()) || hasPdf,
         pdfIsPreprint: isPreprintPdf(paper),
+        conference: paper.conferenceEntries[0] ?? null,
         analysis: analysis
           ? {
               summary: analysis.summary,
