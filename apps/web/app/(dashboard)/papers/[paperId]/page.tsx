@@ -1,5 +1,6 @@
 import { prisma } from "@paper-viewer/db";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { PaperPreview } from "@/components/paper-preview";
 import { PaperWorkspace } from "@/components/paper-workspace";
 import type { LabelView } from "@/lib/annotation-types";
@@ -61,13 +62,20 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
       notFound();
     }
 
-    let previewHasPdf = hasStoredPdf(previewPaper);
+    // The preview is read-only — nothing anchors to the bytes — so pinning the
+    // snapshot happens after the response instead of before it. Awaiting it
+    // meant every first open of a catalog paper waited on a full PDF download
+    // from the publisher before anything rendered. The viewer falls back to the
+    // arXiv/publisher proxy meanwhile, and the next open serves the pinned copy.
+    const previewHasPdf = hasStoredPdf(previewPaper);
     if (!previewHasPdf) {
-      try {
-        previewHasPdf = await ensurePdfSnapshot(paperId, user.workspaceId);
-      } catch {
-        /* A failed snapshot does not block reading */
-      }
+      after(async () => {
+        try {
+          await ensurePdfSnapshot(paperId, user.workspaceId);
+        } catch {
+          /* A failed snapshot does not block reading */
+        }
+      });
     }
 
     const previewAnalysis = previewPaper.analyses[0];
@@ -84,7 +92,11 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
           doi: previewPaper.doi,
           abstract: previewPaper.abstract,
           hasPdf: previewHasPdf,
-          canGenerateIntro: Boolean(previewPaper.abstract?.trim()) || previewHasPdf,
+          // What an intro could be written from, without downloading anything
+          // to find out: the abstract, stored bytes, or arXiv (the only remote
+          // source getPaperText will fetch).
+          canGenerateIntro:
+            Boolean(previewPaper.abstract?.trim()) || previewHasPdf || Boolean(previewPaper.arxivId),
           pdfIsPreprint: isPreprintPdf(previewPaper),
           conference: previewPaper.conferenceEntries[0] ?? null,
           analysis: previewAnalysis
