@@ -43,6 +43,8 @@ type PaperData = {
   canGenerateIntro: boolean;
   /** The inline PDF is an arXiv preprint while the version of record is the conference's. */
   pdfIsPreprint: boolean;
+  /** The edition it was accepted at, if any; named on the header as on the library row. */
+  conference: { venue: string; year: number } | null;
   analysis: AnalysisView | null;
   comments: {
     id: string;
@@ -307,6 +309,14 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
           {/* The links get their own line. A long author list would otherwise
               wrap them one at a time, leaving a lone icon on a line of its own. */}
           <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            {/* First on the line, as it is on the library row: the venue is the
+                fact a reader looks for, and the identifiers beside it are how
+                they would go and find the paper elsewhere. */}
+            {paper.conference ? (
+              <span className="whitespace-nowrap font-medium text-muted">
+                {paper.conference.venue} {paper.conference.year}
+              </span>
+            ) : null}
             {paper.arxivId ? (
               <span className="flex items-center gap-1.5">
                 <a

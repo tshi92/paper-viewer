@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { AdminOnlyNote } from "@/components/admin-only-note";
 import { canManageWorkspaceSettings } from "@paper-viewer/core/permissions";
 import { prisma } from "@paper-viewer/db";
 import { headers } from "next/headers";
@@ -57,6 +58,7 @@ export default async function MembersPage({
     <div>
       {/* Page title first; the invite form is one card under it, not the page's own h1. */}
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <AdminOnlyNote />
       <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       <form className="grid gap-3 rounded border border-border bg-white shadow-card p-4" action="/api/members/invitations" method="post">
         <h2 className="text-lg font-semibold">{t("inviteTitle")}</h2>

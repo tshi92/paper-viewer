@@ -155,6 +155,38 @@ test("the area tool marks a region without ⌥, and disarms itself afterwards", 
 
   await expect(page.getByText("划区")).toBeVisible();
 
+  // The thumbnail has to be a picture of the region, not merely present. The
+  // crop is taken from the page's canvas at `devicePixelRatio`, so a mismatch
+  // between that and the canvas's real backing scale reads from the wrong
+  // rectangle and stores a blank image — which looks, in the sidebar, exactly
+  // like a thumbnail that never rendered.
+  const thumbnail = page.locator('img[alt="划区截图"]').first();
+  await expect(thumbnail).toBeVisible({ timeout: 15_000 });
+  // It is served lazily from an API route, so it is in the DOM — with a border,
+  // and therefore "visible" — for a moment before any pixels arrive.
+  await expect
+    .poll(() => thumbnail.evaluate((node: HTMLImageElement) => node.naturalWidth), {
+      timeout: 15_000
+    })
+    .toBeGreaterThan(0);
+  const drawn = await thumbnail.evaluate((node: HTMLImageElement) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = node.naturalWidth;
+    canvas.height = node.naturalHeight;
+    const context = canvas.getContext("2d")!;
+    context.drawImage(node, 0, 0);
+    const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
+    let ink = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      // Anything appreciably darker than the page: text, rules, figures.
+      if (data[i + 3]! > 0 && data[i]! < 200) ink++;
+    }
+    return { width: canvas.width, height: canvas.height, ink };
+  });
+  expect(drawn.width).toBeGreaterThan(20);
+  expect(drawn.height).toBeGreaterThan(20);
+  expect(drawn.ink).toBeGreaterThan(0);
+
   // The box has to paint where it was drawn, in the label's colour — the same
   // bar the ⌥ path is held to.
   const painted = page

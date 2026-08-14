@@ -41,3 +41,33 @@ export function fitViewerToWidth(viewer: ZoomableViewer | null | undefined): voi
   if (!viewer) return;
   viewer.currentScaleValue = FIT_WIDTH;
 }
+
+export type PixelRect = { left: number; top: number; width: number; height: number };
+
+/**
+ * The part of a page's canvas an area annotation covers, in the canvas's own
+ * pixels, clamped to what the canvas actually holds. Null when the region and
+ * the canvas do not overlap at all.
+ *
+ * `scale` has to be measured from the canvas rather than taken from
+ * `window.devicePixelRatio`. pdf.js does not promise to render at the display's
+ * ratio: it caps canvas area, so a large page on a high-ratio screen is
+ * rasterised smaller than the screen would suggest. Multiplying by the ratio
+ * then indexes past the right or bottom edge, and `drawImage` fills the result
+ * with transparent pixels — which is not an error anywhere, just a thumbnail
+ * that turns out to be blank.
+ */
+export function canvasCropRect(
+  region: PixelRect,
+  scale: number,
+  canvasWidth: number,
+  canvasHeight: number
+): PixelRect | null {
+  if (!(scale > 0)) return null;
+  const left = Math.max(0, Math.round(region.left * scale));
+  const top = Math.max(0, Math.round(region.top * scale));
+  const right = Math.min(canvasWidth, Math.round((region.left + region.width) * scale));
+  const bottom = Math.min(canvasHeight, Math.round((region.top + region.height) * scale));
+  if (right <= left || bottom <= top) return null;
+  return { left, top, width: right - left, height: bottom - top };
+}

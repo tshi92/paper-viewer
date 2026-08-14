@@ -263,7 +263,6 @@
     "excludedPlaceholder": "Computer vision\nBioinformatics",
     "papersPerDayLabel": "Papers per day",
     "save": "Save preferences",
-    "adminOnly": "Only admins can change these settings.",
     "notSet": "Not set"
   },
   "settingsMembers": {
@@ -289,7 +288,7 @@
     "outputLanguageHint": "Paper intros and the daily digest overview are written in this language. The interface language is set separately under Settings → General.",
     "outputLanguageZh": "中文",
     "outputLanguageEn": "English",
-    "adminOnly": "LLM settings are visible to admins only. Ask a workspace admin if you need them changed.",
+    "adminOnly": "Ask a workspace admin if you need this changed.",
     "loading": "Loading…",
     "loadFailed": "Failed to load configuration",
     "sourceLabel": "In effect:",
@@ -391,7 +390,8 @@
     "sourceLink": "Source",
     "searchScholar": "Search on Google Scholar",
     "preprint": "preprint",
-    "preprintNote": "The PDF shown here is the arXiv preprint; it may differ from the conference's version of record."
+    "preprintNote": "The PDF shown here is the arXiv preprint; it may differ from the conference's version of record.",
+    "adminOnly": "Only admins can change this"
   },
   "preview": {
     "readOnlyNotice": "Preview: save to library to annotate, comment and discuss.",

@@ -263,7 +263,6 @@
     "excludedPlaceholder": "Computer vision\nBioinformatics",
     "papersPerDayLabel": "每日论文数",
     "save": "保存偏好",
-    "adminOnly": "仅管理员可修改。",
     "notSet": "未设置"
   },
   "settingsMembers": {
@@ -289,7 +288,7 @@
     "outputLanguageHint": "论文导读和每日推送总结用这个语言撰写。界面语言在 设置 → 通用 中单独设置。",
     "outputLanguageZh": "中文",
     "outputLanguageEn": "English",
-    "adminOnly": "LLM 配置仅管理员可见。如需修改，请联系工作区管理员。",
+    "adminOnly": "如需修改，请联系工作区管理员。",
     "loading": "加载中…",
     "loadFailed": "加载配置失败",
     "sourceLabel": "当前生效：",
@@ -391,7 +390,8 @@
     "sourceLink": "原文链接",
     "searchScholar": "在 Google Scholar 中查找",
     "preprint": "预印本",
-    "preprintNote": "站内显示的 PDF 是 arXiv 预印本，内容可能与会议正式版有差异。"
+    "preprintNote": "站内显示的 PDF 是 arXiv 预印本，内容可能与会议正式版有差异。",
+    "adminOnly": "仅管理员可修改"
   },
   "preview": {
     "readOnlyNotice": "预览模式：存入文库后即可标注、评论与讨论。",

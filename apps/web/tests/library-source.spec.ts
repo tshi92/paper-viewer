@@ -17,6 +17,8 @@ let workspaceId: string;
 let userId: string;
 let email: string;
 let run: string;
+/** The SOSP paper, opened directly to check the header carries its edition. */
+let sospPaperId: string;
 const paperIds: string[] = [];
 const entryIds: string[] = [];
 
@@ -57,6 +59,7 @@ test.beforeAll(async () => {
   }
 
   const sospId = await addPaper("Conference Paper", { source: "conference" });
+  sospPaperId = sospId;
   // Also carries an arXiv id: identity resolution matches preprints to accepted
   // papers, and the venue must still win on the row.
   const preprintAtOsdi = await addPaper("Preprint At Conference", {
@@ -111,6 +114,17 @@ test("a conference row names its venue and year instead of the word 'conference'
   // reader would copy.
   const plainRow = page.locator("div", { hasText: title("Plain Preprint") }).last();
   await expect(plainRow).toContainText("arXiv:2608.22222");
+});
+
+test("the paper's own header names the edition, as its library row does", async ({ page }) => {
+  await signIn(page);
+  await page.goto(`/papers/${sospPaperId}`);
+
+  // Ahead of the identifiers on the same line: the venue is what a reader looks
+  // for, and it was only ever on the library row before.
+  const header = page.locator("h1", { hasText: title("Conference Paper") }).locator("..");
+  await expect(header).toContainText("SOSP 2026");
+  await expect(header).not.toContainText("conference");
 });
 
 test("the source filter lists every edition separately and narrows to one", async ({ page }) => {
