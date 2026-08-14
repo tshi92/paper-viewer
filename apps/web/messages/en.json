@@ -184,12 +184,6 @@
     "tipCommentPlaceholder": "First comment (optional)",
     "tipCancel": "Cancel",
     "tipSave": "Save annotation",
-    "zoomIn": "Zoom in",
-    "zoomOut": "Zoom out",
-    "zoomFitWidth": "Fit page width",
-    "zoomFitWidthShort": "Fit",
-    "pdfLoading": "Loading PDF…",
-    "pdfError": "Failed to load PDF.",
     "dotTitle": "Highlight colour",
     "labelFilterAria": "Filter by label",
     "authorFilterAria": "Filter by member",
@@ -197,6 +191,14 @@
     "sortPosition": "By position",
     "sortNewest": "Newest first",
     "sortOldest": "Oldest first"
+  },
+  "pdf": {
+    "loading": "Loading PDF…",
+    "error": "Failed to load PDF.",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomFitWidth": "Fit page width",
+    "zoomFitWidthShort": "Fit"
   },
   "chat": {
     "heading": "Chat with Paper",

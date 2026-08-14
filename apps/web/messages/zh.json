@@ -184,12 +184,6 @@
     "tipCommentPlaceholder": "首条评论（可选）",
     "tipCancel": "取消",
     "tipSave": "保存标注",
-    "zoomIn": "放大",
-    "zoomOut": "缩小",
-    "zoomFitWidth": "适应页宽",
-    "zoomFitWidthShort": "适应",
-    "pdfLoading": "正在加载 PDF…",
-    "pdfError": "PDF 加载失败。",
     "dotTitle": "高亮颜色",
     "labelFilterAria": "按标签筛选",
     "authorFilterAria": "按成员筛选",
@@ -197,6 +191,14 @@
     "sortPosition": "按位置",
     "sortNewest": "从新到旧",
     "sortOldest": "从旧到新"
+  },
+  "pdf": {
+    "loading": "正在加载 PDF…",
+    "error": "PDF 加载失败。",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "zoomFitWidth": "适应页宽",
+    "zoomFitWidthShort": "适应"
   },
   "chat": {
     "heading": "与论文对话",
