@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { ComponentType, CSSProperties, MouseEvent as ReactMouseEvent } from "react";
-import { AreaHighlight, Highlight, PdfHighlighter, PdfLoader } from "react-pdf-highlighter";
+import { Highlight, PdfHighlighter, PdfLoader } from "react-pdf-highlighter";
 import type { Content, IHighlight, LTWHP, Position, ScaledPosition } from "react-pdf-highlighter";
 import "react-pdf-highlighter/dist/style.css";
 import { annotationColor, DEFAULT_HIGHLIGHT_COLOR } from "@paper-viewer/core/labels";
@@ -31,22 +31,6 @@ const MAX_AREA_IMAGE_LENGTH = 500_000;
 
 type ViewportHighlight = IHighlight & { position: Position };
 
-/**
- * `AreaHighlight` forwards every unrecognised prop to its internal react-rnd
- * `<Rnd>`, but its exported prop type does not declare them. This alias exposes
- * the pass-through props we actually rely on.
- */
-type AreaHighlightProps = {
-  highlight: { content: Content; comment: { emoji: string; text: string }; position: Position };
-  onChange: (rect: LTWHP) => void;
-  isScrolledTo: boolean;
-  disableDragging?: boolean;
-  enableResizing?: boolean;
-  style?: CSSProperties;
-  onClick?: (event: ReactMouseEvent) => void;
-};
-
-const AreaHighlightBox = AreaHighlight as unknown as ComponentType<AreaHighlightProps>;
 
 const noop = () => {};
 
@@ -99,6 +83,27 @@ class StablePdfHighlighter extends PdfHighlighter<IHighlight> {
   /** Page-level jump for the outline panel (highlight jumps go via scrollRef). */
   scrollToPage(pageNumber: number) {
     this.viewer?.scrollPageIntoView({ pageNumber });
+  }
+
+  /**
+   * PDF-only zoom, for reading a dense figure on a phone without blowing up
+   * the whole page. Changing `currentScale` makes pdf.js re-rasterise at the
+   * new size — sharp, unlike browser zoom — and the highlight layers re-render
+   * from the new viewport, so annotations stay anchored. The clamp keeps a
+   * runaway tap from rendering a 10× canvas. A window resize resets to
+   * fit-width via the library's own handler, which is the right default there.
+   */
+  zoomBy(factor: number) {
+    const { viewer } = this;
+    if (!viewer) return;
+    viewer.currentScale = Math.min(5, Math.max(0.3, viewer.currentScale * factor));
+  }
+
+  /** Back to the fit-the-container default. */
+  zoomToFitWidth() {
+    const { viewer } = this;
+    if (!viewer) return;
+    viewer.currentScaleValue = "page-width";
   }
 }
 
@@ -168,7 +173,7 @@ type Bounds = { left: number; top: number; right: number; bottom: number };
 /**
  * A `.pv-highlight` wrapper is a static block whose children are all absolutely
  * positioned, so its own box is empty. The painted geometry is the union of the
- * absolutely positioned parts — the text rects, or the area's react-rnd box —
+ * absolutely positioned parts — the text rects, or the area's box div —
  * measured in viewport coordinates so the card can be placed with
  * `position: fixed`, immune to the PDF's inner scrolling.
  *
@@ -710,14 +715,21 @@ export function PdfAnnotator({
 
       // Clicks are handled by the container's geometric hit test — these
       // elements are pointer-transparent and never see them.
+      //
+      // Area boxes are a plain absolutely-positioned div, not the library's
+      // `AreaHighlight`: that component wraps react-rnd, whose drag/resize we
+      // disable entirely — and whose rendering goes stale after a rescale
+      // (fit-to-width in a resized window updates its size but keeps the old
+      // translate, leaving the box drifted off the region it marks). A div is
+      // a pure function of the freshly converted viewport position.
       const inner = isArea ? (
-        <AreaHighlightBox
-          highlight={highlight}
-          onChange={noop}
-          isScrolledTo={isScrolledTo}
-          disableDragging={true}
-          enableResizing={false}
+        <div
           style={{
+            position: "absolute",
+            left: highlight.position.boundingRect.left,
+            top: highlight.position.boundingRect.top,
+            width: highlight.position.boundingRect.width,
+            height: highlight.position.boundingRect.height,
             background: color,
             border: `1.5px solid ${color}`,
             opacity: isScrolledTo ? 0.3 : 0.16,
@@ -768,6 +780,38 @@ export function PdfAnnotator({
       }}
     >
       <style>{HIGHLIGHT_STYLES}</style>
+      {/* PDF-only zoom: enlarges just this pane, re-rasterised sharp — browser
+          zoom scales the whole page and blurs the canvas. Floating so it works
+          at any screen size; most valuable on a phone. */}
+      <div className="absolute bottom-3 right-3 z-10 flex overflow-hidden rounded-md border border-border bg-white shadow-overlay">
+        <button
+          type="button"
+          aria-label={t("zoomOut")}
+          title={t("zoomOut")}
+          className="flex h-8 w-8 items-center justify-center text-base text-muted transition-colors duration-150 hover:bg-surface hover:text-ink"
+          onClick={() => highlighterRef.current?.zoomBy(1 / 1.2)}
+        >
+          −
+        </button>
+        <button
+          type="button"
+          aria-label={t("zoomFitWidth")}
+          title={t("zoomFitWidth")}
+          className="flex h-8 items-center justify-center border-x border-border px-2 text-xs text-muted transition-colors duration-150 hover:bg-surface hover:text-ink"
+          onClick={() => highlighterRef.current?.zoomToFitWidth()}
+        >
+          {t("zoomFitWidthShort")}
+        </button>
+        <button
+          type="button"
+          aria-label={t("zoomIn")}
+          title={t("zoomIn")}
+          className="flex h-8 w-8 items-center justify-center text-base text-muted transition-colors duration-150 hover:bg-surface hover:text-ink"
+          onClick={() => highlighterRef.current?.zoomBy(1.2)}
+        >
+          +
+        </button>
+      </div>
       <PdfLoader
         workerSrc="/pdf.worker.min.mjs"
         url={pdfUrl}

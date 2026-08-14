@@ -95,7 +95,8 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
                 method: previewAnalysis.method,
                 keyFindings: previewAnalysis.keyFindings,
                 whyItMatters: previewAnalysis.whyItMatters,
-                keywords: previewAnalysis.keywords
+                keywords: previewAnalysis.keywords,
+                generatedAt: previewAnalysis.createdAt.toISOString()
               }
             : null
         }}
@@ -192,7 +193,8 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
               method: analysis.method,
               keyFindings: analysis.keyFindings,
               whyItMatters: analysis.whyItMatters,
-              keywords: analysis.keywords
+              keywords: analysis.keywords,
+              generatedAt: analysis.createdAt.toISOString()
             }
           : null,
         comments: comments.map((c) => ({

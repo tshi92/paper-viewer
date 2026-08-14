@@ -3,24 +3,31 @@
   "private": true,
   "packageManager": "pnpm@10.30.3",
   "scripts": {
-    "dev": "corepack pnpm --filter @paper-viewer/web dev",
-    "build": "pnpm -r build",
+    "dev": "dotenv -e .env -- corepack pnpm --filter @paper-viewer/web dev",
+    "build": "dotenv -e .env -- pnpm -r build",
     "lint": "pnpm -r lint",
     "test": "pnpm -r test",
-    "test:e2e": "corepack pnpm --filter @paper-viewer/web test:e2e",
+    "test:e2e": "dotenv -e .env -- corepack pnpm --filter @paper-viewer/web test:e2e",
     "db:generate": "corepack pnpm --filter @paper-viewer/db prisma:generate",
-    "db:migrate": "corepack pnpm --filter @paper-viewer/db prisma:migrate",
-    "db:seed": "corepack pnpm --filter @paper-viewer/db prisma:seed",
+    "db:migrate": "dotenv -e .env -- corepack pnpm --filter @paper-viewer/db prisma:migrate",
+    "db:seed": "dotenv -e .env -- corepack pnpm --filter @paper-viewer/db prisma:seed",
     "deploy": "vercel deploy --prod"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["@prisma/client", "@prisma/engines", "prisma", "esbuild", "sharp"]
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma",
+      "esbuild",
+      "sharp"
+    ]
   },
   "dependencies": {
     "next": "^15.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
+    "dotenv-cli": "^11.0.0",
     "typescript": "^5.7.0",
     "vitest": "^2.1.8"
   }

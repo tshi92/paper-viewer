@@ -176,9 +176,11 @@ test("⌥ drag area → label → paints a coloured box and persists", async ({ 
   // The box must actually paint: right kind, label colour ("result" = #22c55e)
   // and a real area — an area highlight carries no rects, so a renderer that
   // treats it as a text highlight would draw nothing at all.
+  // The wrapper itself is a zero-size static block; the painted box inside it
+  // is what must be visible.
   const areaHighlight = page.locator('.pv-highlight[data-annotation-type="area"]');
-  await expect(areaHighlight).toBeVisible({ timeout: 15_000 });
   const painted = areaHighlight.locator('[style*="background"]').first();
+  await expect(painted).toBeVisible({ timeout: 15_000 });
   await expect(painted).toHaveCSS("background-color", "rgb(34, 197, 94)");
   const paintedBox = (await painted.boundingBox())!;
   expect(paintedBox.width).toBeGreaterThan(20);

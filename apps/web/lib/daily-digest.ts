@@ -358,8 +358,16 @@ async function revertFeishuSend(digestId: string): Promise<void> {
  * Manually backfill the analysis for a single paper (the generate button on the
  * Analysis tab). It reuses the pipeline's per-paper processing, so the output is
  * exactly the same as the daily digest's.
+ *
+ * `replace` regenerates over an existing analysis (the ⋮ menu on the Intro
+ * card); the old one stays in place until the new one has been written, so a
+ * failed regeneration never costs the intro that was already there.
  */
-export async function analyzePaperOnDemand(workspaceId: string, paperId: string): Promise<boolean> {
+export async function analyzePaperOnDemand(
+  workspaceId: string,
+  paperId: string,
+  options?: { replace?: boolean }
+): Promise<boolean> {
   const llm = await resolveLlmConfig(workspaceId);
   const prefs = await prisma.researchPreferences.findUnique({ where: { workspaceId } });
   return processPaper({
@@ -367,7 +375,8 @@ export async function analyzePaperOnDemand(workspaceId: string, paperId: string)
     paperId,
     llm,
     topics: prefs?.topics ?? [],
-    language: toOutputLanguage(prefs?.outputLanguage)
+    language: toOutputLanguage(prefs?.outputLanguage),
+    replaceExisting: options?.replace ?? false
   });
 }
 
@@ -382,8 +391,10 @@ async function processPaper(params: {
   llm: LlmRuntimeConfig;
   topics: string[];
   language: OutputLanguage;
+  /** Regenerate over an existing analysis instead of yielding to it. */
+  replaceExisting?: boolean;
 }): Promise<boolean> {
-  const { workspaceId, paperId, llm, topics, language } = params;
+  const { workspaceId, paperId, llm, topics, language, replaceExisting = false } = params;
 
   const paper = await prisma.paper.findUnique({ where: { id: paperId } });
   if (!paper) {
@@ -424,29 +435,41 @@ async function processPaper(params: {
 
   // A concurrent generation may have landed while the model ran (two members
   // opening the same intro-less paper triggers two on-demand runs; the route's
-  // pre-check cannot cover a minutes-long window). First writer wins.
-  const alreadyAnalyzed = await prisma.paperAnalysis.findFirst({
-    where: { workspaceId, paperId },
-    select: { id: true }
-  });
-  if (alreadyAnalyzed) {
-    return false;
+  // pre-check cannot cover a minutes-long window). First writer wins — unless
+  // this run is an explicit regeneration, whose whole point is to overwrite.
+  if (!replaceExisting) {
+    const alreadyAnalyzed = await prisma.paperAnalysis.findFirst({
+      where: { workspaceId, paperId },
+      select: { id: true }
+    });
+    if (alreadyAnalyzed) {
+      return false;
+    }
   }
 
-  await prisma.paperAnalysis.create({
-    data: {
-      paperId,
-      workspaceId,
-      summary: analysis.summary,
-      motivation: analysis.motivation,
-      problem: analysis.problem,
-      method: analysis.method,
-      keyFindings: analysis.keyFindings,
-      whyItMatters: analysis.whyItMatters,
-      keywords: analysis.keywords,
-      model: llm.model
-    }
-  });
+  const analysisData = {
+    paperId,
+    workspaceId,
+    summary: analysis.summary,
+    motivation: analysis.motivation,
+    problem: analysis.problem,
+    method: analysis.method,
+    keyFindings: analysis.keyFindings,
+    whyItMatters: analysis.whyItMatters,
+    keywords: analysis.keywords,
+    model: llm.model
+  };
+  if (replaceExisting) {
+    // Swap atomically: readers always see either the old analysis or the new
+    // one, never a gap. Only reached after generation succeeded, so a failed
+    // regeneration leaves the old analysis untouched.
+    await prisma.$transaction([
+      prisma.paperAnalysis.deleteMany({ where: { workspaceId, paperId } }),
+      prisma.paperAnalysis.create({ data: analysisData })
+    ]);
+  } else {
+    await prisma.paperAnalysis.create({ data: analysisData });
+  }
 
   // The analysis keywords double as library tags, but the WorkspacePaper row
   // only exists once someone saves the paper — updateMany is a no-op until
@@ -654,8 +677,12 @@ async function advanceDigest(params: {
     }
     const paperId: string = digest.pendingPaperIds[0]!;
     try {
-      await processPaper({ workspaceId, paperId, llm, topics: prefs.topics, language });
-      processed += 1;
+      // Count only papers that actually produced an analysis: `processed`
+      // triggers the overview rewrite below, and a paper that returns false
+      // every run (nothing to analyse from) must not re-trigger it hourly.
+      if (await processPaper({ workspaceId, paperId, llm, topics: prefs.topics, language })) {
+        processed += 1;
+      }
     } catch (error) {
       // Dequeue even when the analysis failed, otherwise this paper would block
       // the digest forever
@@ -673,9 +700,16 @@ async function advanceDigest(params: {
 
   // The placeholder counts as "no overview": it is what a run writes when every
   // analysis failed, and a later run that recovers them must be able to replace
-  // it. (The Feishu card is not re-sent — feishuSentAt guards against a second
-  // push — so the improved text only lands in the app.)
-  if (!digest.overviewSummary.trim() || digest.overviewSummary === placeholderOverview(digest.paperIds.length)) {
+  // it. A run that just processed papers rewrites the overview too — an
+  // existing one was written before these analyses landed, so it silently
+  // covers only the papers that had succeeded by then. (The Feishu card is not
+  // re-sent — feishuSentAt guards against a second push — so the improved text
+  // only lands in the app.)
+  if (
+    !digest.overviewSummary.trim() ||
+    digest.overviewSummary === placeholderOverview(digest.paperIds.length) ||
+    processed > 0
+  ) {
     let overviewSummary = placeholderOverview(digest.paperIds.length);
     const results = digest.paperIds.flatMap((paperId) => {
       const paper = papers.get(paperId);

@@ -311,8 +311,10 @@ export default async function LibraryPage({
 
   return (
     <section className="rounded border border-border bg-white shadow-card">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h1 className="text-lg font-semibold">{t("title")}</h1>
+      {/* flex-wrap: on a phone the upload controls drop below the heading
+          instead of shoving it into a vertical column and overflowing. */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+        <h1 className="whitespace-nowrap text-lg font-semibold">{t("title")}</h1>
         <PaperUploadForm />
       </div>
 
@@ -400,11 +402,13 @@ export default async function LibraryPage({
 
       <div className="divide-y divide-border">
         {workspacePapers.map(({ paper, tags, labelLinks, createdAt, importedBy }) => (
-          <div className="flex items-center justify-between px-4 py-4 transition-colors duration-150 hover:bg-surface" key={paper.id}>
+          // Stacked on a phone: the label chips otherwise squeeze the meta
+          // line into a one-word-per-line column.
+          <div className="flex flex-col gap-2 px-4 py-4 transition-colors duration-150 hover:bg-surface sm:flex-row sm:items-center sm:justify-between" key={paper.id}>
             <Link className="min-w-0 flex-1" href={`/papers/${paper.id}`}>
               <h2 className="font-medium">{paper.title}</h2>
               <p className="mt-1 text-sm text-muted">{Array.isArray(paper.authors) ? paper.authors.join(", ") : ""}</p>
-              <div className="mt-1 flex items-center gap-2">
+              <div className="mt-1 flex flex-wrap items-center gap-2">
                 <span className="text-xs text-muted">
                   {dateFormat.format(createdAt)}
                   {" · "}
@@ -413,7 +417,9 @@ export default async function LibraryPage({
                   {importedBy ? ` · ${t("savedBy", { name: importedBy.name ?? importedBy.email })}` : ""}
                 </span>
                 {tags.length > 0 ? (
-                  <div className="flex gap-1">
+                  // Wraps on its own: three long topic chips outgrow a phone
+                  // row, and without this they overflow instead of stacking.
+                  <div className="flex flex-wrap gap-1">
                     {tags.slice(0, 3).map((paperTag) => (
                       <TopicChip key={paperTag} topic={paperTag} size="sm" />
                     ))}
@@ -425,7 +431,7 @@ export default async function LibraryPage({
                 arXiv link all live on the paper page, one click away, where they
                 cannot be hit by accident on a dense list. Only the labels show
                 here, on the right where the freed-up space is. */}
-            <div className="flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2">
               {labelLinks.map(({ label: paperLabel }) => (
                 <LabelChip key={paperLabel.id} name={paperLabel.name} color={paperLabel.color} />
               ))}

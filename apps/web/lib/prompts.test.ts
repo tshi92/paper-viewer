@@ -91,11 +91,17 @@ describe("analysisPrompt source material", () => {
 describe("overviewPrompt", () => {
   it("names the language and its length guidance, staying in English", () => {
     const chinese = overviewPrompt("zh", [analysis], ["llm serving"]);
-    expect(chinese.user).toContain("Simplified Chinese, 400-600 characters");
+    expect(chinese.user).toContain("Simplified Chinese, 150-200 characters");
     expect(chinese.system).not.toMatch(CJK);
     expect(chinese.user).not.toMatch(CJK);
 
-    expect(overviewPrompt("en", [analysis], []).user).toContain("English, 300-450 words");
+    expect(overviewPrompt("en", [analysis], []).user).toContain("English, 80-120 words");
+  });
+
+  it("scales the length target with the number of papers", () => {
+    const ten = Array.from({ length: 10 }, (_, i) => ({ ...analysis, title: `Paper ${i}` }));
+    expect(overviewPrompt("zh", ten, []).user).toContain("1500-2000 characters");
+    expect(overviewPrompt("en", ten, []).user).toContain("800-1200 words");
   });
 
   it("summarises every analysis it was given", () => {

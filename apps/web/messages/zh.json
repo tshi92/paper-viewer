@@ -5,6 +5,7 @@
     "conferences": "顶会",
     "library": "文库",
     "settings": "设置",
+    "menu": "菜单",
     "signOut": "退出登录"
   },
   "settingsNav": {
@@ -127,6 +128,7 @@
     "errorAnnotationDelete": "删除失败，请重试",
     "errorReply": "回复发送失败",
     "pdfFallbackNotice": "PDF 快照暂不可用，当前显示 arXiv 实时版本；刷新页面可重试固化。",
+    "analysisRegenerate": "重新生成",
     "analysisGenerate": "生成简介",
     "analysisGenerating": "生成中…",
     "analysisGenerateFailed": "生成失败，请重试。",
@@ -166,6 +168,10 @@
     "tipCommentPlaceholder": "首条评论（可选）",
     "tipCancel": "取消",
     "tipSave": "保存标注",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "zoomFitWidth": "适应页宽",
+    "zoomFitWidthShort": "适应",
     "pdfLoading": "正在加载 PDF…",
     "pdfError": "PDF 加载失败。",
     "dotTitle": "高亮颜色",

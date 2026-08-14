@@ -1,14 +1,15 @@
 # Punctual trigger for the daily digest.
 #
-# Vercel Hobby cron precision is per-hour (±59 min), so the in-repo schedules in
-# vercel.json can fire the 9:00 Beijing digest as late as 9:59. This workflow
-# hits the same endpoint at the top of every hour on weekdays; the endpoint
-# itself gates on each workspace's configured pushHour and is fully idempotent
-# (digest lock, skipped_done, single Feishu push), so extra triggers are
-# harmless no-ops and the Vercel crons can stay as a fallback.
-#
-# GitHub's own scheduler delays minute-0 jobs the most, so the schedule fires at
-# :50 and the job sleeps until the top of the next hour before calling.
+# Vercel Hobby cron precision is per-hour (±59 min), and GitHub's own scheduler
+# routinely dispatches 30-60 minutes late, so no single scheduled shot can be
+# trusted to land just after a workspace's configured push hour. Instead of
+# betting on one punctual dispatch, the job loops: call the endpoint, and if
+# every workspace reports not_due, sleep to just past the next top of the hour
+# and call again, until real work happens or the job times out. Whichever
+# dispatch wakes up first stands guard at the gate. The endpoint is fully
+# idempotent (digest lock, skipped_done, single Feishu push), so overlapping
+# runs and extra calls are harmless no-ops, and the Vercel crons stay as a
+# fallback.
 #
 # Required repository secret: CRON_SECRET — the same value as the Vercel env var.
 # Repository variable APP_URL points the trigger at your own deployment; forks
@@ -17,41 +18,71 @@ name: digest-trigger
 
 on:
   schedule:
-    - cron: "50 * * * 1-5"
+    # Beijing 9:00 (the default push hour) is 01:00 UTC — the hour that matters
+    # most gets three staggered dispatch points (Beijing 7:50, 8:20, 8:50), so
+    # even with heavy dispatch delay at least one run is alive and waiting when
+    # the gate opens. Sunday 23:50 UTC is already Monday morning in Beijing.
+    - cron: "50 23 * * 0-4"
+    - cron: "20 0 * * 1-5"
+    # Hourly coverage for workspaces with later push hours. Capped at 14:50 UTC
+    # (22:50 Beijing) so the last run of Friday cannot drift past UTC midnight
+    # and wait around into the weekend.
+    - cron: "50 1-14 * * 1-5"
   workflow_dispatch:
 
 permissions: {}
 
+# A run that is asleep waiting for the gate makes any newly dispatched run
+# redundant; queue at most one behind it instead of stacking waiters.
+concurrency:
+  group: digest-trigger
+  cancel-in-progress: false
+
 jobs:
   trigger:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Generous: the earliest dispatch point is 70 minutes before the gate, and
+    # a waiting run must be allowed to hold out until it opens.
+    timeout-minutes: 75
     steps:
-      - name: Trigger the digest cron endpoint at the top of the hour
+      - name: Call the digest endpoint until it is due
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           APP_URL: ${{ vars.APP_URL || 'https://paper-viewer-five.vercel.app' }}
         run: |
           set -u
-          # The :50 schedule absorbs GitHub's dispatch delay. If we still start
-          # before the hour boundary, wait for it; if dispatch was so late that
-          # we are already past it, call immediately.
-          now=$(date -u +%s)
-          if [ $(( (now % 3600) / 60 )) -ge 50 ]; then
-            target=$(( (now / 3600 + 1) * 3600 ))
-            while [ "$(date -u +%s)" -lt "$target" ]; do sleep 10; done
-          fi
-
-          for attempt in 1 2 3 4 5; do
-            code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
-              -H "Authorization: Bearer $CRON_SECRET" \
-              --max-time 300 "${APP_URL%/}/api/cron/daily-digest" || echo "000")
-            echo "attempt $attempt: HTTP $code"
-            head -c 500 /tmp/resp.json || true; echo
-            if [ "$code" = "200" ]; then
+          while true; do
+            # Weekday gate in Beijing time: a Friday-evening dispatch that
+            # drifts past UTC midnight must not stand guard and start a
+            # Saturday digest.
+            if [ "$(TZ=Asia/Shanghai date +%u)" -gt 5 ]; then
+              echo "weekend in Beijing, nothing to trigger"
               exit 0
             fi
-            sleep 60
+
+            code="000"
+            for attempt in 1 2 3 4 5; do
+              code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+                -H "Authorization: Bearer $CRON_SECRET" \
+                --max-time 300 "${APP_URL%/}/api/cron/daily-digest" || echo "000")
+              echo "$(date -u +%H:%M:%S) attempt $attempt: HTTP $code"
+              head -c 500 /tmp/resp.json || true; echo
+              [ "$code" = "200" ] && break
+              sleep 60
+            done
+            if [ "$code" != "200" ]; then
+              echo "digest trigger failed after 5 attempts" >&2
+              exit 1
+            fi
+
+            # Done as soon as any workspace did real work (or none exist at
+            # all); all-not_due means the gate has not opened yet.
+            if jq -e '[.results[].status] | length == 0 or any(. != "not_due")' /tmp/resp.json >/dev/null; then
+              exit 0
+            fi
+
+            # Sleep to 20s past the next top of the hour (headroom for clock
+            # skew) and try again; the job timeout caps how long this goes on.
+            now=$(date -u +%s)
+            sleep $(( 3600 - now % 3600 + 20 ))
           done
-          echo "digest trigger failed after 5 attempts" >&2
-          exit 1
