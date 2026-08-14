@@ -119,19 +119,24 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
   const { paper } = workspacePaper;
   const analysis = paper.analyses[0];
 
-  // Taking the snapshot downloads the file and writes it to object storage, so it
-  // must come after the workspace ownership check; otherwise any logged-in user
-  // could trigger a download/write for a paper that does not belong to their own
-  // workspace.
-  // Pinning the PDF snapshot on first open keeps annotation coordinates from
-  // drifting when the upstream version changes.
-  let hasPdf = hasStoredPdf(paper);
+  // Pinning the PDF keeps annotation coordinates from drifting when the
+  // upstream version changes, but it downloads the whole file — so it happens
+  // after the response rather than in front of it, the same as the preview
+  // above. This first view reads the live arXiv/publisher copy (and says so,
+  // through pdfFallbackNotice); the next one gets the pinned bytes.
+  //
+  // It runs after the workspace ownership check either way: otherwise any
+  // logged-in user could trigger a download and a storage write for a paper
+  // outside their own workspace.
+  const hasPdf = hasStoredPdf(paper);
   if (!hasPdf) {
-    try {
-      hasPdf = await ensurePdfSnapshot(paperId, user.workspaceId);
-    } catch {
-      /* A failed snapshot does not block reading */
-    }
+    after(async () => {
+      try {
+        await ensurePdfSnapshot(paperId, user.workspaceId);
+      } catch {
+        /* A failed snapshot does not block reading */
+      }
+    });
   }
 
   const [comments, readingState, workspaceLabels, libraryOrder] = await Promise.all([
