@@ -5,6 +5,7 @@
     "conferences": "Conferences",
     "library": "Library",
     "settings": "Settings",
+    "menu": "Menu",
     "signOut": "Sign out"
   },
   "settingsNav": {
@@ -127,6 +128,7 @@
     "errorAnnotationDelete": "Delete failed. Please try again.",
     "errorReply": "Could not send the reply.",
     "pdfFallbackNotice": "PDF snapshot unavailable; showing the live arXiv version. Reload the page to retry pinning.",
+    "analysisRegenerate": "Regenerate",
     "analysisGenerate": "Generate intro",
     "analysisGenerating": "Generating…",
     "analysisGenerateFailed": "Generation failed. Please try again.",
@@ -166,6 +168,10 @@
     "tipCommentPlaceholder": "First comment (optional)",
     "tipCancel": "Cancel",
     "tipSave": "Save annotation",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "zoomFitWidth": "Fit page width",
+    "zoomFitWidthShort": "Fit",
     "pdfLoading": "Loading PDF…",
     "pdfError": "Failed to load PDF.",
     "dotTitle": "Highlight colour",

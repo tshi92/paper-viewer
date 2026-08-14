@@ -177,7 +177,9 @@ export default async function ConferencesPage({
                 return (
                   <div
                     key={entry.id}
-                    className="flex items-center justify-between gap-4 border-t border-t-border px-4 py-3 first:border-t-0"
+                    // Stacked on a phone — the chip cluster otherwise squeezes
+                    // the title into a one-word-per-line column.
+                    className="flex flex-col gap-2 border-t border-t-border px-4 py-3 first:border-t-0 md:flex-row md:items-center md:justify-between md:gap-4"
                   >
                     {/* Deliberately static: the row is a catalog line, not a
                         link — only the actions on the right navigate. */}
@@ -194,7 +196,7 @@ export default async function ConferencesPage({
                         three things, repeated down a long list. They are all
                         secondary to the save action at the end of the row, so
                         none of them takes the accent colour. */}
-                    <div className="flex shrink-0 items-center gap-1.5">
+                    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
                       {/* Signals before the click that the paper page will show
                           the full text inline; absent when it can't. Papers with
                           no publisher PDF are served from arXiv, so the badge

@@ -39,7 +39,9 @@ export function TopNav({ items }: { items: TopNavItem[] }) {
             aria-current={isActive ? "page" : undefined}
             // A tinted pill instead of only a color change: on a four-item bar
             // the active tab should be findable without comparing shades.
-            className={`rounded-md px-2.5 py-1.5 transition-colors duration-150 ${
+            // nowrap + shrink-0: the header scrolls sideways on a phone instead
+            // of letting labels break mid-word.
+            className={`shrink-0 whitespace-nowrap rounded-md px-2.5 py-1.5 transition-colors duration-150 ${
               isActive
                 ? "bg-accent/10 font-medium text-accent"
                 : "text-muted hover:bg-surface hover:text-ink"

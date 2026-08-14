@@ -94,7 +94,9 @@ export function PaperUploadForm() {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    // min-w-0 down the chain lets the URL input shrink on a phone; without it
+    // the input's intrinsic width pushes the Add button off the screen.
+    <div className="flex min-w-0 flex-wrap items-center gap-2">
       <input ref={fileRef} type="file" accept="application/pdf" className="hidden" onChange={handleFile} />
       <button
         // Outlined, like every other action in the app's chrome: this sits in a
@@ -105,10 +107,10 @@ export function PaperUploadForm() {
       >
         {loading ? t("processing") : t("uploadPdf")}
       </button>
-      <div className="flex items-center gap-1">
+      <div className="flex min-w-0 flex-1 items-center gap-1 sm:flex-none">
         <input
           type="text"
-          className="w-56 rounded border border-control px-2 py-1.5 text-sm placeholder:text-muted"
+          className="w-56 min-w-0 flex-1 rounded border border-control px-2 py-1.5 text-sm placeholder:text-muted sm:flex-none"
           placeholder={t("urlPlaceholder")} aria-label={t("urlPlaceholder")}
           value={url}
           onChange={(e) => setUrl(e.target.value)}
