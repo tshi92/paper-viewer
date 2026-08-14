@@ -77,7 +77,12 @@ type WorkspaceErrorKey =
 
 // 简介 leads: opening a paper starts with what it's about; clicking a
 // highlight in the PDF still switches to 标注 automatically.
-const SIDEBAR_TABS = ["analysis", "chat", "annotations", "comments"] as const;
+/**
+ * Tab order, and what the `1`-`4` keys select. AI chat sits last: it is the
+ * one panel that answers questions rather than showing what the workspace has
+ * accumulated, so it reads as the tail of the row rather than an equal.
+ */
+const SIDEBAR_TABS = ["analysis", "annotations", "comments", "chat"] as const;
 
 export function PaperWorkspace({ paper }: { paper: PaperData }) {
   const t = useTranslations("workspace");

@@ -1,5 +1,6 @@
 import { prisma } from "@paper-viewer/db";
 import { notFound } from "next/navigation";
+import { after } from "next/server";
 import { PaperPreview } from "@/components/paper-preview";
 import { PaperWorkspace } from "@/components/paper-workspace";
 import type { LabelView } from "@/lib/annotation-types";
@@ -61,13 +62,20 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
       notFound();
     }
 
-    let previewHasPdf = hasStoredPdf(previewPaper);
+    // The preview is read-only — nothing anchors to the bytes — so pinning the
+    // snapshot happens after the response instead of before it. Awaiting it
+    // meant every first open of a catalog paper waited on a full PDF download
+    // from the publisher before anything rendered. The viewer falls back to the
+    // arXiv/publisher proxy meanwhile, and the next open serves the pinned copy.
+    const previewHasPdf = hasStoredPdf(previewPaper);
     if (!previewHasPdf) {
-      try {
-        previewHasPdf = await ensurePdfSnapshot(paperId, user.workspaceId);
-      } catch {
-        /* A failed snapshot does not block reading */
-      }
+      after(async () => {
+        try {
+          await ensurePdfSnapshot(paperId, user.workspaceId);
+        } catch {
+          /* A failed snapshot does not block reading */
+        }
+      });
     }
 
     const previewAnalysis = previewPaper.analyses[0];
@@ -84,7 +92,11 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
           doi: previewPaper.doi,
           abstract: previewPaper.abstract,
           hasPdf: previewHasPdf,
-          canGenerateIntro: Boolean(previewPaper.abstract?.trim()) || previewHasPdf,
+          // What an intro could be written from, without downloading anything
+          // to find out: the abstract, stored bytes, or arXiv (the only remote
+          // source getPaperText will fetch).
+          canGenerateIntro:
+            Boolean(previewPaper.abstract?.trim()) || previewHasPdf || Boolean(previewPaper.arxivId),
           pdfIsPreprint: isPreprintPdf(previewPaper),
           conference: previewPaper.conferenceEntries[0] ?? null,
           analysis: previewAnalysis
@@ -107,19 +119,24 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
   const { paper } = workspacePaper;
   const analysis = paper.analyses[0];
 
-  // Taking the snapshot downloads the file and writes it to object storage, so it
-  // must come after the workspace ownership check; otherwise any logged-in user
-  // could trigger a download/write for a paper that does not belong to their own
-  // workspace.
-  // Pinning the PDF snapshot on first open keeps annotation coordinates from
-  // drifting when the upstream version changes.
-  let hasPdf = hasStoredPdf(paper);
+  // Pinning the PDF keeps annotation coordinates from drifting when the
+  // upstream version changes, but it downloads the whole file — so it happens
+  // after the response rather than in front of it, the same as the preview
+  // above. This first view reads the live arXiv/publisher copy (and says so,
+  // through pdfFallbackNotice); the next one gets the pinned bytes.
+  //
+  // It runs after the workspace ownership check either way: otherwise any
+  // logged-in user could trigger a download and a storage write for a paper
+  // outside their own workspace.
+  const hasPdf = hasStoredPdf(paper);
   if (!hasPdf) {
-    try {
-      hasPdf = await ensurePdfSnapshot(paperId, user.workspaceId);
-    } catch {
-      /* A failed snapshot does not block reading */
-    }
+    after(async () => {
+      try {
+        await ensurePdfSnapshot(paperId, user.workspaceId);
+      } catch {
+        /* A failed snapshot does not block reading */
+      }
+    });
   }
 
   const [comments, readingState, workspaceLabels, libraryOrder] = await Promise.all([

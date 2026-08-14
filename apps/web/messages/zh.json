@@ -30,7 +30,8 @@
     "displayNameLabel": "显示名称",
     "profileSave": "保存",
     "profileSaved": "显示名称已保存。",
-    "profileSaveFailed": "保存失败，请重试。"
+    "profileSaveFailed": "保存失败，请重试。",
+    "accountEmailLabel": "登录邮箱"
   },
   "auth": {
     "signInTitle": "登录",
@@ -43,7 +44,22 @@
     "emailPlaceholder": "邮箱",
     "passwordPlaceholder": "密码",
     "loginError": "邮箱或密码不正确，请重试。",
-    "bootstrapError": "创建失败，请检查填写内容后重试。"
+    "bootstrapError": "创建失败，请检查填写内容后重试。",
+    "forgotLink": "忘记密码？",
+    "forgotTitle": "重置密码",
+    "forgotBody": "填写你登录用的邮箱，我们会发一封邮件，里面有设置新密码的链接。",
+    "forgotSubmit": "发送重置链接",
+    "forgotSent": "如果该邮箱有账号，重置链接已经发出。链接只能用一次，1 小时后失效。",
+    "forgotUnavailable": "本部署没有配置邮件服务，无法发送重置链接。请让工作区 owner 配置 RESEND_API_KEY。",
+    "backToSignIn": "返回登录",
+    "resetTitle": "设置新密码",
+    "resetSubmit": "保存新密码",
+    "resetTooShort": "密码太短了。",
+    "resetDone": "密码已更新，请用新密码登录。",
+    "resetInvalidTitle": "这个链接已失效",
+    "resetInvalidBody": "重置链接只能用一次，且 1 小时后过期。重新申请一个再试。",
+    "newPasswordPlaceholder": "新密码",
+    "passwordRule": "至少 12 位。"
   },
   "home": {
     "title": "今日",
@@ -168,12 +184,6 @@
     "tipCommentPlaceholder": "首条评论（可选）",
     "tipCancel": "取消",
     "tipSave": "保存标注",
-    "zoomIn": "放大",
-    "zoomOut": "缩小",
-    "zoomFitWidth": "适应页宽",
-    "zoomFitWidthShort": "适应",
-    "pdfLoading": "正在加载 PDF…",
-    "pdfError": "PDF 加载失败。",
     "dotTitle": "高亮颜色",
     "labelFilterAria": "按标签筛选",
     "authorFilterAria": "按成员筛选",
@@ -181,6 +191,14 @@
     "sortPosition": "按位置",
     "sortNewest": "从新到旧",
     "sortOldest": "从旧到新"
+  },
+  "pdf": {
+    "loading": "正在加载 PDF…",
+    "error": "PDF 加载失败。",
+    "zoomIn": "放大",
+    "zoomOut": "缩小",
+    "zoomFitWidth": "适应页宽",
+    "zoomFitWidthShort": "适应"
   },
   "chat": {
     "heading": "与论文对话",
@@ -399,7 +417,11 @@
     "syncNotConfigured": "数据源链接无效（需要 github.com 仓库地址）",
     "syncDone": "同步完成：共 {entries} 条，新增 {created} 篇",
     "syncUnlinked": "，移除 {removed} 条已失效的会议关联",
-    "truncatedNotice": "结果过多，仅显示前 {max} 条，请用筛选缩小范围。",
+    "pagination": "分页",
+    "pageRange": "第 {from}–{to} 条，共 {total} 条",
+    "pageOf": "第 {page} / {pageCount} 页",
+    "previousPage": "上一页",
+    "nextPage": "下一页",
     "emptyFiltered": "当前筛选下没有匹配的论文。",
     "clearFilters": "清除筛选",
     "pdfBadge": "PDF",

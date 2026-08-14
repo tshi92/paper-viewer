@@ -21,13 +21,14 @@ describe("permissions", () => {
     expect(canRemovePaper(null)).toBe(false);
   });
 
-  it("lets only the author delete an annotation, whatever the role", () => {
+  it("lets the author and any admin delete an annotation", () => {
     expect(canDeleteAnnotation("member", true)).toBe(true);
     expect(canDeleteAnnotation("admin", true)).toBe(true);
     expect(canDeleteAnnotation("owner", true)).toBe(true);
     expect(canDeleteAnnotation("member", false)).toBe(false);
-    expect(canDeleteAnnotation("admin", false)).toBe(false);
-    expect(canDeleteAnnotation("owner", false)).toBe(false);
+    // Admins and owners moderate anyone's, exactly as they do for comments.
+    expect(canDeleteAnnotation("admin", false)).toBe(true);
+    expect(canDeleteAnnotation("owner", false)).toBe(true);
     expect(canDeleteAnnotation(null, false)).toBe(false);
   });
 

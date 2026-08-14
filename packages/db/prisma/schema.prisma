@@ -55,6 +55,24 @@ model User {
   readingStates ReadingStateRecord[]
   importedPapers WorkspacePaper[]
   annotations   Annotation[]
+  passwordResets PasswordReset[]
+}
+
+/**
+ * A one-shot password reset link. Only the token's hash is stored, so a leaked
+ * database row cannot be turned back into a working link — the same shape as
+ * Invitation. `usedAt` makes the link single-use rather than merely expiring.
+ */
+model PasswordReset {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Workspace {

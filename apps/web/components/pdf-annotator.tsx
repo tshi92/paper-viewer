@@ -8,8 +8,10 @@ import type { Content, IHighlight, LTWHP, Position, ScaledPosition } from "react
 import "react-pdf-highlighter/dist/style.css";
 import { annotationColor, DEFAULT_HIGHLIGHT_COLOR } from "@paper-viewer/core/labels";
 import { LabelChip } from "./label-chip";
+import { PdfZoomControls } from "./pdf-zoom-controls";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
 import { extractPdfOutline, type OutlineCapableDocument, type PdfOutlineEntry } from "@/lib/pdf-outline";
+import { MAX_SCALE, MIN_SCALE, PDF_WORKER_SRC, ZOOM_STEP } from "@/lib/pdf-viewer";
 
 export type CreateAnnotationInput = {
   type: "highlight" | "area";
@@ -96,7 +98,7 @@ class StablePdfHighlighter extends PdfHighlighter<IHighlight> {
   zoomBy(factor: number) {
     const { viewer } = this;
     if (!viewer) return;
-    viewer.currentScale = Math.min(5, Math.max(0.3, viewer.currentScale * factor));
+    viewer.currentScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, viewer.currentScale * factor));
   }
 
   /** Back to the fit-the-container default. */
@@ -281,7 +283,6 @@ function toHighlight(annotation: AnnotationView): IHighlight {
 
 
 function AnnotationPreview({ annotation }: { annotation: AnnotationView }) {
-  const t = useTranslations("annotations");
   const firstComment = annotation.comments[0];
   return (
     <div className="max-w-[260px] rounded border border-border bg-white p-2 text-xs shadow-overlay">
@@ -423,7 +424,7 @@ export function PdfAnnotator({
   onOutline?: (outline: PdfOutlineEntry[]) => void;
   registerScrollToPage?: (fn: (page: number) => void) => void;
 }) {
-  const t = useTranslations("annotations");
+  const tPdf = useTranslations("pdf");
 
   // Everything derived from the server's annotations is built in one pass: the
   // shapes the library renders, and the record plus resolved colour that every
@@ -780,43 +781,16 @@ export function PdfAnnotator({
       }}
     >
       <style>{HIGHLIGHT_STYLES}</style>
-      {/* PDF-only zoom: enlarges just this pane, re-rasterised sharp — browser
-          zoom scales the whole page and blurs the canvas. Floating so it works
-          at any screen size; most valuable on a phone. */}
-      <div className="absolute bottom-3 right-3 z-10 flex overflow-hidden rounded-md border border-border bg-white shadow-overlay">
-        <button
-          type="button"
-          aria-label={t("zoomOut")}
-          title={t("zoomOut")}
-          className="flex h-8 w-8 items-center justify-center text-base text-muted transition-colors duration-150 hover:bg-surface hover:text-ink"
-          onClick={() => highlighterRef.current?.zoomBy(1 / 1.2)}
-        >
-          −
-        </button>
-        <button
-          type="button"
-          aria-label={t("zoomFitWidth")}
-          title={t("zoomFitWidth")}
-          className="flex h-8 items-center justify-center border-x border-border px-2 text-xs text-muted transition-colors duration-150 hover:bg-surface hover:text-ink"
-          onClick={() => highlighterRef.current?.zoomToFitWidth()}
-        >
-          {t("zoomFitWidthShort")}
-        </button>
-        <button
-          type="button"
-          aria-label={t("zoomIn")}
-          title={t("zoomIn")}
-          className="flex h-8 w-8 items-center justify-center text-base text-muted transition-colors duration-150 hover:bg-surface hover:text-ink"
-          onClick={() => highlighterRef.current?.zoomBy(1.2)}
-        >
-          +
-        </button>
-      </div>
+      <PdfZoomControls
+        onZoomOut={() => highlighterRef.current?.zoomBy(1 / ZOOM_STEP)}
+        onFitWidth={() => highlighterRef.current?.zoomToFitWidth()}
+        onZoomIn={() => highlighterRef.current?.zoomBy(ZOOM_STEP)}
+      />
       <PdfLoader
-        workerSrc="/pdf.worker.min.mjs"
+        workerSrc={PDF_WORKER_SRC}
         url={pdfUrl}
-        beforeLoad={<p className="p-4 text-sm text-muted">{t("pdfLoading")}</p>}
-        errorMessage={<p className="p-4 text-sm text-muted">{t("pdfError")}</p>}
+        beforeLoad={<p className="p-4 text-sm text-muted">{tPdf("loading")}</p>}
+        errorMessage={<p className="p-4 text-sm text-muted">{tPdf("error")}</p>}
       >
         {(pdfDocument) => (
           <>

@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { BackButton } from "./back-button";
+import { PdfReader } from "./pdf-reader";
 import { SaveToLibraryButton } from "./save-to-library-button";
 import { ScholarIcon } from "./scholar-icon";
 import { TopicChip } from "./topic-chip";
@@ -8,10 +9,10 @@ import type { AnalysisView } from "./analysis-panel";
 /**
  * Read-only view of a paper that has not been saved to the library yet
  * (surfaced by a digest or the conference catalog). No annotations, comments
- * or reading state — the PDF renders in the browser's own viewer via an
- * iframe, and the only action is "save to library". Catalog entries often
- * arrive as bare metadata (no PDF, no abstract), so the layout must carry a
- * link-out (publisher page, Scholar search) instead of a wall of empty boxes.
+ * or reading state — the PDF renders through `PdfReader`, and the only action
+ * is "save to library". Catalog entries often arrive as bare metadata (no PDF,
+ * no abstract), so the layout must carry a link-out (publisher page, Scholar
+ * search) instead of a wall of empty boxes.
  */
 export async function PaperPreview({
   paper,
@@ -118,11 +119,7 @@ export async function PaperPreview({
         </div>
 
         {pdfUrl ? (
-          <iframe
-            src={pdfUrl}
-            title={paper.title}
-            className="h-[calc(100vh-3rem)] w-full rounded border border-border bg-surface"
-          />
+          <PdfReader url={pdfUrl} title={paper.title} />
         ) : paper.abstract ? (
           <div className="rounded border border-border bg-white shadow-card p-6 text-sm text-muted">
             <div className="max-w-2xl">

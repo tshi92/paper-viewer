@@ -16,14 +16,25 @@ export function canRemovePaper(role: WorkspaceRole | null): boolean {
   return role !== null;
 }
 
-/** Authors alone may delete their annotations; admins and owners may not delete other people's. */
+/**
+ * Deleting an annotation follows the same rule as deleting a comment: the
+ * author manages their own, and admins/owners may moderate anyone's. Both mark
+ * up shared reading material, so the same people need to be able to clean up
+ * after a mistake or a departed member.
+ *
+ * Editing stays author-only (see the PATCH route): an annotation's labels are
+ * the author's reading of the passage, not a moderation surface.
+ */
 export function canDeleteAnnotation(role: WorkspaceRole | null, isAuthor: boolean): boolean {
-  return isAuthor && role !== null;
+  if (role === null) {
+    return false;
+  }
+  return isAuthor || role === "admin" || role === "owner";
 }
 
 /**
- * Comments diverge from annotations on purpose: the author manages their own,
- * and admins/owners may moderate anyone's (edit and delete alike).
+ * The author manages their own comments, and admins/owners may moderate
+ * anyone's (edit and delete alike).
  */
 export function canModifyComment(role: WorkspaceRole | null, isAuthor: boolean): boolean {
   if (role === null) {
