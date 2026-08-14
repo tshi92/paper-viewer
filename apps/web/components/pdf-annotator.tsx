@@ -2,16 +2,21 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import type { ComponentType, CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import type {
+  CSSProperties,
+  MouseEvent as ReactMouseEvent,
+  PointerEvent as ReactPointerEvent,
+  ReactElement
+} from "react";
 import { Highlight, PdfHighlighter, PdfLoader } from "react-pdf-highlighter";
 import type { Content, IHighlight, LTWHP, Position, ScaledPosition } from "react-pdf-highlighter";
 import "react-pdf-highlighter/dist/style.css";
 import { annotationColor, DEFAULT_HIGHLIGHT_COLOR } from "@paper-viewer/core/labels";
 import { LabelChip } from "./label-chip";
-import { PdfZoomControls } from "./pdf-zoom-controls";
+import { PdfControls } from "./pdf-controls";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
 import { extractPdfOutline, type OutlineCapableDocument, type PdfOutlineEntry } from "@/lib/pdf-outline";
-import { MAX_SCALE, MIN_SCALE, PDF_WORKER_SRC, ZOOM_STEP } from "@/lib/pdf-viewer";
+import { fitViewerToWidth, PDF_WORKER_SRC, zoomViewer } from "@/lib/pdf-viewer";
 
 export type CreateAnnotationInput = {
   type: "highlight" | "area";
@@ -30,6 +35,9 @@ export type CreateAnnotationInput = {
  * so oversized images are dropped rather than sent.
  */
 const MAX_AREA_IMAGE_LENGTH = 500_000;
+
+/** Below this on either side, an area drag reads as a tap and is discarded. */
+const MIN_AREA_SIZE_PX = 12;
 
 type ViewportHighlight = IHighlight & { position: Position };
 
@@ -88,24 +96,89 @@ class StablePdfHighlighter extends PdfHighlighter<IHighlight> {
   }
 
   /**
-   * PDF-only zoom, for reading a dense figure on a phone without blowing up
-   * the whole page. Changing `currentScale` makes pdf.js re-rasterise at the
-   * new size — sharp, unlike browser zoom — and the highlight layers re-render
-   * from the new viewport, so annotations stay anchored. The clamp keeps a
-   * runaway tap from rendering a 10× canvas. A window resize resets to
-   * fit-width via the library's own handler, which is the right default there.
+   * Turns a point in client coordinates into one in the scroll container's
+   * content, which is the frame every measurement below is in.
    */
-  zoomBy(factor: number) {
-    const { viewer } = this;
-    if (!viewer) return;
-    viewer.currentScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, viewer.currentScale * factor));
+  contentPoint(clientX: number, clientY: number): { x: number; y: number } | null {
+    const container = this.containerNode;
+    if (!container) return null;
+    const box = container.getBoundingClientRect();
+    return {
+      x: clientX - box.left + container.scrollLeft,
+      y: clientY - box.top + container.scrollTop
+    };
   }
 
-  /** Back to the fit-the-container default. */
-  zoomToFitWidth() {
-    const { viewer } = this;
-    if (!viewer) return;
-    viewer.currentScaleValue = "page-width";
+  /**
+   * The page a rectangle starts on, and where that page sits, so the rectangle
+   * can be re-expressed relative to it. Resolved from the page boxes rather
+   * than by hit-testing, because the element under the pointer during an area
+   * drag is the overlay that captured it.
+   */
+  pageAt(x: number, y: number): { pageNumber: number; left: number; top: number } | null {
+    const container = this.containerNode;
+    if (!container) return null;
+    for (const node of container.querySelectorAll<HTMLElement>(".page")) {
+      const pageNumber = Number(node.dataset.pageNumber);
+      if (!pageNumber) continue;
+      if (y < node.offsetTop || y > node.offsetTop + node.offsetHeight) continue;
+      if (x < node.offsetLeft || x > node.offsetLeft + node.offsetWidth) continue;
+      return { pageNumber, left: node.offsetLeft, top: node.offsetTop };
+    }
+    return null;
+  }
+
+  /**
+   * Completes an area selection whose rectangle was captured elsewhere.
+   *
+   * The library's own area selection is mouse-only — it listens for
+   * `mousedown`/`mousemove`/`mouseup` and discards anything that is not a
+   * `MouseEvent` — and a finger dragging across a page produces none of those,
+   * it scrolls. Its gate is `event.altKey` too, and a touch screen has no ⌥.
+   * So the gesture is captured by the annotator and finished here, through the
+   * same scaling, the same screenshot, the same tip and the same ghost
+   * highlight the ⌥ drag goes through.
+   *
+   * `boundingRect` is relative to its page, as `viewportPositionToScaled` and
+   * `screenshot` both expect.
+   */
+  finishAreaSelection(
+    boundingRect: LTWHP & { pageNumber: number },
+    renderTip: (
+      position: ScaledPosition,
+      content: Content,
+      hideTipAndSelection: () => void,
+      transformSelection: () => void
+    ) => ReactElement
+  ) {
+    const { pageNumber } = boundingRect;
+    const viewportPosition: Position = { boundingRect, rects: [], pageNumber };
+    const scaledPosition = this.viewportPositionToScaled(viewportPosition);
+    const content: Content = { image: this.screenshot(boundingRect, pageNumber) };
+
+    this.setTip(
+      viewportPosition,
+      renderTip(
+        scaledPosition,
+        content,
+        () => this.hideTipAndSelection(),
+        // Freezes the region as a ghost highlight while labels are picked, so
+        // the reader can still see what they marked.
+        () =>
+          this.setState({ ghostHighlight: { position: scaledPosition, content } }, () =>
+            this.repaintHighlights()
+          )
+      )
+    );
+  }
+
+  /**
+   * The library repaints its highlight layers through a method it declares
+   * private; it exists at runtime, and the ghost highlight above never appears
+   * without it.
+   */
+  private repaintHighlights() {
+    (this as unknown as { renderHighlightLayers: () => void }).renderHighlightLayers();
   }
 }
 
@@ -591,6 +664,12 @@ export function PdfAnnotator({
 
   const handleContainerClick = useCallback(
     (event: ReactMouseEvent) => {
+      // The click that closes an area drag lands wherever the drag ended,
+      // which is not a request to select whatever mark is under it.
+      if (areaJustFinishedRef.current) {
+        areaJustFinishedRef.current = false;
+        return;
+      }
       // A click that ends a text selection, or one inside the selection tip /
       // preview card, is not an annotation click.
       const selection = window.getSelection();
@@ -610,6 +689,8 @@ export function PdfAnnotator({
   const scrollRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** The last id actually scrolled to, so one selection never scrolls twice. */
   const lastScrolledIdRef = useRef<string | null>(null);
+  /** Set when a save is what will select the next annotation; see the effect below. */
+  const skipScrollForNextSelectionRef = useRef(false);
 
   const scrollToId = useCallback((annotationId: string) => {
     if (scrollRetryRef.current !== null) {
@@ -669,6 +750,15 @@ export function PdfAnnotator({
     }
     if (lastScrolledIdRef.current === selectedId) return;
     if (!highlights.some((it) => it.id === selectedId)) return;
+    // A mark that was just drawn is already under the reader's eyes — the page
+    // was on screen a moment ago, because that is where they drew it. Scrolling
+    // it to the top of the pane moves the document out from under them for no
+    // reason, so the selection that follows a creation is adopted without one.
+    if (skipScrollForNextSelectionRef.current) {
+      skipScrollForNextSelectionRef.current = false;
+      lastScrolledIdRef.current = selectedId;
+      return;
+    }
     scrollToId(selectedId);
   }, [selectedId, highlights, scrollToId]);
 
@@ -696,11 +786,90 @@ export function PdfAnnotator({
               : {}),
             ...(firstComment ? { firstComment } : {})
           });
+          // Only once the save succeeded: a failed one selects nothing, and the
+          // flag would otherwise swallow the next real jump.
+          skipScrollForNextSelectionRef.current = true;
           hideTipAndSelection();
         }}
       />
     ),
     [annotationLabels, onCreate, setTipOpen]
+  );
+
+  // Area selection driven by a pointer rather than by ⌥ and a mouse. One shot:
+  // arming it takes over the pane (the drag would otherwise scroll), so it
+  // disarms itself the moment the rectangle is drawn.
+  const [areaMode, setAreaMode] = useState(false);
+  /** The rectangle being dragged, in this container's own coordinates. */
+  const [areaRect, setAreaRect] = useState<LTWHP | null>(null);
+  const areaStartRef = useRef<{ x: number; y: number } | null>(null);
+  /** Set for the click that ends an area drag, which is not a mark click. */
+  const areaJustFinishedRef = useRef(false);
+
+  const handleAreaPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const box = containerRef.current?.getBoundingClientRect();
+    if (!box) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    areaStartRef.current = { x: event.clientX, y: event.clientY };
+    setAreaRect({ left: event.clientX - box.left, top: event.clientY - box.top, width: 0, height: 0 });
+  }, []);
+
+  const handleAreaPointerMove = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    const start = areaStartRef.current;
+    const box = containerRef.current?.getBoundingClientRect();
+    if (!start || !box) return;
+    setAreaRect({
+      left: Math.min(start.x, event.clientX) - box.left,
+      top: Math.min(start.y, event.clientY) - box.top,
+      width: Math.abs(event.clientX - start.x),
+      height: Math.abs(event.clientY - start.y)
+    });
+  }, []);
+
+  const handleAreaPointerUp = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      const start = areaStartRef.current;
+      areaStartRef.current = null;
+      areaJustFinishedRef.current = true;
+      setAreaRect(null);
+      setAreaMode(false);
+
+      const highlighter = highlighterRef.current;
+      if (!start || !highlighter) return;
+      // A tap, or a drag too thin to be a region: arming the mode and changing
+      // your mind should not leave a sliver of an annotation behind.
+      if (
+        Math.abs(event.clientX - start.x) < MIN_AREA_SIZE_PX ||
+        Math.abs(event.clientY - start.y) < MIN_AREA_SIZE_PX
+      ) {
+        return;
+      }
+
+      const from = highlighter.contentPoint(
+        Math.min(start.x, event.clientX),
+        Math.min(start.y, event.clientY)
+      );
+      const to = highlighter.contentPoint(
+        Math.max(start.x, event.clientX),
+        Math.max(start.y, event.clientY)
+      );
+      if (!from || !to) return;
+      // Anchored to the page the drag started on, as the ⌥ path is.
+      const page = highlighter.pageAt(from.x, from.y);
+      if (!page) return;
+
+      highlighter.finishAreaSelection(
+        {
+          left: from.x - page.left,
+          top: from.y - page.top,
+          width: to.x - from.x,
+          height: to.y - from.y,
+          pageNumber: page.pageNumber
+        },
+        handleSelectionFinished
+      );
+    },
+    [handleSelectionFinished]
   );
 
   const renderHighlight = useCallback(
@@ -781,11 +950,38 @@ export function PdfAnnotator({
       }}
     >
       <style>{HIGHLIGHT_STYLES}</style>
-      <PdfZoomControls
-        onZoomOut={() => highlighterRef.current?.zoomBy(1 / ZOOM_STEP)}
-        onFitWidth={() => highlighterRef.current?.zoomToFitWidth()}
-        onZoomIn={() => highlighterRef.current?.zoomBy(ZOOM_STEP)}
+      <PdfControls
+        onZoomIn={() => zoomViewer(highlighterRef.current?.viewer, "in")}
+        onFitWidth={() => fitViewerToWidth(highlighterRef.current?.viewer)}
+        onZoomOut={() => zoomViewer(highlighterRef.current?.viewer, "out")}
+        areaMode={areaMode}
+        onToggleAreaMode={() => setAreaMode((armed) => !armed)}
       />
+      {/* Armed area selection: this layer takes the drag that would otherwise
+          scroll the document, and paints the rectangle as it is drawn. */}
+      {areaMode ? (
+        <div
+          data-testid="pdf-area-capture"
+          className="absolute inset-0 z-20 cursor-crosshair"
+          style={{ touchAction: "none" }}
+          onPointerDown={handleAreaPointerDown}
+          onPointerMove={handleAreaPointerMove}
+          onPointerUp={handleAreaPointerUp}
+          onPointerCancel={handleAreaPointerUp}
+        >
+          {areaRect ? (
+            <div
+              className="absolute border border-accent bg-accent/20"
+              style={{
+                left: areaRect.left,
+                top: areaRect.top,
+                width: areaRect.width,
+                height: areaRect.height
+              }}
+            />
+          ) : null}
+        </div>
+      ) : null}
       <PdfLoader
         workerSrc={PDF_WORKER_SRC}
         url={pdfUrl}
