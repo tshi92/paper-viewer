@@ -3,7 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { annotationColor } from "@paper-viewer/core/labels";
-import { canModifyComment, type WorkspaceRole } from "@paper-viewer/core/permissions";
+import { canDeleteAnnotation, canModifyComment, type WorkspaceRole } from "@paper-viewer/core/permissions";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
 import { Avatar } from "./avatar";
 import { CommentRow } from "./comment-row";
@@ -246,13 +246,15 @@ export function AnnotationSidebar({
               : []),
             // Editing means the labels: the quote is fixed by the passage it
             // marks, and each comment carries its own edit. Author-only, which
-            // is what the PATCH route enforces.
+            // is what the PATCH route enforces — an annotation's labels are the
+            // author's reading of the passage, not something to moderate.
             ...(annotation.author.id === currentUserId
               ? [{ label: t("edit"), onSelect: () => startEditing(annotation) }]
               : []),
             // Plain "Delete": the menu belongs to one annotation card, so the
-            // object being deleted is never in question.
-            ...(annotation.author.id === currentUserId
+            // object being deleted is never in question. Open to admins on
+            // anyone's annotation, matching comments.
+            ...(canDeleteAnnotation(currentUserRole, annotation.author.id === currentUserId)
               ? [{ label: t("delete"), onSelect: () => setPendingDelete(annotation), danger: true }]
               : [])
           ];
