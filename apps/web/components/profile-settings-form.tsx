@@ -5,8 +5,19 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "@/components/toast";
 
-/** Lets any member set the display name teammates see instead of the email. */
-export function ProfileSettingsForm({ currentName }: { currentName: string | null }) {
+/**
+ * Lets any member set the display name teammates see instead of the email, and
+ * shows which account they are signed in as — the email is what password
+ * resets and invitations are addressed to, and it appears nowhere else once a
+ * display name is set.
+ */
+export function ProfileSettingsForm({
+  currentName,
+  email
+}: {
+  currentName: string | null;
+  email: string;
+}) {
   const t = useTranslations("settingsGeneral");
   const router = useRouter();
   const [name, setName] = useState(currentName ?? "");
@@ -36,6 +47,10 @@ export function ProfileSettingsForm({ currentName }: { currentName: string | nul
       <div>
         <h2 className="text-lg font-medium">{t("profileHeading")}</h2>
         <p className="mt-1 text-sm text-muted">{t("profileDescription")}</p>
+      </div>
+      <div className="grid gap-1 text-sm">
+        <span className="font-medium">{t("accountEmailLabel")}</span>
+        <span className="rounded border border-border bg-surface px-3 py-2 text-muted">{email}</span>
       </div>
       <form
         className="flex items-end gap-2"

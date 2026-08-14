@@ -30,7 +30,8 @@
     "displayNameLabel": "Display name",
     "profileSave": "Save",
     "profileSaved": "Display name saved.",
-    "profileSaveFailed": "Could not save. Please try again."
+    "profileSaveFailed": "Could not save. Please try again.",
+    "accountEmailLabel": "Account email"
   },
   "auth": {
     "signInTitle": "Sign in",
@@ -43,7 +44,22 @@
     "emailPlaceholder": "Email",
     "passwordPlaceholder": "Password",
     "loginError": "Incorrect email or password. Please try again.",
-    "bootstrapError": "Could not create the account. Please check the form and try again."
+    "bootstrapError": "Could not create the account. Please check the form and try again.",
+    "forgotLink": "Forgot your password?",
+    "forgotTitle": "Reset your password",
+    "forgotBody": "Enter the address you sign in with and we will email you a link to choose a new password.",
+    "forgotSubmit": "Email me a reset link",
+    "forgotSent": "If that address has an account, a reset link is on its way. The link works once and expires in an hour.",
+    "forgotUnavailable": "This deployment has no email provider configured, so a reset link cannot be sent. Ask a workspace owner to set RESEND_API_KEY.",
+    "backToSignIn": "Back to sign in",
+    "resetTitle": "Choose a new password",
+    "resetSubmit": "Save new password",
+    "resetTooShort": "That password is too short.",
+    "resetDone": "Password updated. Sign in with your new password.",
+    "resetInvalidTitle": "This link no longer works",
+    "resetInvalidBody": "Reset links can be used once and expire after an hour. Request a new one to try again.",
+    "newPasswordPlaceholder": "New password",
+    "passwordRule": "At least 12 characters."
   },
   "home": {
     "title": "Today",
@@ -267,7 +283,7 @@
     "description": "Configure the model endpoint, model name, and API Key this workspace uses.",
     "outputLanguageLabel": "AI output language",
     "outputLanguageHint": "Paper intros and the daily digest overview are written in this language. The interface language is set separately under Settings → General.",
-    "outputLanguageZh": "\u4e2d\u6587",
+    "outputLanguageZh": "中文",
     "outputLanguageEn": "English",
     "adminOnly": "LLM settings are visible to admins only. Ask a workspace admin if you need them changed.",
     "loading": "Loading…",
