@@ -21,8 +21,13 @@ export type Prompt = { system: string; user: string };
 type LanguageProfile = {
   /** How the prompt names the language to the model. */
   name: string;
-  /** Length guidance for the daily briefing, whose natural size differs per script. */
-  overviewLength: string;
+  /**
+   * Per-paper length budget for the daily briefing, in the unit natural to the
+   * script (characters for Chinese, words for English). The briefing's target
+   * length scales with how many papers it covers — a fixed target made a
+   * 10-paper day read as thin as a 3-paper day.
+   */
+  overviewPerPaper: { min: number; max: number; unit: string };
   /** Writing conventions that only apply to this language. */
   styleRules: string;
 };
@@ -36,14 +41,14 @@ type LanguageProfile = {
 const LANGUAGE_PROFILES: Record<OutputLanguage, LanguageProfile> = {
   zh: {
     name: "Simplified Chinese",
-    overviewLength: "400-600 characters",
+    overviewPerPaper: { min: 150, max: 200, unit: "characters" },
     styleRules: `- Write each term in one language only. Never pair a term with its translation in parentheses, in either direction — no "English term (Chinese term)" and no "Chinese term (English term)".
 - Decide per term: leave it in English when researchers in the field say it in English day to day (transformer, KV cache, test-time scaling, reflection, agent); write it in Chinese when a standard Chinese term exists and loses nothing in translation (latency, energy, throughput, datacenter, accuracy).
 - Do not expand an obscure abbreviation in parentheses; pick one language for its full form and use that.`
   },
   en: {
     name: "English",
-    overviewLength: "300-450 words",
+    overviewPerPaper: { min: 80, max: 120, unit: "words" },
     styleRules: `- Use a term's established name; do not invent expansions for well-known abbreviations.
 - Explain an unfamiliar term the first time it appears, in one clause, rather than in a parenthetical gloss every time.
 - Prefer plain words over the paper's own phrasing: write for a researcher in a neighbouring area, not for the authors.`
@@ -130,6 +135,8 @@ export function overviewPrompt(
         `${i + 1}. ${a.title}\n   - Motivation: ${a.motivation}\n   - Method: ${a.method}\n   - Results: ${a.keyFindings}`
     )
     .join("\n\n");
+  const { min, max, unit } = profile.overviewPerPaper;
+  const lengthSpec = `${min * analyses.length}-${max * analyses.length} ${unit}`;
 
   return {
     system: `You analyse research trends in systems for large models. Write in ${profile.name}, in plain language. Return pure JSON.
@@ -143,17 +150,21 @@ The reader's research areas: ${topics.join(", ")}
 Today's papers:
 ${paperSummaries}
 
+Structure the briefing as Markdown, as four sections in this order (section headings in ${profile.name}):
+1. An opening line on the most notable direction today — no heading, one or two sentences
+2. Technical trends: 2-3 numbered observations, each grounded in the papers that show it
+3. How the papers relate: which ones tackle similar problems, named by number and title
+4. Close reading: the 2-3 papers worth reading closely today and why
+
 Requirements:
-1. Open with one sentence on the most notable direction today
-2. Draw out 2-3 technical trends or observations
-3. Point out how the papers relate (which ones tackle similar problems)
-4. Recommend the 2-3 worth reading closely today
-5. Write in plain ${profile.name}, following the style rules:
+- Every paper gets mentioned at least once — a reader uses this briefing to decide which of the ${analyses.length} to open, so none may be silently skipped
+- Never compress the briefing into one paragraph; the sections and their lists are the format
+- Write in plain ${profile.name}, following the style rules:
 ${profile.styleRules}
 
-Return JSON:
+Return JSON — overviewSummary must be a single string containing the whole Markdown briefing:
 {
-  "overviewSummary": "the full briefing (${profile.name}, ${profile.overviewLength})"
+  "overviewSummary": "the full briefing (${profile.name}, ${lengthSpec} — the target scales with the number of papers, so cover them at that depth rather than compressing)"
 }`
   };
 }

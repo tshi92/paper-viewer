@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { RowMenu } from "@/components/row-menu";
 import { toast } from "@/components/toast";
 import { endFlight, startFlight, useFlight } from "@/lib/async-flight";
 import type { PdfOutlineEntry } from "@/lib/pdf-outline";
@@ -15,7 +16,21 @@ export type AnalysisView = {
   keyFindings: string | null;
   whyItMatters: string | null;
   keywords: string[];
+  /**
+   * ISO timestamp of the analysis row. Regeneration ends when a *different*
+   * timestamp shows up in the server props — the analysis merely being present
+   * is not enough, since one is present the whole time.
+   */
+  generatedAt: string;
 };
+
+/**
+ * The `generatedAt` of the analysis a regeneration is replacing, keyed like the
+ * flight store and module-level for the same reason: the wait must survive
+ * navigating away and back. An entry here changes what "done" means for the
+ * flight — a *different* timestamp in the server props, not just any analysis.
+ */
+const regenBaselines = new Map<string, string>();
 
 /** The five structured sections, in the order the prompt produces them. */
 const SECTIONS = [
@@ -117,13 +132,17 @@ export function AnalysisPanel({
   // appearing there is what ends the wait, whatever happened to the fetch.
   useEffect(() => {
     if (!generating) return;
-    if (analysis) {
+    // First generation is done when an analysis appears at all; a regeneration
+    // only when its timestamp differs from the baseline recorded at the start.
+    if (analysis && analysis.generatedAt !== regenBaselines.get(flightKey)) {
+      regenBaselines.delete(flightKey);
       endFlight(flightKey);
       return;
     }
     const interval = setInterval(() => router.refresh(), 5_000);
     // Give up after the server's own time limit (300s) plus one poll.
     const deadline = setTimeout(() => {
+      regenBaselines.delete(flightKey);
       endFlight(flightKey);
       toast.error(t("analysisGenerateFailed"));
     }, 305_000);
@@ -133,22 +152,31 @@ export function AnalysisPanel({
     };
   }, [generating, analysis, router, flightKey, t]);
 
-  async function generate() {
+  function stopWaiting(messageKey: "analysisGenerateFailed" | "analysisNoSource") {
+    regenBaselines.delete(flightKey);
+    endFlight(flightKey);
+    toast.error(t(messageKey));
+  }
+
+  async function generate(regenerate = false) {
     if (generating) return;
+    if (regenerate && analysis) regenBaselines.set(flightKey, analysis.generatedAt);
     startFlight(flightKey);
     try {
-      const res = await fetch(`/api/papers/${paperId}/analyze`, { method: "POST" });
+      const res = await fetch(`/api/papers/${paperId}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ regenerate })
+      });
       if (!res.ok) {
-        endFlight(flightKey);
-        toast.error(t("analysisGenerateFailed"));
+        stopWaiting("analysisGenerateFailed");
         return;
       }
       // The server found nothing to work from — a PDF that yields no text, say,
       // which cannot be known before trying. Stop waiting and say why.
       const body = (await res.json().catch(() => ({}))) as { generated?: boolean };
       if (body.generated === false) {
-        endFlight(flightKey);
-        toast.error(t("analysisNoSource"));
+        stopWaiting("analysisNoSource");
         return;
       }
       // Pull the fresh server props in right away; the polling effect stays on
@@ -207,7 +235,14 @@ export function AnalysisPanel({
     <div className="flex h-full min-h-0 flex-col gap-3">
       {outlineBlock}
       <section className="min-h-0 flex-1 overflow-auto rounded border border-border bg-white shadow-card p-4">
-      <h2 className="text-sm font-semibold uppercase text-muted">{t("analysisHeading")}</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold uppercase text-muted">{t("analysisHeading")}</h2>
+        {generating ? (
+          <span className="text-xs text-muted">{t("analysisGenerating")}</span>
+        ) : canGenerate ? (
+          <RowMenu items={[{ label: t("analysisRegenerate"), onSelect: () => void generate(true) }]} />
+        ) : null}
+      </div>
       <div className="mt-3 space-y-3 text-sm leading-relaxed">
         <p>{analysis.summary}</p>
         {SECTIONS.map(({ field, labelKey }) => {
