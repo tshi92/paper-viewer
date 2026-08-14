@@ -31,9 +31,9 @@ export async function AppShell({ user, children }: { user: CurrentUser; children
           </div>
           <div className="flex shrink-0 items-center gap-2.5 text-sm text-muted">
             <Avatar name={user.name} email={user.email} size="md" />
-            {/* Truncated on a phone: the name stays visible next to the avatar
-                without letting a long one crowd out the menu button. */}
-            <span className="max-w-[7rem] truncate sm:max-w-none" title={user.email}>{displayName}</span>
+            {/* Avatar only once the header is in hamburger mode — the menu
+                panel names the user, so the header does not have to. */}
+            <span className="hidden sm:inline" title={user.email}>{displayName}</span>
             <form action="/api/auth/logout" method="post" className="hidden sm:block">
               <button
                 className="whitespace-nowrap rounded-md px-2.5 py-1.5 transition-colors duration-150 hover:bg-surface hover:text-ink"
