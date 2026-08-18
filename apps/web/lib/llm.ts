@@ -28,10 +28,42 @@ export type DiscoveryResult = {
 const RETRIABLE_STATUS = new Set([429, 500, 502, 503]);
 const RETRY_DELAYS_MS = [2_000, 5_000, 10_000];
 
+/** Ceiling on a single non-streaming request; long enough for a per-paper analysis. */
+const DEFAULT_TIMEOUT_MS = 120_000;
+
+/**
+ * The briefing is the one call that needs longer: it reasons over every paper
+ * of the day at once, so it is both the largest prompt and the longest answer.
+ * With thinking off it returns in roughly 20s, so this is margin rather than a
+ * budget — but it has to stay under the cron route's own maxDuration of 300s,
+ * which is what caps it here.
+ */
+const OVERVIEW_TIMEOUT_MS = 180_000;
+
+/**
+ * Turn the model's reasoning pass off, in the shape Moonshot accepts.
+ *
+ * The briefing summarises analyses the model itself already wrote, so the
+ * reasoning pass buys nothing — and it cost everything: kimi-k2.5 spent ~7.5k
+ * reasoning tokens and over three minutes before emitting a single character
+ * (measured at 212s and 241s on two runs), so every briefing blew past the
+ * request timeout and the digest silently fell back to its placeholder. The
+ * same prompt with reasoning off answers in 21s at the same length.
+ *
+ * Sent only to models known to accept the field: an OpenAI-compatible endpoint
+ * that does not recognise it rejects the entire request with a 400, and the
+ * provider is a per-workspace setting. `reasoning_effort` and `enable_thinking`
+ * were both tried against Moonshot and are silently ignored.
+ */
+function disableThinking(model: string): Record<string, unknown> {
+  return /kimi/i.test(model) ? { thinking: { type: "disabled" } } : {};
+}
+
 async function fetchChatCompletions(
   config: LlmRuntimeConfig,
   payload: Record<string, unknown>,
-  streaming: boolean
+  streaming: boolean,
+  timeoutMs: number
 ): Promise<Response> {
   // An unbounded call lets one hung upstream request run until the serverless
   // platform hard-kills the whole function (skipping finally blocks and
@@ -41,7 +73,7 @@ async function fetchChatCompletions(
   if (!streaming) {
     return fetch(`${config.baseUrl}/chat/completions`, {
       method: "POST",
-      signal: AbortSignal.timeout(120_000),
+      signal: AbortSignal.timeout(timeoutMs),
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${config.apiKey}`
@@ -75,11 +107,16 @@ async function fetchChatCompletions(
 export async function requestChatCompletions(
   config: LlmRuntimeConfig,
   payload: Record<string, unknown>,
-  opts: { streaming?: boolean; retryDelaysMs?: number[] } = {}
+  opts: { streaming?: boolean; retryDelaysMs?: number[]; timeoutMs?: number } = {}
 ): Promise<Response> {
   const delays = opts.retryDelaysMs ?? RETRY_DELAYS_MS;
   for (let attempt = 0; ; attempt++) {
-    const response = await fetchChatCompletions(config, payload, opts.streaming ?? false);
+    const response = await fetchChatCompletions(
+      config,
+      payload,
+      opts.streaming ?? false,
+      opts.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    );
     const delay = delays[attempt];
     if (response.ok || delay === undefined || !RETRIABLE_STATUS.has(response.status)) {
       return response;
@@ -93,14 +130,20 @@ export async function requestChatCompletions(
 async function callLlm(
   config: LlmRuntimeConfig,
   messages: { role: string; content: string }[],
-  maxTokens = 16000
+  maxTokens = 16000,
+  opts: { timeoutMs?: number; extraPayload?: Record<string, unknown> } = {}
 ): Promise<string> {
-  const response = await requestChatCompletions(config, {
-    model: config.model,
-    messages,
-    max_tokens: maxTokens,
-    response_format: { type: "json_object" }
-  });
+  const response = await requestChatCompletions(
+    config,
+    {
+      model: config.model,
+      messages,
+      max_tokens: maxTokens,
+      response_format: { type: "json_object" },
+      ...opts.extraPayload
+    },
+    { timeoutMs: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS }
+  );
 
   if (!response.ok) {
     const text = await response.text();
@@ -228,10 +271,15 @@ export async function generateOverview(
   language: OutputLanguage
 ): Promise<string> {
   const prompt = overviewPrompt(language, analyses, topics);
-  const result = await callLlm(config, [
-    { role: "system", content: prompt.system },
-    { role: "user", content: prompt.user }
-  ], 16000);
+  const result = await callLlm(
+    config,
+    [
+      { role: "system", content: prompt.system },
+      { role: "user", content: prompt.user }
+    ],
+    16000,
+    { timeoutMs: OVERVIEW_TIMEOUT_MS, extraPayload: disableThinking(config.model) }
+  );
 
   const parsed = parseJson<{ overviewSummary: string | Record<string, unknown> }>(result);
   if (typeof parsed.overviewSummary === "string") {
