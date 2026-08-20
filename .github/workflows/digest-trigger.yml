@@ -12,8 +12,10 @@
 # fallback.
 #
 # Required repository secret: CRON_SECRET — the same value as the Vercel env var.
-# Repository variable APP_URL points the trigger at your own deployment; forks
-# must set it, otherwise this workflow calls someone else's site.
+# Required repository variable: APP_URL — your own deployment's origin. There is
+# deliberately no default. A default is one particular deployment's address
+# living in every copy of this file, and a fork that never sets the variable
+# would quietly send its hourly traffic there instead of failing.
 name: digest-trigger
 
 on:
@@ -68,9 +70,18 @@ jobs:
       - name: Call the digest endpoint until it is due
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-          APP_URL: ${{ vars.APP_URL || 'https://paper-viewer-five.vercel.app' }}
+          APP_URL: ${{ vars.APP_URL }}
         run: |
           set -u
+          # Fail here rather than further down: an unset variable would make
+          # every request go to "/api/cron/daily-digest" with no origin, and
+          # curl's error for that reads nothing like "you skipped a setup step".
+          if [ -z "${APP_URL:-}" ]; then
+            echo "Set the APP_URL repository variable to your deployment's origin," >&2
+            echo "e.g. https://your-app.vercel.app — see this workflow's header." >&2
+            exit 1
+          fi
+
           while true; do
             # Weekday gate in Beijing time: a Friday-evening dispatch that
             # drifts past UTC midnight must not stand guard and start a

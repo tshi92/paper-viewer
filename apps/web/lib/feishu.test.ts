@@ -15,7 +15,7 @@ function buildCard(overrides: Partial<DigestCardInput> = {}): Card {
       { id: "p1", title: "Attention Is All You Need", summaryLine: "提出 Transformer 架构。" },
       { id: "p2", title: "Flash Attention", summaryLine: "用分块 IO 感知算法加速注意力。" }
     ],
-    appUrl: "https://paper-viewer-five.vercel.app",
+    appUrl: "https://example.com",
     language: "zh",
     ...overrides
   }) as Card;
@@ -41,17 +41,17 @@ describe("buildDigestCard", () => {
 
     expect(first.text.tag).toBe("lark_md");
     expect(first.text.content).toBe(
-      "**1. [Attention Is All You Need](https://paper-viewer-five.vercel.app/papers/p1)**\n提出 Transformer 架构。"
+      "**1. [Attention Is All You Need](https://example.com/papers/p1)**\n提出 Transformer 架构。"
     );
     expect(second.text.content).toBe(
-      "**2. [Flash Attention](https://paper-viewer-five.vercel.app/papers/p2)**\n用分块 IO 感知算法加速注意力。"
+      "**2. [Flash Attention](https://example.com/papers/p2)**\n用分块 IO 感知算法加速注意力。"
     );
   });
 
   it("normalizes a trailing slash on appUrl so links never double up", () => {
-    const card = buildCard({ appUrl: "https://paper-viewer-five.vercel.app/" });
+    const card = buildCard({ appUrl: "https://example.com/" });
     expect(card.elements[1]?.text.content).toContain(
-      "(https://paper-viewer-five.vercel.app/papers/p1)"
+      "(https://example.com/papers/p1)"
     );
     expect(card.elements[1]?.text.content).not.toContain("app//papers");
   });
@@ -63,7 +63,7 @@ describe("buildDigestCard", () => {
     const content = card.elements[1]?.text.content ?? "";
     expect(content).toContain("\\[v2\\]");
     expect(content).toBe(
-      "**1. [SAM \\[v2\\] for Video](https://paper-viewer-five.vercel.app/papers/p1)**\n分割一切的续作。"
+      "**1. [SAM \\[v2\\] for Video](https://example.com/papers/p1)**\n分割一切的续作。"
     );
   });
 
