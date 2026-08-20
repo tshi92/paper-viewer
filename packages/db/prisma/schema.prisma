@@ -185,7 +185,7 @@ model ResearchPreferences {
   arxivCategories  String[] @default([])
   feishuWebhookUrl String?
   /** Hour (0-23, Beijing time) that triggers the daily push; the cron only processes this workspace after it. */
-  pushHour         Int      @default(9)
+  pushHour         Int      @default(13)
   /**
    * Language the model writes paper intros and the daily overview in ("zh" | "en").
    * Surfaced under Settings → LLM, but stored here: it belongs to the workspace,

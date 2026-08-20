@@ -18,16 +18,34 @@ name: digest-trigger
 
 on:
   schedule:
-    # Beijing 9:00 (the default push hour) is 01:00 UTC — the hour that matters
-    # most gets three staggered dispatch points (Beijing 7:50, 8:20, 8:50), so
-    # even with heavy dispatch delay at least one run is alive and waiting when
-    # the gate opens. Sunday 23:50 UTC is already Monday morning in Beijing.
-    - cron: "50 23 * * 0-4"
-    - cron: "20 0 * * 1-5"
+    # Beijing 13:00 (the default push hour) is 05:00 UTC — the hour that matters
+    # most gets three staggered dispatch points (Beijing 11:50, 12:20, 12:50),
+    # so even with heavy dispatch delay at least one run is alive and waiting
+    # when the gate opens.
+    #
+    # The gate sits at 13:00 rather than the morning because arXiv rebuilds its
+    # RSS once a day at 04:00 UTC (12:00 Beijing). A run before that reads the
+    # PREVIOUS day's build, which on a Monday is the weekend's — and the feed
+    # declares <skipDays>Saturday, Sunday</skipDays>, so it holds nothing.
+    # Waiting for the rebuild also stops Friday's build being dropped entirely:
+    # Friday's own run had already completed from Thursday's build, and by
+    # Monday the feed has moved on.
+    #
+    # A dispatch point must stay under the job's timeout away from the gate: a
+    # run that starts more than that early is killed while still waiting, which
+    # is a red failure every day rather than a missed push.
+    - cron: "50 3 * * 1-5"
+    - cron: "20 4 * * 1-5"
     # Hourly coverage for workspaces with later push hours. Capped at 14:50 UTC
     # (22:50 Beijing) so the last run of Friday cannot drift past UTC midnight
     # and wait around into the weekend.
-    - cron: "50 1-14 * * 1-5"
+    #
+    # It starts at 04:50 UTC rather than earlier for the reason above: a
+    # workspace configured before ~12:00 Beijing is served from 11:50 onwards
+    # instead of at its own hour, because a dispatch early enough to catch that
+    # hour cannot survive the wait when no other workspace is due either. Such
+    # a workspace would be reading the previous day's feed regardless.
+    - cron: "50 4-14 * * 1-5"
   workflow_dispatch:
 
 permissions: {}
@@ -41,9 +59,11 @@ concurrency:
 jobs:
   trigger:
     runs-on: ubuntu-latest
-    # Generous: the earliest dispatch point is 70 minutes before the gate, and
-    # a waiting run must be allowed to hold out until it opens.
-    timeout-minutes: 75
+    # The earliest dispatch point (11:50 Beijing) waits ~70 minutes for a 13:00
+    # gate, so this needs real margin above that: a run killed mid-wait is a red
+    # failure every day, not a missed push, and the whole design here is that a
+    # waiting run holds out until the gate opens.
+    timeout-minutes: 90
     steps:
       - name: Call the digest endpoint until it is due
         env:

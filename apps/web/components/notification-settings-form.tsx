@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { ConfirmDialog } from "./confirm-dialog";
+import { DEFAULT_PUSH_HOUR } from "@/lib/push-schedule";
 
 type NotificationView = {
   configured: boolean;
@@ -25,7 +26,7 @@ export function NotificationSettingsForm() {
   const t = useTranslations("settingsNotifications");
   const [config, setConfig] = useState<NotificationView | null>(null);
   const [webhookUrl, setWebhookUrl] = useState("");
-  const [pushHour, setPushHour] = useState(9);
+  const [pushHour, setPushHour] = useState(DEFAULT_PUSH_HOUR);
   const [loadError, setLoadError] = useState("");
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<TestResult | null>(null);
