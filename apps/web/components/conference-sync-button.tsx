@@ -27,6 +27,7 @@ export function ConferenceSyncButton() {
         entries?: number;
         createdPapers?: number;
         unlinkedStale?: number;
+        warnings?: string[];
       };
       if (!response.ok) {
         // The admin-only route reports the concrete failure; show it so the
@@ -45,6 +46,15 @@ export function ConferenceSyncButton() {
       const removed = body.unlinkedStale ?? 0;
       const summary = t("syncDone", { entries: body.entries ?? 0, created: body.createdPapers ?? 0 });
       toast.success(removed > 0 ? `${summary}${t("syncUnlinked", { removed })}` : summary);
+      // A run that fell back to a lagging listing, or imported a file whose
+      // paper count disagreed with the catalog's own manifest, still succeeds —
+      // and used to look exactly like a clean one. That is how the source repo
+      // grew three venues while every sync here reported success, so a degraded
+      // run says so rather than leaving it to the server log.
+      const warnings = body.warnings ?? [];
+      if (warnings.length > 0) {
+        toast.info(t("syncWarnings", { count: warnings.length, first: warnings[0]! }));
+      }
       router.refresh();
     } catch {
       toast.error(t("syncFailed"));
