@@ -6,8 +6,19 @@
  * no Intl/tzdata is needed — the offset can just be computed directly.
  */
 
-/** The hour shown when there is no preferences row; matches the default of `ResearchPreferences.pushHour` in the schema. */
-export const DEFAULT_PUSH_HOUR = 9;
+/**
+ * The hour shown when there is no preferences row; matches the default of
+ * `ResearchPreferences.pushHour` in the schema.
+ *
+ * 13:00 rather than the morning because arXiv rebuilds its RSS once a day at
+ * 04:00 UTC (12:00 Beijing). A digest run before that reads the PREVIOUS day's
+ * build — which on a Monday is the weekend's, and the feed itself declares
+ * `<skipDays>Saturday, Sunday</skipDays>`, so it holds nothing at all. An
+ * earlier hour is not merely earlier: it is a day stale every day, empty on
+ * Mondays, and it drops Friday's build entirely, since Friday's own run has
+ * already completed from Thursday's build by the time Friday's is published.
+ */
+export const DEFAULT_PUSH_HOUR = 13;
 
 /** Hour of the day in Beijing time (UTC+8), 0-23. */
 export function beijingHour(date: Date): number {

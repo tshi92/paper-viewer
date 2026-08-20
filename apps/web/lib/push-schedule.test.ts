@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { beijingHour, isDueForPush } from "./push-schedule";
+import { DEFAULT_PUSH_HOUR, beijingHour, isDueForPush } from "./push-schedule";
 
 describe("beijingHour", () => {
   it("shifts UTC by +8 without any DST correction", () => {
@@ -39,5 +39,25 @@ describe("isDueForPush", () => {
     expect(isDueForPush(0, at("2026-01-06T16:00:00Z"))).toBe(true);
     expect(isDueForPush(23, at("2026-01-06T14:59:00Z"))).toBe(false);
     expect(isDueForPush(23, at("2026-01-06T15:00:00Z"))).toBe(true);
+  });
+});
+
+/**
+ * The default is not a taste question. arXiv rebuilds its RSS once a day at
+ * 04:00 UTC — 12:00 Beijing — and a run before that reads the previous day's
+ * build. On a Monday that is the weekend's, which the feed itself declares
+ * empty via <skipDays>Saturday, Sunday</skipDays>. A default in the morning
+ * therefore ships a digest that is a day stale every day and blank on Mondays.
+ */
+describe("DEFAULT_PUSH_HOUR", () => {
+  const ARXIV_RSS_REBUILD_HOUR_BEIJING = 12;
+
+  it("falls after arXiv's daily feed rebuild", () => {
+    expect(DEFAULT_PUSH_HOUR).toBeGreaterThan(ARXIV_RSS_REBUILD_HOUR_BEIJING);
+  });
+
+  it("leaves the rest of the day for the hourly retries to resume a partial run", () => {
+    expect(isDueForPush(DEFAULT_PUSH_HOUR, new Date("2026-08-20T14:00:00Z"))).toBe(true);
+    expect(DEFAULT_PUSH_HOUR).toBeLessThan(22);
   });
 });

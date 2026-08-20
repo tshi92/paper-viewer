@@ -6,17 +6,21 @@
  * `Authorization: Bearer $CRON_SECRET`, so no extra signing mechanism is needed
  * here; with no secret configured the whole endpoint 404s (off by default locally,
  * so it is never left exposed).
- * See vercel.json for the schedule: twice on weekdays, at 9:00 and 9:30 Beijing
+ * See vercel.json for the schedule: twice on weekdays, at 13:00 and 13:30 Beijing
  * time, with the second run responsible for resuming the previous run's partial.
+ * Both sit after arXiv's daily 04:00 UTC (12:00 Beijing) RSS rebuild — see
+ * DEFAULT_PUSH_HOUR for why running before it reads a stale, and on Mondays an
+ * empty, feed.
  *
  * A workspace can pick its own push hour (ResearchPreferences.pushHour, in Beijing
  * time); a workspace whose hour has not arrived is recorded as not_due and skipped
  * for this pass. Note that this is only a gate — the real trigger frequency
  * depends on the schedule: with the two fixed cron runs currently in vercel.json,
- * only workspaces with pushHour <= 9 are let through by that day's 9:00 run. Later
- * hours require either Vercel Pro's hourly cron or an external scheduler (such as
- * GitHub Actions) hitting this endpoint every hour — that is a deployment-side
- * decision, and all this code guarantees is that the due check itself is correct.
+ * only workspaces with pushHour <= 13 are let through by that day's 13:00 run.
+ * Later hours require either Vercel Pro's hourly cron or an external scheduler
+ * (such as GitHub Actions) hitting this endpoint every hour — that is a
+ * deployment-side decision, and all this code guarantees is that the due check
+ * itself is correct.
  */
 
 import { prisma } from "@paper-viewer/db";
