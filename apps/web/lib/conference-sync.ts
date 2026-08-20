@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { prisma } from "@paper-viewer/db";
 import { isUniqueViolation } from "@/lib/daily-digest";
 import { normalizeTitle } from "@/lib/paper-identity";
@@ -179,8 +180,8 @@ export function conferenceSourceId(entry: Pick<ConferencePaperInput, "venue" | "
   return `${entry.venue.toLowerCase()}-${entry.year}-${slug}`;
 }
 
-export type ConferenceSyncResult = {
-  files: number;
+/** What importing one feed file changed. */
+export type ConferenceImportCounts = {
   entries: number;
   createdPapers: number;
   linkedExisting: number;
@@ -190,6 +191,21 @@ export type ConferenceSyncResult = {
   unlinkedStale: number;
   /** Conference rows whose author list the feed corrected. */
   refreshedAuthors: number;
+};
+
+export type ConferenceSyncResult = ConferenceImportCounts & {
+  files: number;
+  /** Which source answered the "which files exist" question. */
+  listingTier: ListingTier;
+  /** True when that source was not the authoritative manifest. */
+  degradedListing: boolean;
+  /**
+   * Anything that leaves this run less trustworthy than a clean one: a file
+   * whose paper count disagreed with the manifest, a checksum that did not
+   * match. Returned rather than only logged, because the failure this chain
+   * exists to prevent was invisible precisely by looking like success.
+   */
+  warnings: string[];
 };
 
 export type CatalogEntryRow = {
@@ -290,7 +306,7 @@ async function dedupeConferenceEntries(pairs: { venue: string; year: number }[])
  * library (the save route triggers the analysis). Idempotent throughout via
  * skipDuplicates and the (venue, year, paperId) unique key.
  */
-export async function syncConferencePapers(feed: unknown): Promise<Omit<ConferenceSyncResult, "files">> {
+export async function syncConferencePapers(feed: unknown): Promise<ConferenceImportCounts> {
   const { entries, skipped } = parseConferenceFeed(feed);
   if (entries.length === 0) {
     return {
@@ -510,61 +526,255 @@ export async function syncConferencePapers(feed: unknown): Promise<Omit<Conferen
 
 type GithubContentEntry = { type: string; name: string };
 
-async function fetchJson(url: string, headers: Record<string, string> = {}): Promise<unknown> {
-  const response = await fetch(url, {
-    cache: "no-store",
-    headers: { "User-Agent": "paper-viewer-conference-sync", ...headers }
-  });
-  if (!response.ok) {
-    throw new Error(`Fetch failed (${response.status}) for ${url}`);
+/**
+ * Backoff for a transient fetch failure. A catalog import is ~20 sequential
+ * requests and the run is all-or-nothing, so a single dropped connection would
+ * otherwise cost the whole thing — one was observed mid-import (ECONNRESET
+ * before the TLS handshake completed) while every file was in fact being
+ * served fine.
+ *
+ * Only a network error or a 5xx is retried. A 404 must stay fast: that is the
+ * signal that moves the listing to its next tier, and a source repo with no
+ * manifest would otherwise pay this delay twice before reaching the API.
+ */
+const FETCH_RETRY_DELAYS_MS = [500, 2_000];
+
+async function fetchText(url: string, headers: Record<string, string> = {}): Promise<string> {
+  for (let attempt = 0; ; attempt++) {
+    const delay = FETCH_RETRY_DELAYS_MS[attempt];
+    let response: Response | null = null;
+    let networkError: unknown = null;
+    try {
+      response = await fetch(url, {
+        cache: "no-store",
+        headers: { "User-Agent": "paper-viewer-conference-sync", ...headers }
+      });
+    } catch (error) {
+      networkError = error;
+    }
+
+    if (response?.ok) {
+      return response.text();
+    }
+    // A 4xx is the server's final answer, so surface it without spending the
+    // backoff: a 404 is how the listing moves on to its next tier.
+    if (response && response.status < 500) {
+      throw new Error(`Fetch failed (${response.status}) for ${url}`);
+    }
+    // Drain a failed body so the connection can be reused.
+    await response?.text().catch(() => "");
+
+    if (delay === undefined) {
+      throw networkError ?? new Error(`Fetch failed (${response?.status}) for ${url}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, delay));
   }
-  return response.json();
+}
+
+async function fetchJson(url: string, headers: Record<string, string> = {}): Promise<unknown> {
+  return JSON.parse(await fetchText(url, headers));
+}
+
+/** One data file as the source repo's manifest describes it. */
+export type CatalogFile = {
+  path: string;
+  /** Absent when the listing came from the GitHub API, which knows only paths. */
+  paperCount: number | null;
+  sha256: string | null;
+};
+
+/**
+ * Where a listing came from. Only `manifest` is authoritative; the other two
+ * are recorded so a run that imported from a degraded source is never
+ * indistinguishable from a healthy one.
+ */
+export type ListingTier = "manifest" | "manifest-mirror" | "github-api";
+
+export type CatalogListing = {
+  files: CatalogFile[];
+  tier: ListingTier;
+  /** The manifest's own total, for a whole-catalog tripwire. Null off the API path. */
+  totalPaperCount: number | null;
+};
+
+/** Paths the manifest may name: a data file of one venue-year, and nothing else. */
+const DATA_FILE_PATH = /^data\/\d{4}\/[^/]+\.json$/;
+
+/**
+ * How many papers a feed file holds, counted before parsing so it can be
+ * compared against the manifest. Includes rows parseConferenceFeed would skip
+ * as malformed — the manifest counts what is in the file, not what survives.
+ */
+export function paperCountOf(feed: unknown): number {
+  if (Array.isArray(feed)) return feed.length;
+  const papers = (feed as { papers?: unknown } | null)?.papers;
+  return Array.isArray(papers) ? papers.length : 0;
+}
+
+/** Over the exact bytes served, which is what the source repo hashes. */
+function sha256Hex(body: string): string {
+  return createHash("sha256").update(body, "utf8").digest("hex");
 }
 
 /**
- * Enumerate data/{year}/{VENUE}.json paths. jsDelivr first: api.github.com
- * rate-limits anonymous calls per source IP, and shared serverless egress IPs
- * (Vercel) have that budget permanently exhausted. The GitHub contents API is
- * only a fallback, honouring GITHUB_TOKEN when one is configured.
+ * Read the source repo's data/index.json.
+ *
+ * A path outside data/{year}/ is dropped rather than trusted: the path is
+ * templated into a fetch URL, and a manifest is a file like any other — one
+ * bad entry must not be able to point this sync at an arbitrary location.
  */
-async function listDataFiles(owner: string, repo: string): Promise<string[]> {
-  try {
-    const listing = (await fetchJson(
-      `https://data.jsdelivr.com/v1/packages/gh/${owner}/${repo}@main?structure=flat`
-    )) as { files?: { name: string }[] };
-    const files = (listing.files ?? [])
-      .map((file) => file.name)
-      .filter((name) => /^\/data\/\d{4}\/[^/]+\.json$/.test(name))
-      .map((name) => name.slice(1));
-    if (files.length > 0) {
-      return files;
+export function parseCatalogManifest(raw: unknown): Omit<CatalogListing, "tier"> {
+  const doc = raw as { files?: unknown; paper_count?: unknown };
+  if (!doc || typeof doc !== "object" || !Array.isArray(doc.files)) {
+    throw new Error("Manifest has no files array");
+  }
+  const files: CatalogFile[] = [];
+  for (const item of doc.files) {
+    if (!item || typeof item !== "object") continue;
+    const entry = item as { path?: unknown; paper_count?: unknown; sha256?: unknown };
+    const path = asTrimmedString(entry.path);
+    if (!path || !DATA_FILE_PATH.test(path)) continue;
+    files.push({
+      path,
+      paperCount: typeof entry.paper_count === "number" ? entry.paper_count : null,
+      sha256: asTrimmedString(entry.sha256)
+    });
+  }
+  if (files.length === 0) {
+    throw new Error("Manifest lists no data files");
+  }
+  return {
+    files,
+    totalPaperCount: typeof doc.paper_count === "number" ? doc.paper_count : null
+  };
+}
+
+/**
+ * Enumerate the catalog's data files.
+ *
+ * The source repo publishes data/index.json naming every file it ships, with a
+ * paper count and a sha256 for each. That exists because raw.githubusercontent
+ * serves a file by path and cannot be asked what a directory holds — the only
+ * way to discover a venue added since last time is to fetch a file that lists
+ * them.
+ *
+ * jsDelivr's *package listing* API used to answer that question and is no
+ * longer asked, in any position. Its listing for a branch is a snapshot frozen
+ * at the day the repo was created: it reported 14 files while the repo had 20,
+ * so three new venues and a whole edition of SIGMOD went missing for days with
+ * every sync reporting success. A source that answers 200 with wrong data
+ * cannot sit anywhere in a correctness chain, because nothing downstream can
+ * tell its answer from a right one — least of all as the fallback, which would
+ * make the recovery path the thing that caused the incident.
+ *
+ * jsDelivr's *file* CDN is a separate subsystem and is fresh, so it stays on as
+ * tier 2 — serving the same manifest over a second CDN, which is real
+ * redundancy against a Fastly outage. It caches branch refs, though, so it can
+ * hand back a manifest whose checksums lag what raw serves; that is why it
+ * counts as degraded. Tier 3 (the GitHub contents API, 60 requests/hour per IP
+ * anonymously, honouring GITHUB_TOKEN) exists only for a source repo with no
+ * manifest at all. Running out of tiers is a hard failure: importing a subset
+ * silently is the bug this whole chain exists to prevent.
+ */
+export async function listDataFiles(owner: string, repo: string): Promise<CatalogListing> {
+  const manifestSources: { tier: ListingTier; url: string }[] = [
+    { tier: "manifest", url: `https://raw.githubusercontent.com/${owner}/${repo}/main/data/index.json` },
+    { tier: "manifest-mirror", url: `https://cdn.jsdelivr.net/gh/${owner}/${repo}@main/data/index.json` }
+  ];
+  const failures: string[] = [];
+  for (const { tier, url } of manifestSources) {
+    try {
+      return { ...parseCatalogManifest(await fetchJson(url)), tier };
+    } catch (error) {
+      failures.push(`${tier}: ${error instanceof Error ? error.message : String(error)}`);
     }
-  } catch {
-    // fall through to the GitHub API
   }
 
-  const headers: Record<string, string> = process.env.GITHUB_TOKEN
-    ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
-    : {};
-  const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents`;
-  const years = (await fetchJson(`${apiBase}/data`, headers)) as GithubContentEntry[];
-  const paths: string[] = [];
-  for (const yearDir of years) {
-    if (yearDir.type !== "dir") continue;
-    const files = (await fetchJson(`${apiBase}/data/${yearDir.name}`, headers)) as GithubContentEntry[];
-    for (const file of files) {
-      if (file.type === "file" && file.name.endsWith(".json")) {
-        paths.push(`data/${yearDir.name}/${file.name}`);
+  try {
+    const headers: Record<string, string> = process.env.GITHUB_TOKEN
+      ? { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }
+      : {};
+    const apiBase = `https://api.github.com/repos/${owner}/${repo}/contents`;
+    const years = (await fetchJson(`${apiBase}/data`, headers)) as GithubContentEntry[];
+    const files: CatalogFile[] = [];
+    for (const yearDir of years) {
+      if (yearDir.type !== "dir") continue;
+      const listed = (await fetchJson(`${apiBase}/data/${yearDir.name}`, headers)) as GithubContentEntry[];
+      for (const file of listed) {
+        const path = `data/${yearDir.name}/${file.name}`;
+        if (file.type === "file" && DATA_FILE_PATH.test(path)) {
+          files.push({ path, paperCount: null, sha256: null });
+        }
       }
     }
+    if (files.length > 0) {
+      return { files, tier: "github-api", totalPaperCount: null };
+    }
+    failures.push("github-api: listed no data files");
+  } catch (error) {
+    failures.push(`github-api: ${error instanceof Error ? error.message : String(error)}`);
   }
-  return paths;
+
+  throw new Error(`Could not list the catalog's data files — ${failures.join("; ")}`);
 }
 
 /**
- * Pull the whole catalog: enumerate the data files (new years and venues
- * appear without code changes), fetch each from raw.githubusercontent.com
- * (not rate-limited like the API), and import file by file.
+ * Fetch one data file and check it against what the manifest said it holds.
+ *
+ * The count is the tripwire: a file that parses fine but carries fewer papers
+ * than the manifest claims is the shape of a stale or partial fetch, and it is
+ * otherwise indistinguishable from a small conference. One refetch settles the
+ * benign case — the manifest was read at T and a monthly sync landed at T+10s —
+ * and anything still disagreeing is imported as fetched with a warning. Never
+ * silently under-import (the bug this chain exists for), and never abort the
+ * whole catalog over one file (that would turn a ten-second race into an
+ * outage).
+ *
+ * The checksum separates two causes that the count alone cannot: bytes that
+ * disagree while the count matches mean the manifest is behind the file (the
+ * mirror tier caching a branch ref), whereas a different count as well means
+ * the repo genuinely moved on.
+ */
+async function fetchCatalogFile(
+  owner: string,
+  repo: string,
+  file: CatalogFile
+): Promise<{ feed: unknown; warnings: string[] }> {
+  const url = `https://raw.githubusercontent.com/${owner}/${repo}/main/${file.path}`;
+  const warnings: string[] = [];
+
+  let body = await fetchText(url);
+  let feed = JSON.parse(body);
+  if (file.paperCount === null) {
+    return { feed, warnings };
+  }
+
+  if (paperCountOf(feed) !== file.paperCount) {
+    body = await fetchText(url);
+    feed = JSON.parse(body);
+  }
+
+  const actual = paperCountOf(feed);
+  if (actual !== file.paperCount) {
+    warnings.push(
+      `${file.path}: manifest says ${file.paperCount} papers, fetched ${actual} — imported as fetched`
+    );
+  } else if (file.sha256 && sha256Hex(body) !== file.sha256) {
+    // Count agrees but bytes do not: the listing is behind the file, not wrong
+    // about it. The papers are fine, so import them and say so.
+    warnings.push(`${file.path}: checksum is behind the file served (stale listing, count agrees)`);
+  }
+  return { feed, warnings };
+}
+
+/**
+ * Pull the whole catalog: read the manifest to learn which files exist (new
+ * years and venues appear without code changes), fetch each from
+ * raw.githubusercontent.com, and import file by file.
+ *
+ * A file that cannot be fetched or parsed fails the run rather than being
+ * skipped. Twenty files import as an all-or-nothing set here on purpose: a
+ * partial import looks exactly like a complete one in the catalog UI.
  */
 export async function syncConferencesFromSource(): Promise<ConferenceSyncResult> {
   const repo = parseGithubRepo(conferenceSourceUrl());
@@ -572,7 +782,7 @@ export async function syncConferencesFromSource(): Promise<ConferenceSyncResult>
     throw new Error(`CONFERENCE_SOURCE_URL is not a github.com repo URL: ${conferenceSourceUrl()}`);
   }
 
-  const paths = await listDataFiles(repo.owner, repo.repo);
+  const listing = await listDataFiles(repo.owner, repo.repo);
   const totals: ConferenceSyncResult = {
     files: 0,
     entries: 0,
@@ -581,13 +791,18 @@ export async function syncConferencesFromSource(): Promise<ConferenceSyncResult>
     skipped: 0,
     removedDuplicates: 0,
     unlinkedStale: 0,
-    refreshedAuthors: 0
+    refreshedAuthors: 0,
+    listingTier: listing.tier,
+    degradedListing: listing.tier !== "manifest",
+    warnings: []
   };
+  if (totals.degradedListing) {
+    totals.warnings.push(`listing came from ${listing.tier}, not the source repo's manifest`);
+  }
 
-  for (const path of paths) {
-    const feed = await fetchJson(
-      `https://raw.githubusercontent.com/${repo.owner}/${repo.repo}/main/${path}`
-    );
+  for (const file of listing.files) {
+    const { feed, warnings } = await fetchCatalogFile(repo.owner, repo.repo, file);
+    totals.warnings.push(...warnings);
     const result = await syncConferencePapers(feed);
     totals.files += 1;
     totals.entries += result.entries;
@@ -597,6 +812,14 @@ export async function syncConferencesFromSource(): Promise<ConferenceSyncResult>
     totals.removedDuplicates += result.removedDuplicates;
     totals.unlinkedStale += result.unlinkedStale;
     totals.refreshedAuthors += result.refreshedAuthors;
+  }
+
+  // Whole-catalog tripwire, on top of the per-file one: covers a manifest whose
+  // own total disagrees with the files it names.
+  if (listing.totalPaperCount !== null && totals.entries + totals.skipped !== listing.totalPaperCount) {
+    totals.warnings.push(
+      `manifest totals ${listing.totalPaperCount} papers, imported ${totals.entries + totals.skipped}`
+    );
   }
 
   return totals;

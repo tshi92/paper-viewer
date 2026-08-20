@@ -419,6 +419,7 @@
     "syncNotConfigured": "Invalid source: expected a github.com repository URL",
     "syncDone": "Synced: {entries} entries, {created} new papers",
     "syncUnlinked": ", removed {removed} stale catalog links",
+    "syncWarnings": "{count} warning(s) this run. First: {first}",
     "pagination": "Pagination",
     "pageRange": "{from}–{to} of {total}",
     "pageOf": "Page {page} of {pageCount}",

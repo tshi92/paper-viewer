@@ -419,6 +419,7 @@
     "syncNotConfigured": "数据源链接无效（需要 github.com 仓库地址）",
     "syncDone": "同步完成：共 {entries} 条，新增 {created} 篇",
     "syncUnlinked": "，移除 {removed} 条已失效的会议关联",
+    "syncWarnings": "本次同步有 {count} 条告警，第一条：{first}",
     "pagination": "分页",
     "pageRange": "第 {from}–{to} 条，共 {total} 条",
     "pageOf": "第 {page} / {pageCount} 页",
