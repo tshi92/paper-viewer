@@ -73,6 +73,36 @@ async function signIn(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/(today)?$/);
 }
 
+/**
+ * The window between the date rolling over (00:00 UTC, 08:00 Beijing) and the
+ * day's run (the push hour, 13:00 by default). The page used to lose its whole
+ * briefing card for those hours and show only a list of yesterday's titles.
+ */
+test("before the day's run, the previous briefing still leads", async ({ page }) => {
+  // Backdate the fixture instead of deleting it: afterAll cleans up by id, and
+  // the row has to survive this test.
+  const today = new Date(new Date().toISOString().slice(0, 10));
+  const yesterday = new Date(Date.now() - 86_400_000);
+  await prisma.dailyDigest.update({
+    where: { id: digestId },
+    data: { date: new Date(yesterday.toISOString().slice(0, 10)) }
+  });
+  try {
+    await signIn(page);
+
+    // The briefing is on the page in full, not buried in a disclosure.
+    await expect(page.getByText(`Fixture overview ${run}`)).toBeVisible();
+    // Labelled for what it is. "今日综述" would be contradicted by the date
+    // rendered directly beneath it.
+    await expect(page.getByText("最近一期综述")).toBeVisible();
+    await expect(page.getByText("今日综述")).toHaveCount(0);
+    // And its papers keep the full treatment, save action included.
+    await expect(page.getByText(`Digest Only Paper ${run}`)).toBeVisible();
+  } finally {
+    await prisma.dailyDigest.update({ where: { id: digestId }, data: { date: today } });
+  }
+});
+
 test("past days are collapsed to a title list and expand on demand", async ({ page }) => {
   // A one-paper digest dated yesterday: it must render as a closed disclosure
   // row, not as full cards like today's digest.

@@ -65,6 +65,7 @@
     "title": "今日",
     "digestMeta": "{date} · {count, plural, other {# 篇论文}}",
     "overviewTitle": "今日综述",
+    "latestBriefing": "最近一期综述",
     "digestCount": "{count, plural, other {# 篇}}",
     "savedCount": "{count, plural, other {已存入 #}}",
     "preferencesLink": "研究偏好",
