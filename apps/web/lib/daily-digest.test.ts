@@ -4,6 +4,7 @@ import {
   isUniqueViolation,
   latestAnalysisPerPaper,
   papersToRequeue,
+  pickLeadDigest,
   placeholderOverview,
   summaryLineOf,
   toArxivPaper
@@ -190,5 +191,44 @@ describe("latestAnalysisPerPaper", () => {
 
   it("returns an empty map for no rows", () => {
     expect(latestAnalysisPerPaper([]).size).toBe(0);
+  });
+});
+
+/**
+ * The Today page's main content is the briefing card, and which digest it holds
+ * cannot simply be "today's": the date key rolls over at 00:00 UTC (08:00
+ * Beijing) while the run happens at the push hour, 13:00 by default. A strict
+ * match would blank the page for those hours every single morning — the window
+ * where a reader arrives before the day's papers exist.
+ */
+describe("pickLeadDigest", () => {
+  const day = (iso: string) => ({ date: new Date(`${iso}T00:00:00Z`), tag: iso });
+  const TODAY = "2026-08-21";
+
+  it("prefers today's digest when the day's run has landed", () => {
+    const digests = [day(TODAY), day("2026-08-20"), day("2026-08-19")];
+    expect(pickLeadDigest(digests, TODAY)?.tag).toBe(TODAY);
+  });
+
+  it("holds the previous edition through the window before the run", () => {
+    // No entry for TODAY: the date has rolled over, the digest has not run.
+    const digests = [day("2026-08-20"), day("2026-08-19")];
+    expect(pickLeadDigest(digests, TODAY)?.tag).toBe("2026-08-20");
+  });
+
+  it("holds the last edition there was, however old — a gap is not a blank page", () => {
+    // Friday's, seen on Monday morning: still the most recent thing written.
+    const digests = [day("2026-08-14")];
+    expect(pickLeadDigest(digests, "2026-08-17")?.tag).toBe("2026-08-14");
+  });
+
+  it("has nothing to lead with only when nothing has ever run", () => {
+    expect(pickLeadDigest([], TODAY)).toBeUndefined();
+  });
+
+  it("does not depend on today's being first in the list", () => {
+    // The page orders by date desc, but the fallback must not be positional.
+    const digests = [day("2026-08-20"), day(TODAY)];
+    expect(pickLeadDigest(digests, TODAY)?.tag).toBe(TODAY);
   });
 });

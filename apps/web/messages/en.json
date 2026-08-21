@@ -65,6 +65,7 @@
     "title": "Today",
     "digestMeta": "{date} · {count, plural, =1 {# paper} other {# papers}}",
     "overviewTitle": "Today's briefing",
+    "latestBriefing": "Latest briefing",
     "digestCount": "{count, plural, =1 {# paper} other {# papers}}",
     "savedCount": "{count, plural, other {# saved}}",
     "preferencesLink": "Preferences",

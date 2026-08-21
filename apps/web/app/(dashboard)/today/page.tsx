@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
 import { isReadingState } from "@paper-viewer/core/paper-status";
-import { summaryLineOf } from "@/lib/daily-digest";
+import { pickLeadDigest, summaryLineOf } from "@/lib/daily-digest";
 import { requireCurrentUser } from "@/lib/auth";
 import { DiscoverButton } from "@/components/discover-button";
 import { DigestProgressBanner } from "@/components/digest-progress-banner";
@@ -65,20 +65,28 @@ export default async function TodayPage() {
       digest.pendingPaperIds.length > 0 && digest.date.toISOString().slice(0, 10) === todayUtc
   );
 
-  // Today gets the full treatment; older days collapse to one row each so the
-  // page stays scannable (they expand to plain title lists on demand).
-  const todayDigest = digests.find(
-    (digest) => digest.date.toISOString().slice(0, 10) === todayUtc
-  );
-  const pastDigests = digests.filter((digest) => digest !== todayDigest);
+  // The lead digest gets the full treatment — the dated card with the briefing
+  // — and older days collapse to one row each so the page stays scannable
+  // (they expand to plain title lists on demand).
+  //
+  // It falls back to the most recent day rather than going blank, because
+  // "today's digest" does not exist for most of the morning: the date key rolls
+  // over at 00:00 UTC (08:00 Beijing) while the run happens at the workspace's
+  // push hour, 13:00 by default. Without the fallback the page would spend
+  // those hours showing a list of yesterday's titles and no briefing at all,
+  // and the briefing is the thing the day is read through. The card is labelled
+  // with the digest's own date either way, so a stale one never poses as today.
+  const leadDigest = pickLeadDigest(digests, todayUtc);
+  const leadIsToday = leadDigest?.date.toISOString().slice(0, 10) === todayUtc;
+  const pastDigests = digests.filter((digest) => digest !== leadDigest);
   const digestInProgress = lockFresh || Boolean(pendingDigest);
   const digestTotal = pendingDigest?.paperIds.length ?? 0;
   const digestDone = pendingDigest ? digestTotal - pendingDigest.pendingPaperIds.length : 0;
 
-  const todayDigestPapers = (todayDigest?.paperIds ?? [])
+  const leadDigestPapers = (leadDigest?.paperIds ?? [])
     .map((id) => papersById.get(id))
     .filter((paper): paper is NonNullable<typeof paper> => Boolean(paper));
-  const savedCount = todayDigestPapers.filter((paper) => paper.workspacePapers.length > 0).length;
+  const savedCount = leadDigestPapers.filter((paper) => paper.workspacePapers.length > 0).length;
 
   const dateFormat = new Intl.DateTimeFormat(locale, {
     year: "numeric",
@@ -131,7 +139,7 @@ export default async function TodayPage() {
         </div>
       ) : null}
 
-      {todayDigest ? (
+      {leadDigest ? (
         /* The briefing leads and takes the wide column: it is what the day is
            read through, and the papers are what it points at. The list is the
            narrower, quieter column — a title and its authors, enough to decide
@@ -144,26 +152,30 @@ export default async function TodayPage() {
           <section className="w-full min-w-0 lg:flex-1">
             <div className="rounded bg-white shadow-card">
               <div className="border-b border-border px-5 py-4">
+                {/* Named for what it is, not for where it sits: between the
+                    date rolling over and the day's run, this card is holding
+                    the previous edition, and calling that "today's" would be a
+                    lie the date underneath immediately contradicts. */}
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                  {t("overviewTitle")}
+                  {leadIsToday ? t("overviewTitle") : t("latestBriefing")}
                 </p>
                 {/* The date at full size: this page is one day's edition, and
                     which day it is should not have to be inferred. */}
                 <h2 className="mt-1 text-2xl font-semibold tracking-tight">
-                  {dateFormat.format(new Date(todayDigest.date))}
+                  {dateFormat.format(new Date(leadDigest.date))}
                 </h2>
                 <p className="mt-1 text-xs text-muted">
-                  {t("digestCount", { count: todayDigestPapers.length })}
+                  {t("digestCount", { count: leadDigestPapers.length })}
                   {savedCount > 0 ? ` · ${t("savedCount", { count: savedCount })}` : ""}
                 </p>
               </div>
-              {todayDigest.overviewSummary ? (
+              {leadDigest.overviewSummary ? (
                 // The model writes the briefing in markdown — headings for each
                 // trend, lists for the papers worth reading — and rendering it
                 // as plain text left the asterisks and hyphens on screen.
                 <div className="px-5 py-4">
                   <MarkdownBody className="text-[15px] leading-[1.9]">
-                    {todayDigest.overviewSummary}
+                    {leadDigest.overviewSummary}
                   </MarkdownBody>
                 </div>
               ) : null}
@@ -174,7 +186,7 @@ export default async function TodayPage() {
               the briefing scrolls. */}
           <aside className="w-full lg:sticky lg:top-16 lg:w-[22rem] lg:shrink-0">
             <div className="divide-y divide-border rounded bg-white shadow-card lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto">
-              {todayDigestPapers.map((paper, index) => {
+              {leadDigestPapers.map((paper, index) => {
                 const summaryLine = summaryLineOf(paper.analyses[0]?.summary);
                 const workspacePaper = paper.workspacePapers[0];
                 const readingState = workspacePaper?.readingStates[0]?.state ?? "new";
@@ -241,11 +253,13 @@ export default async function TodayPage() {
           .filter((paper): paper is NonNullable<typeof paper> => Boolean(paper));
 
         return (
-          // Native disclosure keeps this a server component; with no digest for
-          // today the most recent day starts open so the page is never bare.
+          // Native disclosure keeps this a server component. These all start
+          // closed: the most recent day used to be forced open so a page with
+          // no digest for today was not bare, and that job now belongs to the
+          // lead card, which shows that same day in full rather than as a list
+          // of titles.
           <details
             key={digest.id}
-            open={!todayDigest && digestIndex === 0}
             className="group rounded border border-border bg-white shadow-card"
           >
             <summary className="flex cursor-pointer select-none items-center gap-2 px-5 py-3 text-sm font-semibold uppercase text-muted list-none [&::-webkit-details-marker]:hidden">

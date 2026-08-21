@@ -8,7 +8,7 @@
  * that is the resume point; on timeout (deadline) it returns partial and the next
  * run continues from the remaining pending entries.
  *
- * Concurrency safety: the 9:00 / 9:30 cron runs (plus a manual discover) may
+ * Concurrency safety: the two daily cron runs (plus a manual discover) may
  * overlap, so before advancing a digest we claim the DailyDigest.lockedAt lock and
  * return locked if we cannot get it. The three remaining races — creating the
  * digest row, creating papers, and pushing to Feishu — are each resolved by a
@@ -111,6 +111,28 @@ export function isDigestComplete(
     return false;
   }
   return !hasWebhook || digest.feishuSentAt !== null;
+}
+
+/**
+ * Which digest the Today page shows in full, given the week's digests newest
+ * first.
+ *
+ * Today's when it exists, and otherwise the most recent one — never nothing
+ * while any digest exists. The two clocks do not line up: the date key rolls
+ * over at 00:00 UTC (08:00 Beijing) but the run happens at the workspace's push
+ * hour, 13:00 by default, so for those hours there is no digest for today and a
+ * strict match would blank the page's main content every single morning. The
+ * card carries the digest's own date, so falling back never passes an older
+ * edition off as today's.
+ */
+export function pickLeadDigest<T extends { date: Date }>(
+  digestsNewestFirst: readonly T[],
+  todayUtc: string
+): T | undefined {
+  const today = digestsNewestFirst.find(
+    (digest) => digest.date.toISOString().slice(0, 10) === todayUtc
+  );
+  return today ?? digestsNewestFirst[0];
 }
 
 /** One-line summary for each paper in the card: prefer the first sentence, and truncate when that sentence is too long or there is no sentence-ending punctuation. */
