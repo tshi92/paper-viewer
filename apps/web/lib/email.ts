@@ -16,7 +16,7 @@ export type EmailMessage = {
 };
 
 /** What a provider hands back. Resend answers a refused send this way rather than by rejecting. */
-export type EmailSendResult = { error?: unknown };
+type EmailSendResult = { error?: unknown };
 
 export type EmailSender = (message: EmailMessage & { from: string }) => Promise<EmailSendResult>;
 
@@ -55,6 +55,15 @@ export async function deliver(
   }
 
   return true;
+}
+
+/**
+ * Whether this deployment can send at all. Callers that need to behave
+ * differently with no mail provider ask here rather than reading the
+ * provider's own settings, so which provider that is stays inside this file.
+ */
+export function isEmailConfigured(): boolean {
+  return Boolean(getEnv().RESEND_API_KEY);
 }
 
 /**

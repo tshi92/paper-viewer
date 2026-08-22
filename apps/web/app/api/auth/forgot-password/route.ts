@@ -1,7 +1,7 @@
 import { prisma } from "@paper-viewer/db";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { sendEmail } from "@/lib/email";
+import { isEmailConfigured, sendEmail } from "@/lib/email";
 import { getEnv } from "@/lib/env";
 import { createPasswordReset } from "@/lib/password-reset";
 
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   // A self-hosted deployment with no mail provider cannot deliver the link, and
   // showing it on screen instead would let anyone reset anyone's password. Say
   // so plainly rather than pretending an email is on its way.
-  if (!env.RESEND_API_KEY) {
+  if (!isEmailConfigured()) {
     redirect("/forgot-password?state=unavailable");
   }
 
@@ -36,9 +36,10 @@ export async function POST(request: Request) {
     if (user) {
       const token = await createPasswordReset(user.id);
       const resetUrl = `${env.APP_URL}/reset-password/${token}`;
-      // A provider that refuses the send must not become a 500 that tells the
-      // caller this address exists: sendEmail logs the reason and reports it
-      // rather than raising, so the page says the same thing either way.
+      // Whether this worked is deliberately dropped rather than acted on: the
+      // page below must read the same to someone probing addresses as it does
+      // to their owner. sendEmail logs the reason for the operator instead of
+      // raising, so a refused send cannot become a 500 that answers the probe.
       await sendEmail({
         to: user.email,
         subject: "Reset your Paper Viewer password",
