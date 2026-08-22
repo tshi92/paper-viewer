@@ -31,7 +31,19 @@
     "profileSave": "Save",
     "profileSaved": "Display name saved.",
     "profileSaveFailed": "Could not save. Please try again.",
-    "accountEmailLabel": "Account email"
+    "accountEmailLabel": "Account email",
+    "passwordHeading": "Change password",
+    "passwordDescription": "At least {min} characters. You stay signed in here, and so does every other device you are already signed in on.",
+    "currentPasswordLabel": "Current password",
+    "newPasswordLabel": "New password",
+    "confirmPasswordLabel": "Confirm new password",
+    "passwordSave": "Change password",
+    "passwordSaved": "Password changed.",
+    "passwordMismatch": "The two entries do not match.",
+    "passwordTooShort": "The new password must be at least {min} characters.",
+    "passwordIncorrect": "That is not your current password.",
+    "passwordUnchanged": "The new password must differ from the current one.",
+    "passwordSaveFailed": "Could not change it. Please try again."
   },
   "auth": {
     "signInTitle": "Sign in",

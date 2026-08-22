@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { LOCALE_COOKIE_NAME } from "@/i18n/request";
 import { requireCurrentUser } from "@/lib/auth";
 import { LanguageSettingsForm, type LanguagePreference } from "@/components/language-settings-form";
+import { PasswordSettingsForm } from "@/components/password-settings-form";
 import { ProfileSettingsForm } from "@/components/profile-settings-form";
 
 function toLanguagePreference(cookieValue: string | undefined): LanguagePreference {
@@ -19,6 +20,7 @@ export default async function GeneralSettingsPage() {
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
       <ProfileSettingsForm currentName={user.name} email={user.email} />
       <LanguageSettingsForm current={toLanguagePreference(cookieValue)} />
+      <PasswordSettingsForm />
     </div>
   );
 }

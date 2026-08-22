@@ -31,7 +31,19 @@
     "profileSave": "保存",
     "profileSaved": "显示名称已保存。",
     "profileSaveFailed": "保存失败，请重试。",
-    "accountEmailLabel": "登录邮箱"
+    "accountEmailLabel": "登录邮箱",
+    "passwordHeading": "修改密码",
+    "passwordDescription": "新密码至少 {min} 位。修改后本设备保持登录，其他已登录的设备也不会被登出。",
+    "currentPasswordLabel": "当前密码",
+    "newPasswordLabel": "新密码",
+    "confirmPasswordLabel": "确认新密码",
+    "passwordSave": "修改密码",
+    "passwordSaved": "密码已修改。",
+    "passwordMismatch": "两次输入不一致。",
+    "passwordTooShort": "新密码至少 {min} 位。",
+    "passwordIncorrect": "当前密码不正确。",
+    "passwordUnchanged": "新密码不能与当前密码相同。",
+    "passwordSaveFailed": "修改失败，请重试。"
   },
   "auth": {
     "signInTitle": "登录",

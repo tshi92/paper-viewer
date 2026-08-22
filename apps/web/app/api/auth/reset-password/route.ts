@@ -2,12 +2,12 @@ import { prisma } from "@paper-viewer/db";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { BCRYPT_COST, MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 import { consumePasswordReset, resolvePasswordReset } from "@/lib/password-reset";
 
 const resetSchema = z.object({
   token: z.string().min(1),
-  // Same floor as account creation (bootstrap and invitation accept).
-  password: z.string().min(12)
+  password: z.string().min(MIN_PASSWORD_LENGTH)
 });
 
 /**
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
 
   await prisma.user.update({
     where: { id: reset.userId },
-    data: { passwordHash: await bcrypt.hash(parsed.data.password, 10) }
+    data: { passwordHash: await bcrypt.hash(parsed.data.password, BCRYPT_COST) }
   });
 
   redirect("/login?reset=done");
