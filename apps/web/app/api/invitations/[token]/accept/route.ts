@@ -3,11 +3,12 @@ import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { BCRYPT_COST, MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 import { setSession } from "@/lib/session";
 
 const acceptInvitationSchema = z.object({
   name: z.string().min(1),
-  password: z.string().min(12)
+  password: z.string().min(MIN_PASSWORD_LENGTH)
 });
 
 function hashToken(token: string): string {
@@ -30,7 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
     return new Response("Invitation is invalid or expired", { status: 400 });
   }
 
-  const passwordHash = await bcrypt.hash(input.password, 12);
+  const passwordHash = await bcrypt.hash(input.password, BCRYPT_COST);
   const user = await prisma.user.create({
     data: {
       email: invitation.email,

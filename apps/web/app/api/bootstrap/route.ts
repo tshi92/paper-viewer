@@ -3,12 +3,13 @@ import { prisma } from "@paper-viewer/db";
 import bcrypt from "bcryptjs";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { BCRYPT_COST, MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 import { setSession } from "@/lib/session";
 
 const bootstrapSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
-  password: z.string().min(12)
+  password: z.string().min(MIN_PASSWORD_LENGTH)
 });
 
 export async function POST(request: Request) {
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
   }
   const input = parsed.data;
 
-  const passwordHash = await bcrypt.hash(input.password, 12);
+  const passwordHash = await bcrypt.hash(input.password, BCRYPT_COST);
 
   // Most likely failure is a duplicate email; the form gets a generic retry
   // message instead of a raw 500.
