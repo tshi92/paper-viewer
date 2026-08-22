@@ -1,7 +1,7 @@
 import { prisma } from "@paper-viewer/db";
-import { Resend } from "resend";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { isEmailConfigured, sendEmail } from "@/lib/email";
 import { getEnv } from "@/lib/env";
 import { createPasswordReset } from "@/lib/password-reset";
 
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   // A self-hosted deployment with no mail provider cannot deliver the link, and
   // showing it on screen instead would let anyone reset anyone's password. Say
   // so plainly rather than pretending an email is on its way.
-  if (!env.RESEND_API_KEY) {
+  if (!isEmailConfigured()) {
     redirect("/forgot-password?state=unavailable");
   }
 
@@ -36,29 +36,24 @@ export async function POST(request: Request) {
     if (user) {
       const token = await createPasswordReset(user.id);
       const resetUrl = `${env.APP_URL}/reset-password/${token}`;
-      const resend = new Resend(env.RESEND_API_KEY);
-      // A provider that rejects the send must not turn into a 500 that tells
-      // the caller this address exists; it is logged and the page still says
-      // the same thing either way.
-      await resend.emails
-        .send({
-          from: "Paper Viewer <onboarding@resend.dev>",
-          to: user.email,
-          subject: "Reset your Paper Viewer password",
-          html: `
-            <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-              <h2>Reset your password</h2>
-              <p>Someone asked to reset the password for this address. Click below to choose a new one:</p>
-              <p><a href="${resetUrl}" style="display: inline-block; background: #256f8f; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Choose a new password</a></p>
-              <p style="color: #657386; font-size: 14px;">This link works once and expires in an hour.</p>
-              <p style="color: #657386; font-size: 14px;">If you did not ask for this, you can ignore this email — your password stays as it is.</p>
-              <p style="color: #657386; font-size: 12px;">If the button doesn't work, copy this link:<br/>${resetUrl}</p>
-            </div>
-          `
-        })
-        .catch((error) => {
-          console.error("[auth] password reset email failed", error);
-        });
+      // Whether this worked is deliberately dropped rather than acted on: the
+      // page below must read the same to someone probing addresses as it does
+      // to their owner. sendEmail logs the reason for the operator instead of
+      // raising, so a refused send cannot become a 500 that answers the probe.
+      await sendEmail({
+        to: user.email,
+        subject: "Reset your Paper Viewer password",
+        html: `
+          <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+            <h2>Reset your password</h2>
+            <p>Someone asked to reset the password for this address. Click below to choose a new one:</p>
+            <p><a href="${resetUrl}" style="display: inline-block; background: #256f8f; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">Choose a new password</a></p>
+            <p style="color: #657386; font-size: 14px;">This link works once and expires in an hour.</p>
+            <p style="color: #657386; font-size: 14px;">If you did not ask for this, you can ignore this email — your password stays as it is.</p>
+            <p style="color: #657386; font-size: 12px;">If the button doesn't work, copy this link:<br/>${resetUrl}</p>
+          </div>
+        `
+      });
     }
   }
 

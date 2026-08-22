@@ -27,6 +27,11 @@ const envSchema = z.object({
   // is off by default locally so the endpoint is never left exposed.
   CRON_SECRET: blankAsUndefined(z.string().min(16).optional()),
   RESEND_API_KEY: blankAsUndefined(z.string().min(1).optional()),
+  // Who invitation and password-reset mail comes from. Resend's shared
+  // onboarding@resend.dev needs no verified domain but will only deliver to
+  // the Resend account's own address, so a deployment that invites anyone
+  // else has to verify a domain and set this to an address under it.
+  EMAIL_FROM: blankAsUndefined(z.string().min(1).default("Paper Viewer <onboarding@resend.dev>")),
   LLM_API_KEY: blankAsUndefined(z.string().min(1).optional()),
   LLM_BASE_URL: blankAsUndefined(z.string().url().default("https://api.deepseek.com")),
   LLM_MODEL: blankAsUndefined(z.string().default("deepseek-v4-pro"))
