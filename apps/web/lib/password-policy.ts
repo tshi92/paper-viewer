@@ -5,7 +5,7 @@
  * route came to hash at cost 10 while account creation used 12 — a weaker
  * hash on the one flow you reach precisely because you lost access.
  */
-export const MIN_PASSWORD_LENGTH = 12;
+export const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * bcrypt work factor. Raising it re-hashes nothing: the cost is stored inside

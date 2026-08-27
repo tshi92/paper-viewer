@@ -71,7 +71,18 @@
     "resetInvalidTitle": "这个链接已失效",
     "resetInvalidBody": "重置链接只能用一次，且 1 小时后过期。重新申请一个再试。",
     "newPasswordPlaceholder": "新密码",
-    "passwordRule": "至少 12 位。"
+    "passwordRule": "至少 {min} 位。",
+    "inviteHeading": "欢迎加入 <name>{workspace}</name> 的 <product>Paper Viewer</product>",
+    "inviteSubtitle": "设置账号后即可开始。",
+    "inviteInvalidTitle": "这个邀请链接已失效",
+    "inviteInvalidBody": "邀请链接有效期 7 天，且只能使用一次。请让工作区管理员重新发一个。",
+    "accountEmailLabel": "登录邮箱",
+    "displayNameLabel": "显示名称",
+    "confirmPasswordLabel": "确认密码",
+    "inviteErrorMismatch": "两次输入的密码不一致。",
+    "inviteErrorWeak": "密码至少 {min} 位。",
+    "inviteErrorTaken": "这个邮箱已经有账号了，直接登录即可。",
+    "inviteErrorGeneric": "提交失败，请检查填写内容后重试。"
   },
   "home": {
     "title": "今日",

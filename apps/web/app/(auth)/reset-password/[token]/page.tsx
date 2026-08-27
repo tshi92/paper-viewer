@@ -1,3 +1,4 @@
+import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { resolvePasswordReset } from "@/lib/password-reset";
@@ -53,10 +54,10 @@ export default async function ResetPasswordPage({
           placeholder={t("newPasswordPlaceholder")}
           aria-label={t("newPasswordPlaceholder")}
           type="password"
-          minLength={12}
+          minLength={MIN_PASSWORD_LENGTH}
           required
         />
-        <p className="text-xs text-muted">{t("passwordRule")}</p>
+        <p className="text-xs text-muted">{t("passwordRule", { min: MIN_PASSWORD_LENGTH })}</p>
         <button className="rounded bg-accent px-3 py-2 font-medium text-white" type="submit">
           {t("resetSubmit")}
         </button>

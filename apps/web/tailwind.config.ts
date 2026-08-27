@@ -4,6 +4,13 @@ const config: Config = {
   content: ["./app/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      fontFamily: {
+        /* Used for one thing: proper nouns set against the interface sans, so
+           they read as a name rather than a label. Georgia-first and
+           system-only — a webfont for a single word is not worth the request,
+           and every platform resolves something serif. */
+        serif: ['Georgia', '"Iowan Old Style"', '"Times New Roman"', 'serif']
+      },
       colors: {
         /* Structural separators only (dividers, card outlines) — decorative,
            exempt from WCAG 1.4.11. Form controls use `control` instead.
