@@ -10,32 +10,47 @@ import {
   toArxivPaper
 } from "./daily-digest";
 
+const wholeBriefing =
+  "今天的三篇论文都在讲 KV cache 复用，从训练与推理两个方向逼近同一个问题，值得放在一起读。".repeat(6);
+
 function digest(overrides: Partial<Parameters<typeof isDigestComplete>[0]> = {}) {
   return {
-    overviewSummary: "今天的三篇论文都在讲 KV cache 复用。",
+    overviewSummary: wholeBriefing,
     pendingPaperIds: [] as string[],
+    paperIds: ["p1", "p2", "p3"],
     feishuSentAt: null as Date | null,
     ...overrides
   };
 }
 
 describe("isDigestComplete", () => {
-  it("is complete when nothing is pending, the overview exists and no webhook is configured", () => {
-    expect(isDigestComplete(digest(), false)).toBe(true);
+  it("is complete when nothing is pending, the overview is whole and no webhook is configured", () => {
+    expect(isDigestComplete(digest(), false, "zh")).toBe(true);
   });
 
   it("is incomplete while papers are still pending", () => {
-    expect(isDigestComplete(digest({ pendingPaperIds: ["p1"] }), false)).toBe(false);
+    expect(isDigestComplete(digest({ pendingPaperIds: ["p1"] }), false, "zh")).toBe(false);
   });
 
   it("is incomplete while the overview is empty or blank", () => {
-    expect(isDigestComplete(digest({ overviewSummary: "" }), false)).toBe(false);
-    expect(isDigestComplete(digest({ overviewSummary: "   \n" }), false)).toBe(false);
+    expect(isDigestComplete(digest({ overviewSummary: "" }), false, "zh")).toBe(false);
+    expect(isDigestComplete(digest({ overviewSummary: "   \n" }), false, "zh")).toBe(false);
+  });
+
+  it("is incomplete while the overview is the placeholder or a fragment", () => {
+    // 2026-08-27: a mid-sentence fragment counted as done here, so every later
+    // run answered skipped_done and the broken text could never heal in place.
+    expect(
+      isDigestComplete(digest({ overviewSummary: placeholderOverview(3) }), false, "zh")
+    ).toBe(false);
+    expect(
+      isDigestComplete(digest({ overviewSummary: "今日最值得关注的方向是协同演进：推动着大模型系统从" }), false, "zh")
+    ).toBe(false);
   });
 
   it("waits for the feishu push when a webhook is configured", () => {
-    expect(isDigestComplete(digest(), true)).toBe(false);
-    expect(isDigestComplete(digest({ feishuSentAt: new Date("2026-08-11T01:00:00Z") }), true)).toBe(true);
+    expect(isDigestComplete(digest(), true, "zh")).toBe(false);
+    expect(isDigestComplete(digest({ feishuSentAt: new Date("2026-08-11T01:00:00Z") }), true, "zh")).toBe(true);
   });
 });
 
@@ -48,12 +63,16 @@ describe("placeholderOverview", () => {
     expect(placeholderOverview(4)).not.toBe(placeholderOverview(3));
   });
 
-  it("is non-empty, which is why isDigestComplete alone could not catch it", () => {
+  it("fails the completeness judgement, so a later run replaces it", () => {
     const stub = placeholderOverview(4);
     expect(stub.trim()).not.toBe("");
     expect(
-      isDigestComplete({ overviewSummary: stub, pendingPaperIds: [], feishuSentAt: null }, false)
-    ).toBe(true);
+      isDigestComplete(
+        { overviewSummary: stub, pendingPaperIds: [], paperIds: ["a", "b", "c", "d"], feishuSentAt: null },
+        false,
+        "zh"
+      )
+    ).toBe(false);
   });
 });
 
