@@ -217,6 +217,7 @@
   },
   "chat": {
     "heading": "与论文对话",
+    "visibilityNote": "仅自己可见",
     "emptyTitle": "关于这篇论文，随便问点什么。",
     "emptyTryLabel": "试试：",
     "emptySuggestionContribution": "总结一下主要贡献",
@@ -444,5 +445,10 @@
     "pdfBadgeTitle": "点击可在线预览 PDF 全文",
     "sourceChip": "原文",
     "scholarLink": "Google Scholar"
+  },
+  "viewMode": {
+    "label": "视角",
+    "team": "全组视角",
+    "mine": "只看我的"
   }
 }

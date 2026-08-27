@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { getLocale, getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
 import { isReadingState, readingStates } from "@paper-viewer/core/paper-status";
@@ -9,6 +10,8 @@ import { FilterDropdown } from "@/components/filter-dropdown";
 import { LabelChip } from "@/components/label-chip";
 import { TopicChip } from "@/components/topic-chip";
 import { requireCurrentUser } from "@/lib/auth";
+import { readViewMode, VIEW_MODE_COOKIE } from "@/lib/view-mode";
+import { ViewModeToggle } from "@/components/view-mode-toggle";
 import { hasStoredPdf } from "@/lib/paper-pdf";
 import {
   compareConferenceRefs,
@@ -52,7 +55,10 @@ export default async function LibraryPage({
   const dateFormat = new Intl.DateTimeFormat(locale, { month: "short", day: "numeric" });
   const { time = "all", tag, q, label, state, source, savedBy } = await searchParams;
   const sourceFilter = source || undefined;
-  const savedByFilter = savedBy || undefined;
+  const viewMode = readViewMode((await cookies()).get(VIEW_MODE_COOKIE)?.value);
+  // The personal view IS a saved-by filter, pinned to yourself: it overrides
+  // the dropdown (hidden while active) rather than intersecting with it.
+  const savedByFilter = viewMode === "mine" ? user.id : savedBy || undefined;
   const query = (q ?? "").trim().toLowerCase();
   // An unknown `?state=` behaves like no reading-state filter at all.
   const stateFilter = state && isReadingState(state) ? state : undefined;
@@ -314,7 +320,10 @@ export default async function LibraryPage({
       {/* flex-wrap: on a phone the upload controls drop below the heading
           instead of shoving it into a vertical column and overflowing. */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
-        <h1 className="whitespace-nowrap text-lg font-semibold">{t("title")}</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="whitespace-nowrap text-lg font-semibold">{t("title")}</h1>
+          <ViewModeToggle current={viewMode} />
+        </div>
         <PaperUploadForm />
       </div>
 
@@ -329,7 +338,9 @@ export default async function LibraryPage({
               this dimension is about people: a workspace gains members, and a
               control that appears only once a second person saves something is
               a control nobody knows to look for. */}
-          {saverCounts.size > 0 ? (
+          {/* Hidden in the personal view, where it is pinned to yourself: a
+              dropdown whose choice is overridden would just look broken. */}
+          {saverCounts.size > 0 && viewMode === "team" ? (
             <FilterDropdown
               prefix={t("savedByLabel")}
               value={savedByFilter ?? ""}

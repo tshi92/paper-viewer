@@ -152,8 +152,11 @@ export function PaperChat({ paperId }: { paperId: string }) {
 
   return (
     <section className="flex h-full min-w-0 flex-col rounded border border-border bg-white shadow-card">
-      <div className="border-b border-border px-4 py-3">
+      <div className="flex items-baseline justify-between gap-2 border-b border-border px-4 py-3">
         <h2 className="font-semibold">{t("heading")}</h2>
+        {/* Annotations and comments next door are shared with the team; this
+            tab is the only one that is not, which is worth saying out loud. */}
+        <span className="text-xs text-muted">{t("visibilityNote")}</span>
       </div>
 
       <div ref={scrollContainerRef} className="flex-1 overflow-auto px-4 py-3 space-y-3">

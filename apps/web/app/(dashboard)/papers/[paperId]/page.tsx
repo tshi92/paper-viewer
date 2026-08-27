@@ -1,10 +1,12 @@
 import { prisma } from "@paper-viewer/db";
+import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { after } from "next/server";
 import { PaperPreview } from "@/components/paper-preview";
 import { PaperWorkspace } from "@/components/paper-workspace";
 import type { LabelView } from "@/lib/annotation-types";
 import { requireCurrentUser } from "@/lib/auth";
+import { filterThreadsByParticipant, readViewMode, VIEW_MODE_COOKIE } from "@/lib/view-mode";
 import { canAccessPaper, isDigestPaper } from "@/lib/paper-access";
 import { hasStoredPdf, isPreprintPdf } from "@/lib/paper-pdf";
 import { ensurePdfSnapshot } from "@/lib/pdf-snapshot";
@@ -147,6 +149,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
     });
   }
 
+  const viewMode = readViewMode((await cookies()).get(VIEW_MODE_COOKIE)?.value);
   const [comments, readingState, workspaceLabels, libraryOrder] = await Promise.all([
     prisma.comment.findMany({
       // annotationId: null keeps annotation-thread comments out of the paper-level
@@ -173,7 +176,14 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
     // Same ordering as the library listing, so prev/next and the j/k keys walk
     // the list the user just came from.
     prisma.workspacePaper.findMany({
-      where: { workspaceId: user.workspaceId, state: "visible" },
+      where: {
+        workspaceId: user.workspaceId,
+        state: "visible",
+        // The personal view narrows the library listing to your own saves, and
+        // prev/next walk "the list the user just came from" — so they follow
+        // the same lens or j/k would jump to papers the list never showed.
+        ...(viewMode === "mine" ? { importedById: user.id } : {})
+      },
       orderBy: { createdAt: "desc" },
       select: { paperId: true }
     })
@@ -197,6 +207,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
 
   return (
     <PaperWorkspace
+      viewMode={viewMode}
       paper={{
         id: paper.id,
         title: paper.title,
@@ -223,7 +234,7 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
               generatedAt: analysis.createdAt.toISOString()
             }
           : null,
-        comments: comments.map((c) => ({
+        comments: (viewMode === "mine" ? filterThreadsByParticipant(comments, user.id) : comments).map((c) => ({
           id: c.id,
           body: c.body,
           parentId: c.parentId,
