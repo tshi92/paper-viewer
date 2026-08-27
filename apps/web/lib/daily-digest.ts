@@ -19,7 +19,14 @@ import { prisma } from "@paper-viewer/db";
 import { fetchArxivPapers, type ArxivPaper } from "@/lib/arxiv";
 import { getEnv } from "@/lib/env";
 import { buildDigestCard, sendFeishuCard, type DigestPaper } from "@/lib/feishu";
-import { analyzeSinglePaper, generateOverview, selectPapers, type PaperAnalysisResult } from "@/lib/llm";
+import {
+  analyzeSinglePaper,
+  generateOverview,
+  LlmRateLimitError,
+  selectPapers,
+  type PaperAnalysisResult
+} from "@/lib/llm";
+import { runAdaptivePool } from "@/lib/adaptive-pool";
 import { isCompleteOverview } from "@/lib/prompts";
 import { getPaperText } from "@/lib/paper-text";
 import type { SourceMaterial } from "@/lib/prompts";
@@ -60,6 +67,14 @@ const LOCK_TTL_MS = 10 * 60_000;
  * estimate, which is exactly how a run got hard-killed.
  */
 const PER_PAPER_MARGIN_MS = 150_000;
+
+/**
+ * Where the analysis pool starts. Not a promise about any provider — the pool
+ * halves itself on every rate-limited answer, so against a single-slot
+ * provider this costs one wasted volley before settling at 1. Ten papers a
+ * day is the whole queue, so anything higher buys nothing.
+ */
+const ANALYSIS_CONCURRENCY = 8;
 
 type DigestRow = {
   id: string;
@@ -701,27 +716,53 @@ async function advanceDigest(params: {
   let digest = params.digest;
 
   let processed = 0;
-  while (digest.pendingPaperIds.length > 0) {
-    if (Date.now() + PER_PAPER_MARGIN_MS > opts.deadline) {
-      return { status: "partial", processed, remaining: digest.pendingPaperIds.length };
-    }
-    const paperId: string = digest.pendingPaperIds[0]!;
-    try {
-      // Count only papers that actually produced an analysis: `processed`
-      // triggers the overview rewrite below, and a paper that returns false
-      // every run (nothing to analyse from) must not re-trigger it hourly.
-      if (await processPaper({ workspaceId, paperId, llm, topics: prefs.topics, language })) {
-        processed += 1;
-      }
-    } catch (error) {
-      // Dequeue even when the analysis failed, otherwise this paper would block
-      // the digest forever
-      console.error("[daily-digest] analysis failed", paperId, error);
-    }
-    digest = await prisma.dailyDigest.update({
-      where: { id: digest.id },
-      data: { pendingPaperIds: digest.pendingPaperIds.filter((id) => id !== paperId) }
+
+  // Analyses run through an adaptive pool: parallel against a provider that
+  // allows it, and settling into the old serial loop against one that does
+  // not — see runAdaptivePool. Dequeues are serialised through a single chain
+  // because each one is a read-modify-write of the same row, and two workers
+  // finishing together would otherwise resurrect each other's dequeued paper.
+  let dequeueChain: Promise<void> = Promise.resolve();
+  function dequeue(paperId: string): Promise<void> {
+    dequeueChain = dequeueChain.then(async () => {
+      digest = await prisma.dailyDigest.update({
+        where: { id: digest.id },
+        data: { pendingPaperIds: digest.pendingPaperIds.filter((id) => id !== paperId) }
+      });
     });
+    return dequeueChain;
+  }
+
+  const pool = await runAdaptivePool({
+    items: digest.pendingPaperIds,
+    concurrency: ANALYSIS_CONCURRENCY,
+    shouldStop: () => Date.now() + PER_PAPER_MARGIN_MS > opts.deadline,
+    handle: async (paperId, isFinalAttempt) => {
+      try {
+        // Count only papers that actually produced an analysis: `processed`
+        // triggers the overview rewrite below, and a paper that returns false
+        // every run (nothing to analyse from) must not re-trigger it hourly.
+        if (await processPaper({ workspaceId, paperId, llm, topics: prefs.topics, language })) {
+          processed += 1;
+        }
+      } catch (error) {
+        if (error instanceof LlmRateLimitError && !isFinalAttempt) {
+          // Not dequeued: the pool slows down and hands this paper back out.
+          return "rate-limited";
+        }
+        // Dequeue even when the analysis failed, otherwise this paper would
+        // block the digest forever; the next run re-queues what has no
+        // analysis and retries it.
+        console.error("[daily-digest] analysis failed", paperId, error);
+      }
+      await dequeue(paperId);
+      return "done";
+    }
+  });
+  await dequeueChain;
+
+  if (pool.stopped && digest.pendingPaperIds.length > 0) {
+    return { status: "partial", processed, remaining: digest.pendingPaperIds.length };
   }
 
   const paperRows = await prisma.paper.findMany({ where: { id: { in: digest.paperIds } } });
