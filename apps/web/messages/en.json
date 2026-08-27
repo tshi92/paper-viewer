@@ -217,6 +217,7 @@
   },
   "chat": {
     "heading": "Chat with Paper",
+    "visibilityNote": "Only visible to you",
     "emptyTitle": "Ask anything about this paper.",
     "emptyTryLabel": "Try:",
     "emptySuggestionContribution": "Summarize the main contribution",
