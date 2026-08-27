@@ -445,5 +445,10 @@
     "pdfBadgeTitle": "Opens with an inline PDF preview",
     "sourceChip": "Source",
     "scholarLink": "Google Scholar"
+  },
+  "viewMode": {
+    "label": "View",
+    "team": "Team view",
+    "mine": "Only mine"
   }
 }

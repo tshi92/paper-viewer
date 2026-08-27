@@ -2,7 +2,9 @@ import { prisma } from "@paper-viewer/db";
 import { z } from "zod";
 import { annotationTypes } from "@paper-viewer/core/labels";
 import { requireCurrentUser, type CurrentUser } from "@/lib/auth";
+import { cookies } from "next/headers";
 import { annotationInclude, toAnnotationView } from "@/lib/annotation-view";
+import { annotationInvolvesUser, readViewMode, VIEW_MODE_COOKIE } from "@/lib/view-mode";
 
 const scaledRect = z.object({
   x1: z.number(),
@@ -83,7 +85,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pap
     include: annotationInclude
   });
 
-  return Response.json({ annotations: annotations.map(toAnnotationView) });
+  // The personal view narrows to annotations that involve the caller — their
+  // own, or ones they joined the discussion on. Filtered here rather than in
+  // the query so "involves" can look at the comment authors, and because this
+  // one endpoint feeds both the sidebar list and the in-PDF highlights, which
+  // must agree.
+  const viewMode = readViewMode((await cookies()).get(VIEW_MODE_COOKIE)?.value);
+  const visible =
+    viewMode === "mine"
+      ? annotations.filter((annotation) => annotationInvolvesUser(annotation, user.id))
+      : annotations;
+
+  return Response.json({ annotations: visible.map(toAnnotationView) });
 }
 
 export async function POST(request: Request, { params }: { params: Promise<{ paperId: string }> }) {

@@ -445,5 +445,10 @@
     "pdfBadgeTitle": "点击可在线预览 PDF 全文",
     "sourceChip": "原文",
     "scholarLink": "Google Scholar"
+  },
+  "viewMode": {
+    "label": "视角",
+    "team": "全组视角",
+    "mine": "只看我的"
   }
 }

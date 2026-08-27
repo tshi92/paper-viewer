@@ -5,6 +5,8 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { BackButton } from "./back-button";
+import { ViewModeToggle } from "./view-mode-toggle";
+import type { ViewMode } from "@/lib/view-mode";
 import { CommentPanel } from "./comment-panel";
 import { PaperChat } from "./paper-chat";
 import { AnalysisPanel, type AnalysisView } from "./analysis-panel";
@@ -86,7 +88,7 @@ type WorkspaceErrorKey =
  */
 const SIDEBAR_TABS = ["analysis", "annotations", "comments", "chat"] as const;
 
-export function PaperWorkspace({ paper }: { paper: PaperData }) {
+export function PaperWorkspace({ paper, viewMode }: { paper: PaperData; viewMode: ViewMode }) {
   const t = useTranslations("workspace");
   const tCommon = useTranslations("common");
   const router = useRouter();
@@ -128,11 +130,17 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
   }, [paper.id]);
 
   useEffect(() => {
+    // viewMode is not read here — the annotations endpoint reads the same
+    // cookie — but it belongs in the deps: flipping the lens must refetch now,
+    // not on the next poll. The bump lets the differently-filtered response
+    // through the raw-equality skip and voids any in-flight fetch of the old
+    // lens.
+    bumpMutation();
     void refreshAnnotations();
     // 30s polling keeps collaborators' annotations flowing in without sockets.
     const timer = setInterval(() => void refreshAnnotations(), 30_000);
     return () => clearInterval(timer);
-  }, [refreshAnnotations]);
+  }, [refreshAnnotations, bumpMutation, viewMode]);
 
   const handleCreateAnnotation = useCallback(
     async (input: CreateAnnotationInput) => {
@@ -293,7 +301,10 @@ export function PaperWorkspace({ paper }: { paper: PaperData }) {
     <div className="space-y-3">
       {/* Standalone back affordance at the page's top-left, outside the
           title card — it navigates the app, not the paper. */}
-      <BackButton fallbackHref="/library" />
+      <div className="flex items-center justify-between gap-2">
+        <BackButton fallbackHref="/library" />
+        <ViewModeToggle current={viewMode} />
+      </div>
       {/* Below lg the sidebar stacks under the PDF instead of squeezing the
           reading column below a usable width. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
