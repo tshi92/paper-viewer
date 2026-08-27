@@ -129,6 +129,9 @@ export async function requestChatCompletions(
   }
 }
 
+/** The provider refused for pacing reasons, after the HTTP layer's own retries. */
+export class LlmRateLimitError extends Error {}
+
 async function callLlm(
   config: LlmRuntimeConfig,
   messages: { role: string; content: string }[],
@@ -149,6 +152,12 @@ async function callLlm(
 
   if (!response.ok) {
     const text = await response.text();
+    // 429 keeps its identity: the analysis pool reads it as "the provider is
+    // telling us to slow down" and shrinks its parallelism, where every other
+    // failure is just a failed paper.
+    if (response.status === 429) {
+      throw new LlmRateLimitError(`LLM API error 429: ${text}`);
+    }
     throw new Error(`LLM API error ${response.status}: ${text}`);
   }
 
