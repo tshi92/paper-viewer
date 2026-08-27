@@ -60,6 +60,13 @@ describe("generateOverview", () => {
     expect(bodyOf(fetchMock).thinking).toEqual({ type: "disabled" });
   });
 
+  it("turns it off for DeepSeek V4 too, which thinks by default in the same field", async () => {
+    const fetchMock = stubFetch();
+    await generateOverview(configFor("deepseek-v4-pro"), [analysis], ["llm serving"], "zh");
+
+    expect(bodyOf(fetchMock).thinking).toEqual({ type: "disabled" });
+  });
+
   it("leaves the field off for other providers, which reject unknown keys", async () => {
     const fetchMock = stubFetch();
     await generateOverview(configFor("gpt-4o"), [analysis], ["llm serving"], "zh");

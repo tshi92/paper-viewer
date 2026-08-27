@@ -53,10 +53,12 @@ const OVERVIEW_TIMEOUT_MS = 180_000;
  * Sent only to models known to accept the field: an OpenAI-compatible endpoint
  * that does not recognise it rejects the entire request with a 400, and the
  * provider is a per-workspace setting. `reasoning_effort` and `enable_thinking`
- * were both tried against Moonshot and are silently ignored.
+ * were both tried against Moonshot and are silently ignored. DeepSeek V4 also
+ * thinks by default (at high effort) and takes exactly this field; its docs
+ * likewise warn off `reasoning_effort: "none"`.
  */
 function disableThinking(model: string): Record<string, unknown> {
-  return /kimi/i.test(model) ? { thinking: { type: "disabled" } } : {};
+  return /kimi|deepseek/i.test(model) ? { thinking: { type: "disabled" } } : {};
 }
 
 async function fetchChatCompletions(
