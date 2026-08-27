@@ -1,7 +1,7 @@
 import type { LlmRuntimeConfig } from "./llm-config";
 import type { OutputLanguage } from "@paper-viewer/core/llm-config";
 import type { ArxivPaper } from "./arxiv";
-import { analysisPrompt, overviewPrompt, type SourceMaterial } from "./prompts";
+import { analysisPrompt, isCompleteOverview, overviewPrompt, type SourceMaterial } from "./prompts";
 
 export type PaperAnalysisResult = {
   title: string;
@@ -153,9 +153,16 @@ async function callLlm(
   }
 
   const data = await response.json() as {
-    choices: { message: { content: string; reasoning_content?: string } }[];
+    choices: { finish_reason?: string; message: { content: string; reasoning_content?: string } }[];
   };
-  const content = data.choices[0]!.message.content;
+  const choice = data.choices[0]!;
+  // These two mean the text is not what was asked for, whatever it looks like:
+  // the provider stopped at a token cap or a content filter. Other values are
+  // left alone — this endpoint is workspace-configurable and providers differ.
+  if (choice.finish_reason === "length" || choice.finish_reason === "content_filter") {
+    throw new Error(`LLM stopped early: finish_reason=${choice.finish_reason}`);
+  }
+  const content = choice.message.content;
   if (!content) {
     throw new Error("LLM returned empty content (reasoning model may need higher max_tokens)");
   }
@@ -273,21 +280,42 @@ export async function generateOverview(
   language: OutputLanguage
 ): Promise<string> {
   const prompt = overviewPrompt(language, analyses, topics);
-  const result = await callLlm(
-    config,
-    [
-      { role: "system", content: prompt.system },
-      { role: "user", content: prompt.user }
-    ],
-    16000,
-    { timeoutMs: OVERVIEW_TIMEOUT_MS, extraPayload: disableThinking(config.model) }
-  );
 
-  const parsed = parseJson<{ overviewSummary: string | Record<string, unknown> }>(result);
-  if (typeof parsed.overviewSummary === "string") {
-    return parsed.overviewSummary;
+  // Two attempts: a fragment or a refused finish_reason is rare enough that a
+  // fresh call almost always comes back whole, and cheap enough to spend. A
+  // second bad answer becomes an error, which the digest turns into its
+  // placeholder — a visibly unfinished state a later run knows to replace,
+  // where a half-briefing used to ship as if it were done.
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    let overview: string;
+    try {
+      const result = await callLlm(
+        config,
+        [
+          { role: "system", content: prompt.system },
+          { role: "user", content: prompt.user }
+        ],
+        16000,
+        { timeoutMs: OVERVIEW_TIMEOUT_MS, extraPayload: disableThinking(config.model) }
+      );
+      const parsed = parseJson<{ overviewSummary: string | Record<string, unknown> }>(result);
+      overview =
+        typeof parsed.overviewSummary === "string"
+          ? parsed.overviewSummary
+          : Object.values(parsed.overviewSummary)
+              .map((v) => (Array.isArray(v) ? v.join("\n") : String(v)))
+              .join("\n\n");
+    } catch (error) {
+      lastError = error;
+      continue;
+    }
+    if (isCompleteOverview(overview, analyses.length, language)) {
+      return overview;
+    }
+    lastError = new Error(
+      `LLM returned an incomplete briefing (${overview.length} chars for ${analyses.length} papers)`
+    );
   }
-  return Object.values(parsed.overviewSummary)
-    .map((v) => (Array.isArray(v) ? v.join("\n") : String(v)))
-    .join("\n\n");
+  throw lastError;
 }

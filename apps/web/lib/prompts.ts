@@ -123,6 +123,40 @@ ${profile.styleRules}
   };
 }
 
+/**
+ * Whether a briefing is whole enough to show a reader.
+ *
+ * Providers can hand back a fragment inside syntactically valid JSON — on
+ * 2026-08-27 kimi answered a ten-paper briefing with ~150 characters ending
+ * mid-sentence, and it passed every check on the way to the page. Parsing
+ * proves the envelope; this proves the letter.
+ *
+ * Two checks, both against the same spec overviewPrompt asks for:
+ * - at least half the minimum length for this many papers (characters for
+ *   Chinese, words for English) — half, so normal shortfall never trips it;
+ * - a sentence-ending stop at the end, looking through closing markdown and
+ *   quotes, because generation that dies mid-thought ends on a bare word.
+ *
+ * Used both when accepting a fresh generation and when deciding whether a
+ * stored overview deserves a rewrite, so one judgement covers both moments.
+ */
+export function isCompleteOverview(
+  overview: string,
+  paperCount: number,
+  language: OutputLanguage
+): boolean {
+  const { min, unit } = LANGUAGE_PROFILES[language].overviewPerPaper;
+  const floor = (min * Math.max(1, paperCount)) / 2;
+  const length =
+    unit === "characters" ? overview.length : overview.split(/\s+/).filter(Boolean).length;
+  if (length < floor) {
+    return false;
+  }
+
+  const trimmed = overview.replace(/[\s*_`~"'”」』)\]）】]+$/u, "");
+  return /[。！？.!?…]$/u.test(trimmed);
+}
+
 export function overviewPrompt(
   language: OutputLanguage,
   analyses: PaperAnalysisResult[],
