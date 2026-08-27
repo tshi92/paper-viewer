@@ -20,6 +20,7 @@ import { fetchArxivPapers, type ArxivPaper } from "@/lib/arxiv";
 import { getEnv } from "@/lib/env";
 import { buildDigestCard, sendFeishuCard, type DigestPaper } from "@/lib/feishu";
 import { analyzeSinglePaper, generateOverview, selectPapers, type PaperAnalysisResult } from "@/lib/llm";
+import { isCompleteOverview } from "@/lib/prompts";
 import { getPaperText } from "@/lib/paper-text";
 import type { SourceMaterial } from "@/lib/prompts";
 import { toOutputLanguage, type OutputLanguage } from "@paper-viewer/core/llm-config";
@@ -719,25 +720,24 @@ async function advanceDigest(params: {
   const paperRows = await prisma.paper.findMany({ where: { id: { in: digest.paperIds } } });
   const papers = new Map(paperRows.map((paper) => [paper.id, paper]));
   const analyses = await loadAnalyses(workspaceId, digest.paperIds);
+  const results = digest.paperIds.flatMap((paperId) => {
+    const paper = papers.get(paperId);
+    const analysis = analyses.get(paperId);
+    return paper && analysis ? [toAnalysisResult(paper, analysis)] : [];
+  });
 
-  // The placeholder counts as "no overview": it is what a run writes when every
-  // analysis failed, and a later run that recovers them must be able to replace
-  // it. A run that just processed papers rewrites the overview too — an
-  // existing one was written before these analyses landed, so it silently
-  // covers only the papers that had succeeded by then. (The Feishu card is not
-  // re-sent — feishuSentAt guards against a second push — so the improved text
-  // only lands in the app.)
-  if (
-    !digest.overviewSummary.trim() ||
-    digest.overviewSummary === placeholderOverview(digest.paperIds.length) ||
-    processed > 0
-  ) {
+  // A stored overview earns its place only by passing the same completeness
+  // judgement a fresh generation must pass: the placeholder fails it (it is
+  // what a run writes when every analysis failed, and a later run that
+  // recovers them must be able to replace it), and so does a fragment the
+  // model cut off mid-sentence — which is how 2026-08-27 shipped half an
+  // opening line as the day's briefing. A run that just processed papers
+  // rewrites the overview too: an existing one was written before these
+  // analyses landed, so it silently covers only the papers that had succeeded
+  // by then. (The Feishu card is not re-sent — feishuSentAt guards against a
+  // second push — so the improved text only lands in the app.)
+  if (!isCompleteOverview(digest.overviewSummary, results.length, language) || processed > 0) {
     let overviewSummary = placeholderOverview(digest.paperIds.length);
-    const results = digest.paperIds.flatMap((paperId) => {
-      const paper = papers.get(paperId);
-      const analysis = analyses.get(paperId);
-      return paper && analysis ? [toAnalysisResult(paper, analysis)] : [];
-    });
     if (results.length > 0) {
       try {
         overviewSummary = await generateOverview(llm, results, prefs.topics, language);

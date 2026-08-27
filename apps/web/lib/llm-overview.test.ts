@@ -33,13 +33,37 @@ describe("generateOverview", () => {
     vi.restoreAllMocks();
   });
 
-  /** Captures the request the helper would have sent, and answers it. */
-  function stubFetch() {
+  /**
+   * A briefing long enough to satisfy the completeness gate for one paper
+   * (the zh floor is half of 150 characters), ending on a full stop.
+   */
+  const validBriefing = "系统层正从静态资源分配转向动态调度，训练与推理的冗余消除是今天的关键主线，多篇论文从编译期与运行时两个方向逼近同一个问题。".repeat(2);
+
+  /**
+   * Captures the requests the helper would have sent and answers each from
+   * `replies` in order (repeating the last one). Each reply is the body of
+   * choices[0]: its message content and finish_reason.
+   */
+  function stubFetch(
+    replies: { overview?: string; content?: string; finishReason?: string }[] = [{}]
+  ) {
+    let call = 0;
     const fetchMock = vi.fn(async (_url: string, init: RequestInit) => {
       void init;
+      const reply = replies[Math.min(call, replies.length - 1)]!;
+      call += 1;
       return new Response(
         JSON.stringify({
-          choices: [{ message: { content: JSON.stringify({ overviewSummary: "today's briefing" }) } }]
+          choices: [
+            {
+              finish_reason: reply.finishReason ?? "stop",
+              message: {
+                content:
+                  reply.content ??
+                  JSON.stringify({ overviewSummary: reply.overview ?? validBriefing })
+              }
+            }
+          ]
         }),
         { status: 200 }
       );
@@ -56,7 +80,7 @@ describe("generateOverview", () => {
     const fetchMock = stubFetch();
     const summary = await generateOverview(configFor("kimi-k2.5"), [analysis], ["llm serving"], "zh");
 
-    expect(summary).toBe("today's briefing");
+    expect(summary).toBe(validBriefing);
     expect(bodyOf(fetchMock).thinking).toEqual({ type: "disabled" });
   });
 
@@ -81,5 +105,33 @@ describe("generateOverview", () => {
 
     // Comfortably past the 120s default, and still inside the cron route's 300s.
     expect(timeout).toHaveBeenCalledWith(180_000);
+  });
+
+  it("treats a briefing the provider cut short as a failure, not an answer", async () => {
+    // 2026-08-27: the model answered with ~150 characters, mid-sentence, inside
+    // syntactically valid JSON. It sailed through parsing and shipped.
+    const fragment = "今日最值得关注的方向是协同演进：共同推动着大模型系统从";
+    stubFetch([{ overview: fragment }, { overview: fragment }]);
+
+    await expect(
+      generateOverview(configFor("deepseek-v4-pro"), [analysis], [], "zh")
+    ).rejects.toThrow(/incomplete/i);
+  });
+
+  it("retries once and returns the second answer when it is whole", async () => {
+    const fetchMock = stubFetch([{ overview: "半句话就停在了这" }, {}]);
+
+    const summary = await generateOverview(configFor("deepseek-v4-pro"), [analysis], [], "zh");
+
+    expect(summary).toBe(validBriefing);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not accept a response whose finish_reason says it was truncated", async () => {
+    stubFetch([{ finishReason: "length" }, { finishReason: "content_filter" }]);
+
+    await expect(
+      generateOverview(configFor("deepseek-v4-pro"), [analysis], [], "zh")
+    ).rejects.toThrow(/length|content_filter/);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analysisPrompt, overviewPrompt } from "./prompts";
+import { analysisPrompt, isCompleteOverview, overviewPrompt } from "./prompts";
 import type { PaperAnalysisResult } from "./llm";
 
 const paper = {
@@ -109,5 +109,47 @@ describe("overviewPrompt", () => {
     expect(prompt.user).toContain(paper.title);
     expect(prompt.user).toContain("Second Paper");
     expect(prompt.user).toContain("today's 2 recommended papers");
+  });
+});
+
+describe("isCompleteOverview", () => {
+  const sentence = "系统层正从静态资源分配转向动态调度，训练与推理的冗余消除是关键。";
+
+  function briefingOf(chars: number): string {
+    return sentence.repeat(Math.ceil(chars / sentence.length));
+  }
+
+  it("accepts a briefing at the target length that ends on a full stop", () => {
+    expect(isCompleteOverview(briefingOf(1600), 10, "zh")).toBe(true);
+  });
+
+  it("rejects the fragment that shipped on 2026-08-27", () => {
+    // Verbatim from production: valid JSON around it, ~150 characters over ten
+    // papers, cut mid-sentence. It passed every check we had.
+    const fragment =
+      "今日最值得关注的方向是**agentic AI 训练系统与新兴加速器软件栈的协同演进**：" +
+      "psRL 揭示了 training-time prefix sharing 在 update 阶段的巨大潜力，而 Zomboss " +
+      "和 TensorLift 则从相反方向重构了 agent 与编译器的职责边界，共同推动着大模型系统从";
+    expect(isCompleteOverview(fragment, 10, "zh")).toBe(false);
+  });
+
+  it("rejects the placeholder, so a later run replaces it", () => {
+    expect(isCompleteOverview("今日推荐 10 篇论文。", 10, "zh")).toBe(false);
+    expect(isCompleteOverview("", 10, "zh")).toBe(false);
+  });
+
+  it("rejects a long briefing that still stops mid-sentence", () => {
+    expect(isCompleteOverview(briefingOf(1600) + "共同推动着大模型系统从", 10, "zh")).toBe(false);
+  });
+
+  it("looks through closing markdown and quotes for the final stop", () => {
+    expect(isCompleteOverview(briefingOf(1600) + "值得**精读**。", 10, "zh")).toBe(true);
+    expect(isCompleteOverview(briefingOf(160) + "「值得精读。」", 1, "zh")).toBe(true);
+  });
+
+  it("counts words rather than characters for English", () => {
+    const words = Array.from({ length: 100 }, (_, i) => `word${i}`).join(" ") + ".";
+    expect(isCompleteOverview(words, 1, "en")).toBe(true);
+    expect(isCompleteOverview(words, 10, "en")).toBe(false); // 100 words, floor is 400
   });
 });
