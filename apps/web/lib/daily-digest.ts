@@ -102,13 +102,20 @@ export function placeholderOverview(count: number): string {
 }
 
 export function isDigestComplete(
-  digest: Pick<DigestRow, "overviewSummary" | "pendingPaperIds" | "feishuSentAt">,
-  hasWebhook: boolean
+  digest: Pick<DigestRow, "overviewSummary" | "pendingPaperIds" | "paperIds" | "feishuSentAt">,
+  hasWebhook: boolean,
+  language: OutputLanguage
 ): boolean {
   if (digest.pendingPaperIds.length > 0) {
     return false;
   }
-  if (!digest.overviewSummary.trim()) {
+  // The same judgement a fresh generation must pass. "Non-empty" used to be
+  // the bar here, and both the placeholder and a mid-sentence fragment
+  // (2026-08-27) cleared it — so every later run answered skipped_done and the
+  // broken text could never heal in place. With nothing pending, every paper
+  // has an analysis (advance re-queues the ones missing one), so paperIds is
+  // the count the briefing is expected to cover.
+  if (!isCompleteOverview(digest.overviewSummary, digest.paperIds.length, language)) {
     return false;
   }
   return !hasWebhook || digest.feishuSentAt !== null;
@@ -644,7 +651,7 @@ export async function runDailyDigest(
     }
   }
 
-  if (digest && isDigestComplete(digest, Boolean(webhookUrl))) {
+  if (digest && isDigestComplete(digest, Boolean(webhookUrl), toOutputLanguage(prefs.outputLanguage))) {
     return { status: "skipped_done", processed: 0, remaining: 0 };
   }
 
