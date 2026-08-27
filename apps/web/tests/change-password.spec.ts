@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { expect, test, type Page } from "@playwright/test";
 import { prisma } from "@paper-viewer/db";
 import bcrypt from "bcryptjs";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 
 /**
  * Changing your own password from Settings → General.
@@ -81,7 +82,11 @@ test("a new password under the minimum is refused", async ({ page }) => {
   await signIn(page, originalPassword);
   await submitChange(page, { current: originalPassword, next: shortPassword });
 
-  await expect(page.getByTestId("password-save-result")).toHaveText(/至少 12 位/);
+  // Built from the policy rather than written out: the copy carries the
+  // number, so a hardcoded one here breaks the moment the floor moves.
+  await expect(page.getByTestId("password-save-result")).toHaveText(
+    new RegExp(`至少 ${MIN_PASSWORD_LENGTH} 位`)
+  );
   await signIn(page, originalPassword);
 });
 

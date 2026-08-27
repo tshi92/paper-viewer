@@ -71,7 +71,18 @@
     "resetInvalidTitle": "This link no longer works",
     "resetInvalidBody": "Reset links can be used once and expire after an hour. Request a new one to try again.",
     "newPasswordPlaceholder": "New password",
-    "passwordRule": "At least 12 characters."
+    "passwordRule": "At least {min} characters.",
+    "inviteHeading": "Welcome to <name>{workspace}</name> on <product>Paper Viewer</product>",
+    "inviteSubtitle": "Set up your account to get started.",
+    "inviteInvalidTitle": "This invitation link no longer works",
+    "inviteInvalidBody": "Invitation links last seven days and can be used once. Ask a workspace admin to send a new one.",
+    "accountEmailLabel": "Account email",
+    "displayNameLabel": "Display name",
+    "confirmPasswordLabel": "Confirm password",
+    "inviteErrorMismatch": "The two passwords do not match.",
+    "inviteErrorWeak": "The password must be at least {min} characters.",
+    "inviteErrorTaken": "That address already has an account — sign in instead.",
+    "inviteErrorGeneric": "Could not complete the form. Please check it and try again."
   },
   "home": {
     "title": "Today",
