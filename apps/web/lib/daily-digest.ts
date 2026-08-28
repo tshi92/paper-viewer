@@ -71,10 +71,18 @@ const PER_PAPER_MARGIN_MS = 150_000;
 /**
  * Where the analysis pool starts. Not a promise about any provider — the pool
  * halves itself on every rate-limited answer, so against a single-slot
- * provider this costs one wasted volley before settling at 1. Ten papers a
- * day is the whole queue, so anything higher buys nothing.
+ * provider this costs one wasted volley before settling at 1.
+ *
+ * Sized to clear a day's queue in a SINGLE volley, which is what one
+ * invocation actually gets: a volley runs as long as its slowest paper, and
+ * PER_PAPER_MARGIN_MS then reserves that much again, so with real papers
+ * taking well over a minute the second volley never starts inside
+ * RUN_BUDGET_MS. At 8 a ten-paper day needed a second invocation to finish —
+ * which is why the run was still `partial` after the first call and depended
+ * on something scheduling another. Twelve covers the queue with headroom, so
+ * one cron window is enough on its own.
  */
-const ANALYSIS_CONCURRENCY = 8;
+const ANALYSIS_CONCURRENCY = 12;
 
 type DigestRow = {
   id: string;
