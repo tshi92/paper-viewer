@@ -1,16 +1,13 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
-import { isReadingState } from "@paper-viewer/core/paper-status";
 import { pickLeadDigest, summaryLineOf } from "@/lib/daily-digest";
 import { requireCurrentUser } from "@/lib/auth";
-import { DiscoverButton } from "@/components/discover-button";
+import { beijingHour, DEFAULT_PUSH_HOUR, isDueForPush, isPushDay, nextPushDay } from "@/lib/push-schedule";
 import { DigestProgressBanner } from "@/components/digest-progress-banner";
 import { InLibraryLink } from "@/components/in-library-link";
 import { MarkdownBody } from "@/components/markdown-body";
-import { ReadingStateChips } from "@/components/reading-state-chips";
 import { SaveToLibraryButton } from "@/components/save-to-library-button";
-import { TopicChip } from "@/components/topic-chip";
 
 const HISTORY_DAYS = 7;
 
@@ -39,10 +36,14 @@ export default async function TodayPage() {
             orderBy: { createdAt: "desc" },
             take: 1
           },
-          // Present only once someone saved the paper to the library.
+          // Present only while a *visible* library row exists. Removing a
+          // paper archives its row instead of deleting it, so matching on "a
+          // row exists" showed an archived paper as saved here while the
+          // library itself no longer listed it — and the save action that
+          // would bring it back was hidden behind that wrong state.
           workspacePapers: {
-            where: { workspaceId: user.workspaceId },
-            include: { readingStates: { where: { userId: user.id } } }
+            where: { workspaceId: user.workspaceId, state: "visible" },
+            select: { id: true }
           }
         }
       })
@@ -88,6 +89,7 @@ export default async function TodayPage() {
     .filter((paper): paper is NonNullable<typeof paper> => Boolean(paper));
   const savedCount = leadDigestPapers.filter((paper) => paper.workspacePapers.length > 0).length;
 
+  const weekdayFormat = new Intl.DateTimeFormat(locale, { weekday: "long" });
   const dateFormat = new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "long",
@@ -99,19 +101,25 @@ export default async function TodayPage() {
     where: { workspaceId: user.workspaceId }
   });
   const hasPrefs = prefs && (prefs.topics.length > 0 || prefs.keywords.length > 0);
+  // The push hour is shown in Beijing time rather than converted: it is the
+  // number the workspace typed in settings, and a reader comparing the two
+  // should see the same one.
+  const pushHour = prefs?.pushHour ?? DEFAULT_PUSH_HOUR;
+  const pushTime = `${String(pushHour).padStart(2, "0")}:00`;
+  const now = new Date();
+  // Three different truths, and saying the wrong one is worse than saying
+  // nothing: an edition still to come today, one already overdue, and a weekend
+  // with nothing due until Monday. The old copy said "due at 13:00" for all
+  // three — stale by evening, and on a Saturday a promise about a run that is
+  // not scheduled at all.
+  const pushNote = !isPushDay(now)
+    ? { key: "pushNext" as const, day: weekdayFormat.format(nextPushDay(now)) }
+    : isDueForPush(pushHour, now)
+      ? { key: "pushOverdue" as const }
+      : { key: "pushDueAt" as const };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{t("title")}</h1>
-        <div className="flex gap-2">
-          <Link href="/settings/preferences" className="rounded border border-accent/40 px-3 py-2 text-sm font-medium text-accent transition-colors duration-150 hover:bg-accent/10">
-            {t("preferencesLink")}
-          </Link>
-          <DiscoverButton />
-        </div>
-      </div>
-
       {digestInProgress ? (
         <DigestProgressBanner
           done={digestDone}
@@ -152,21 +160,39 @@ export default async function TodayPage() {
           <section className="w-full min-w-0 lg:flex-1">
             <div className="rounded bg-white shadow-card">
               <div className="border-b border-border px-5 py-4">
-                {/* Named for what it is, not for where it sits: between the
-                    date rolling over and the day's run, this card is holding
-                    the previous edition, and calling that "today's" would be a
-                    lie the date underneath immediately contradicts. */}
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                  {leadIsToday ? t("overviewTitle") : t("latestBriefing")}
-                </p>
-                {/* The date at full size: this page is one day's edition, and
-                    which day it is should not have to be inferred. */}
-                <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+                {/* The date alone heads the card. It used to sit under an
+                    eyebrow naming the edition ("today's" / "the latest"), which
+                    the date immediately restated: between the date rolling over
+                    and the day's run this card holds the previous edition, and
+                    the date is what says so. */}
+                <h2 className="text-2xl font-semibold tracking-tight">
                   {dateFormat.format(new Date(leadDigest.date))}
                 </h2>
+                {/* The pending note rides the meta line as one more segment
+                    rather than taking a row of its own: it belongs to the same
+                    "what is this card" register as the counts, and the accent
+                    is enough to carry it without the extra line height.
+
+                    Shown only while this card is holding the previous edition —
+                    a reader who does not stop to read the date takes it for
+                    today's, and the hour is the one thing the date cannot tell
+                    them. Once the card *is* today's there is nothing to mistake
+                    it for and the same words would be decoration. */}
                 <p className="mt-1 text-xs text-muted">
                   {t("digestCount", { count: leadDigestPapers.length })}
                   {savedCount > 0 ? ` · ${t("savedCount", { count: savedCount })}` : ""}
+                  {!leadIsToday ? (
+                    <>
+                      {" · "}
+                      <span className="text-accent">
+                        {pushNote.key === "pushNext"
+                          ? t("pushNext", { day: pushNote.day, time: pushTime })
+                          : pushNote.key === "pushOverdue"
+                            ? t("pushOverdue")
+                            : t("pushDueAt", { time: pushTime })}
+                      </span>
+                    </>
+                  ) : null}
                 </p>
               </div>
               {leadDigest.overviewSummary ? (
@@ -189,7 +215,6 @@ export default async function TodayPage() {
               {leadDigestPapers.map((paper, index) => {
                 const summaryLine = summaryLineOf(paper.analyses[0]?.summary);
                 const workspacePaper = paper.workspacePapers[0];
-                const readingState = workspacePaper?.readingStates[0]?.state ?? "new";
 
                 return (
                   <div key={paper.id} className="px-4 py-3 transition-colors duration-150 hover:bg-surface">
@@ -227,14 +252,12 @@ export default async function TodayPage() {
                           arXiv:{paper.arxivId}
                         </a>
                       ) : null}
+                      {/* Reading state is a per-reader control and lives on the
+                          paper page. This column is read to decide what to open
+                          next, and a row of four chips under every saved paper
+                          made a scan list look like a form. */}
                       {workspacePaper ? (
-                        <>
-                          <InLibraryLink paperId={paper.id} />
-                          <ReadingStateChips
-                            paperId={paper.id}
-                            state={isReadingState(readingState) ? readingState : "new"}
-                          />
-                        </>
+                        <InLibraryLink paperId={paper.id} />
                       ) : (
                         <SaveToLibraryButton paperId={paper.id} />
                       )}
