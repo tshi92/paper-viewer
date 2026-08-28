@@ -59,7 +59,12 @@ export default async function MembersPage({
       {/* Page title first; the invite form is one card under it, not the page's own h1. */}
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
       <AdminOnlyNote />
-      <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+      {/* items-start: the two columns are independent cards, not a table row.
+          Stretched to a common height, the invite form — itself a grid — spread
+          its four rows over whatever the member list happened to be, so every
+          member added grew the empty space inside it and stretched the email
+          field into a box. */}
+      <div className="mt-4 grid grid-cols-1 items-start gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
       <form className="grid gap-3 rounded border border-border bg-white shadow-card p-4" action="/api/members/invitations" method="post">
         <h2 className="text-lg font-semibold">{t("inviteTitle")}</h2>
         <input className="rounded border border-control px-3 py-2" name="email" placeholder={t("emailPlaceholder")} aria-label={t("emailPlaceholder")} type="email" required />
@@ -85,7 +90,10 @@ export default async function MembersPage({
           <div className="divide-y divide-border">
             {memberships.map((membership) => (
               <div className="flex items-center justify-between px-4 py-3" key={membership.id}>
-                {membership.user.name ? (
+                {/* A display name is required at sign-up, and some people type
+                    their own address into it — printing both then rendered the
+                    same email twice on one row. */}
+                {membership.user.name && membership.user.name !== membership.user.email ? (
                   <span>
                     {membership.user.name}
                     <span className="ml-2 text-sm text-muted">{membership.user.email}</span>
