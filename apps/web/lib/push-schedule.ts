@@ -26,6 +26,29 @@ export function beijingHour(date: Date): number {
 }
 
 /**
+ * Beijing-time weekday check. The schedule runs Monday to Friday only — arXiv's
+ * feed declares `<skipDays>Saturday, Sunday</skipDays>` — so on a weekend there
+ * is no edition still to come, and telling a reader to wait for one would be a
+ * standing lie on exactly the label meant to keep them oriented.
+ */
+export function isPushDay(date: Date): boolean {
+  const beijingDay = new Date(date.getTime() + 8 * 60 * 60 * 1000).getUTCDay();
+  return beijingDay >= 1 && beijingDay <= 5;
+}
+
+/**
+ * The next Beijing day the digest runs on, counted from `date`: that same day
+ * when it is a weekday, otherwise the Monday after the weekend. Returned as a
+ * Date whose Beijing calendar day is the answer, so a caller can format its
+ * weekday name in the reader's locale.
+ */
+export function nextPushDay(date: Date): Date {
+  const beijingDay = new Date(date.getTime() + 8 * 60 * 60 * 1000).getUTCDay();
+  const skip = beijingDay === 6 ? 2 : beijingDay === 0 ? 1 : 0;
+  return new Date(date.getTime() + skip * 24 * 60 * 60 * 1000);
+}
+
+/**
  * Due check: any cron run that day passes as soon as Beijing time has reached or
  * gone past the configured hour.
  *

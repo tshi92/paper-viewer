@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
 import { pickLeadDigest, summaryLineOf } from "@/lib/daily-digest";
 import { requireCurrentUser } from "@/lib/auth";
+import { beijingHour, DEFAULT_PUSH_HOUR, isDueForPush, isPushDay, nextPushDay } from "@/lib/push-schedule";
 import { DigestProgressBanner } from "@/components/digest-progress-banner";
 import { InLibraryLink } from "@/components/in-library-link";
 import { MarkdownBody } from "@/components/markdown-body";
@@ -88,6 +89,7 @@ export default async function TodayPage() {
     .filter((paper): paper is NonNullable<typeof paper> => Boolean(paper));
   const savedCount = leadDigestPapers.filter((paper) => paper.workspacePapers.length > 0).length;
 
+  const weekdayFormat = new Intl.DateTimeFormat(locale, { weekday: "long" });
   const dateFormat = new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "long",
@@ -99,6 +101,22 @@ export default async function TodayPage() {
     where: { workspaceId: user.workspaceId }
   });
   const hasPrefs = prefs && (prefs.topics.length > 0 || prefs.keywords.length > 0);
+  // The push hour is shown in Beijing time rather than converted: it is the
+  // number the workspace typed in settings, and a reader comparing the two
+  // should see the same one.
+  const pushHour = prefs?.pushHour ?? DEFAULT_PUSH_HOUR;
+  const pushTime = `${String(pushHour).padStart(2, "0")}:00`;
+  const now = new Date();
+  // Three different truths, and saying the wrong one is worse than saying
+  // nothing: an edition still to come today, one already overdue, and a weekend
+  // with nothing due until Monday. The old copy said "due at 13:00" for all
+  // three — stale by evening, and on a Saturday a promise about a run that is
+  // not scheduled at all.
+  const pushNote = !isPushDay(now)
+    ? { key: "pushNext" as const, day: weekdayFormat.format(nextPushDay(now)) }
+    : isDueForPush(pushHour, now)
+      ? { key: "pushOverdue" as const }
+      : { key: "pushDueAt" as const };
 
   return (
     <div className="space-y-6">
@@ -150,9 +168,31 @@ export default async function TodayPage() {
                 <h2 className="text-2xl font-semibold tracking-tight">
                   {dateFormat.format(new Date(leadDigest.date))}
                 </h2>
+                {/* The pending note rides the meta line as one more segment
+                    rather than taking a row of its own: it belongs to the same
+                    "what is this card" register as the counts, and the accent
+                    is enough to carry it without the extra line height.
+
+                    Shown only while this card is holding the previous edition —
+                    a reader who does not stop to read the date takes it for
+                    today's, and the hour is the one thing the date cannot tell
+                    them. Once the card *is* today's there is nothing to mistake
+                    it for and the same words would be decoration. */}
                 <p className="mt-1 text-xs text-muted">
                   {t("digestCount", { count: leadDigestPapers.length })}
                   {savedCount > 0 ? ` · ${t("savedCount", { count: savedCount })}` : ""}
+                  {!leadIsToday ? (
+                    <>
+                      {" · "}
+                      <span className="text-accent">
+                        {pushNote.key === "pushNext"
+                          ? t("pushNext", { day: pushNote.day, time: pushTime })
+                          : pushNote.key === "pushOverdue"
+                            ? t("pushOverdue")
+                            : t("pushDueAt", { time: pushTime })}
+                      </span>
+                    </>
+                  ) : null}
                 </p>
               </div>
               {leadDigest.overviewSummary ? (
