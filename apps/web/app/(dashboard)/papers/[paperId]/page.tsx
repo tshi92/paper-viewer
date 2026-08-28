@@ -15,12 +15,17 @@ export default async function PaperPage({ params }: { params: Promise<{ paperId:
   const user = await requireCurrentUser();
   const { paperId } = await params;
 
-  const workspacePaper = await prisma.workspacePaper.findUnique({
+  // findFirst rather than findUnique on (workspaceId, paperId): an archived row
+  // is not library membership. Removing a paper keeps its row so annotations
+  // and comments survive, and reading an archived row as "saved" opened the
+  // full workspace — remove button included — for a paper the library no
+  // longer listed. Falling through to the preview below is what lets it be
+  // saved back.
+  const workspacePaper = await prisma.workspacePaper.findFirst({
     where: {
-      workspaceId_paperId: {
-        workspaceId: user.workspaceId,
-        paperId
-      }
+      workspaceId: user.workspaceId,
+      paperId,
+      state: "visible"
     },
     include: {
       paper: {

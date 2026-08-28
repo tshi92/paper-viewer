@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
-import { isReadingState } from "@paper-viewer/core/paper-status";
 import { pickLeadDigest, summaryLineOf } from "@/lib/daily-digest";
 import { requireCurrentUser } from "@/lib/auth";
 import { DiscoverButton } from "@/components/discover-button";
 import { DigestProgressBanner } from "@/components/digest-progress-banner";
 import { InLibraryLink } from "@/components/in-library-link";
 import { MarkdownBody } from "@/components/markdown-body";
-import { ReadingStateChips } from "@/components/reading-state-chips";
 import { SaveToLibraryButton } from "@/components/save-to-library-button";
 import { TopicChip } from "@/components/topic-chip";
 
@@ -39,10 +37,14 @@ export default async function TodayPage() {
             orderBy: { createdAt: "desc" },
             take: 1
           },
-          // Present only once someone saved the paper to the library.
+          // Present only while a *visible* library row exists. Removing a
+          // paper archives its row instead of deleting it, so matching on "a
+          // row exists" showed an archived paper as saved here while the
+          // library itself no longer listed it — and the save action that
+          // would bring it back was hidden behind that wrong state.
           workspacePapers: {
-            where: { workspaceId: user.workspaceId },
-            include: { readingStates: { where: { userId: user.id } } }
+            where: { workspaceId: user.workspaceId, state: "visible" },
+            select: { id: true }
           }
         }
       })
@@ -189,7 +191,6 @@ export default async function TodayPage() {
               {leadDigestPapers.map((paper, index) => {
                 const summaryLine = summaryLineOf(paper.analyses[0]?.summary);
                 const workspacePaper = paper.workspacePapers[0];
-                const readingState = workspacePaper?.readingStates[0]?.state ?? "new";
 
                 return (
                   <div key={paper.id} className="px-4 py-3 transition-colors duration-150 hover:bg-surface">
@@ -227,14 +228,12 @@ export default async function TodayPage() {
                           arXiv:{paper.arxivId}
                         </a>
                       ) : null}
+                      {/* Reading state is a per-reader control and lives on the
+                          paper page. This column is read to decide what to open
+                          next, and a row of four chips under every saved paper
+                          made a scan list look like a form. */}
                       {workspacePaper ? (
-                        <>
-                          <InLibraryLink paperId={paper.id} />
-                          <ReadingStateChips
-                            paperId={paper.id}
-                            state={isReadingState(readingState) ? readingState : "new"}
-                          />
-                        </>
+                        <InLibraryLink paperId={paper.id} />
                       ) : (
                         <SaveToLibraryButton paperId={paper.id} />
                       )}

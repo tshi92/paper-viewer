@@ -14,6 +14,11 @@ export const maxDuration = 120;
  * ends with exactly one library row. If the same article already sits in the
  * library under another Paper row (matched by DOI, arXiv id, or normalized
  * title), no second row is created; the response points at the existing one.
+ *
+ * Saving a paper that was removed revives its archived row, which is what the
+ * remove endpoint has always promised and this route never delivered: it saw a
+ * row, answered `saved: true`, and changed nothing — leaving the paper stuck
+ * out of the library with no way back through the UI.
  */
 export async function POST(_request: Request, { params }: { params: Promise<{ paperId: string }> }) {
   let user;
@@ -25,11 +30,13 @@ export async function POST(_request: Request, { params }: { params: Promise<{ pa
 
   const { paperId } = await params;
 
+  // An archived row is not membership, so it does not short-circuit here; it
+  // takes the same path as a first save and is revived at the end.
   const existing = await prisma.workspacePaper.findUnique({
     where: { workspaceId_paperId: { workspaceId: user.workspaceId, paperId } },
-    select: { workspaceId: true }
+    select: { id: true, state: true }
   });
-  if (existing) {
+  if (existing?.state === "visible") {
     return Response.json({ saved: true });
   }
 
@@ -53,19 +60,31 @@ export async function POST(_request: Request, { params }: { params: Promise<{ pa
     return Response.json({ saved: false, duplicate: true, existingPaperId: duplicateId });
   }
 
-  try {
-    await prisma.workspacePaper.create({
-      data: {
-        workspaceId: user.workspaceId,
-        paperId,
-        importedById: user.id,
-        // The digest's analysis keywords become the starting library tags.
-        tags: await analysisTags(user.workspaceId, paperId)
-      }
+  if (existing) {
+    // Reviving keeps the row id, so the annotations, comments, labels and
+    // reading states from before the removal all come back attached. The saver
+    // and the date are rewritten because the library shows them side by side as
+    // "when this entered the library, and who put it there", and this is that
+    // moment; the tags are left alone, since the team may have curated them.
+    await prisma.workspacePaper.update({
+      where: { id: existing.id },
+      data: { state: "visible", importedById: user.id, createdAt: new Date() }
     });
-  } catch (error) {
-    if (!isUniqueViolation(error)) {
-      throw error;
+  } else {
+    try {
+      await prisma.workspacePaper.create({
+        data: {
+          workspaceId: user.workspaceId,
+          paperId,
+          importedById: user.id,
+          // The digest's analysis keywords become the starting library tags.
+          tags: await analysisTags(user.workspaceId, paperId)
+        }
+      });
+    } catch (error) {
+      if (!isUniqueViolation(error)) {
+        throw error;
+      }
     }
   }
 
