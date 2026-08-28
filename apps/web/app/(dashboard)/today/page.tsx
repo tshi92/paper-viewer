@@ -3,12 +3,10 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { prisma } from "@paper-viewer/db";
 import { pickLeadDigest, summaryLineOf } from "@/lib/daily-digest";
 import { requireCurrentUser } from "@/lib/auth";
-import { DiscoverButton } from "@/components/discover-button";
 import { DigestProgressBanner } from "@/components/digest-progress-banner";
 import { InLibraryLink } from "@/components/in-library-link";
 import { MarkdownBody } from "@/components/markdown-body";
 import { SaveToLibraryButton } from "@/components/save-to-library-button";
-import { TopicChip } from "@/components/topic-chip";
 
 const HISTORY_DAYS = 7;
 
@@ -104,16 +102,6 @@ export default async function TodayPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">{t("title")}</h1>
-        <div className="flex gap-2">
-          <Link href="/settings/preferences" className="rounded border border-accent/40 px-3 py-2 text-sm font-medium text-accent transition-colors duration-150 hover:bg-accent/10">
-            {t("preferencesLink")}
-          </Link>
-          <DiscoverButton />
-        </div>
-      </div>
-
       {digestInProgress ? (
         <DigestProgressBanner
           done={digestDone}
@@ -154,16 +142,12 @@ export default async function TodayPage() {
           <section className="w-full min-w-0 lg:flex-1">
             <div className="rounded bg-white shadow-card">
               <div className="border-b border-border px-5 py-4">
-                {/* Named for what it is, not for where it sits: between the
-                    date rolling over and the day's run, this card is holding
-                    the previous edition, and calling that "today's" would be a
-                    lie the date underneath immediately contradicts. */}
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted">
-                  {leadIsToday ? t("overviewTitle") : t("latestBriefing")}
-                </p>
-                {/* The date at full size: this page is one day's edition, and
-                    which day it is should not have to be inferred. */}
-                <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+                {/* The date alone heads the card. It used to sit under an
+                    eyebrow naming the edition ("today's" / "the latest"), which
+                    the date immediately restated: between the date rolling over
+                    and the day's run this card holds the previous edition, and
+                    the date is what says so. */}
+                <h2 className="text-2xl font-semibold tracking-tight">
                   {dateFormat.format(new Date(leadDigest.date))}
                 </h2>
                 <p className="mt-1 text-xs text-muted">

@@ -92,10 +92,20 @@ test("before the day's run, the previous briefing still leads", async ({ page })
 
     // The briefing is on the page in full, not buried in a disclosure.
     await expect(page.getByText(`Fixture overview ${run}`)).toBeVisible();
-    // Labelled for what it is. "今日综述" would be contradicted by the date
-    // rendered directly beneath it.
-    await expect(page.getByText("最近一期综述")).toBeVisible();
-    await expect(page.getByText("今日综述")).toHaveCount(0);
+    // And headed by its own date, which is what says this is the previous
+    // edition rather than today's. (An eyebrow used to say it in words, above
+    // the date that already did.)
+    const zhDate = new Intl.DateTimeFormat("zh-CN", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      weekday: "long"
+    });
+    // The card renders the digest's date column, which is UTC midnight — so the
+    // expectation is built from the same UTC day the fixture was stored under.
+    const asRendered = (value: Date) => zhDate.format(new Date(value.toISOString().slice(0, 10)));
+    await expect(page.getByRole("heading", { name: asRendered(yesterday) })).toBeVisible();
+    await expect(page.getByRole("heading", { name: asRendered(new Date()) })).toHaveCount(0);
     // And its papers keep the full treatment, save action included.
     await expect(page.getByText(`Digest Only Paper ${run}`)).toBeVisible();
   } finally {
