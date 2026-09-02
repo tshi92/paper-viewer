@@ -127,7 +127,15 @@ export function placeholderOverview(count: number): string {
 export function isDigestComplete(
   digest: Pick<DigestRow, "overviewSummary" | "pendingPaperIds" | "paperIds" | "feishuSentAt">,
   hasWebhook: boolean,
-  language: OutputLanguage
+  language: OutputLanguage,
+  /**
+   * How many of the day's papers actually carry an analysis. The briefing is
+   * judged against what it was written from: a day sealed with 8 of 10 papers
+   * analysed has an 8-paper briefing, and holding that text to a 10-paper
+   * length floor would reopen the day on every run. Callers that know nothing
+   * is missing can omit it.
+   */
+  analyzedCount: number = digest.paperIds.length
 ): boolean {
   if (digest.pendingPaperIds.length > 0) {
     return false;
@@ -135,10 +143,8 @@ export function isDigestComplete(
   // The same judgement a fresh generation must pass. "Non-empty" used to be
   // the bar here, and both the placeholder and a mid-sentence fragment
   // (2026-08-27) cleared it — so every later run answered skipped_done and the
-  // broken text could never heal in place. With nothing pending, every paper
-  // has an analysis (advance re-queues the ones missing one), so paperIds is
-  // the count the briefing is expected to cover.
-  if (!isCompleteOverview(digest.overviewSummary, digest.paperIds.length, language)) {
+  // broken text could never heal in place.
+  if (!isCompleteOverview(digest.overviewSummary, analyzedCount, language)) {
     return false;
   }
   return !hasWebhook || digest.feishuSentAt !== null;
@@ -657,16 +663,30 @@ export async function runDailyDigest(
     where: { workspaceId_date: { workspaceId, date } }
   });
 
-  // A paper whose analysis threw is dequeued so one bad paper cannot block the
-  // digest forever — but that also meant a day where every call failed (an LLM
-  // outage, a rate-limited account) was marked complete with no analyses and no
-  // way back: the placeholder overview is non-empty, so isDigestComplete said
-  // done and every later run skipped it. Re-queue what is still missing, so the
-  // next run retries it. A paper that keeps failing costs one call per run
-  // rather than being lost.
+  // A real briefing seals the day: most papers analysed + the briefing
+  // written is the finished state, and the text is generated exactly once.
+  // Retrying failed analyses past that point did the opposite of healing —
+  // every later run re-queued the same papers, spent one doomed call each
+  // (2026-09-02: four scheduled runs burned the day's budget re-failing the
+  // same queue), and whenever one succeeded it silently rewrote a briefing
+  // the team had already read on Feishu, forking the two copies.
+  //
+  // What still re-queues is a day with no real briefing — the placeholder, or
+  // a cut-off fragment: nothing worth keeping exists yet, so the failures are
+  // retried and the briefing gets its one generation. A run interrupted by
+  // the budget never reaches this: its papers are still in pendingPaperIds
+  // and resume through the normal path, which is continuation, not a second
+  // generation.
+  let analyzedCount = digest?.paperIds.length ?? 0;
   if (digest && digest.pendingPaperIds.length === 0) {
     const missing = await papersMissingAnalysis(workspaceId, digest.paperIds);
-    if (missing.length > 0) {
+    analyzedCount = digest.paperIds.length - missing.length;
+    const sealed = isCompleteOverview(
+      digest.overviewSummary,
+      analyzedCount,
+      toOutputLanguage(prefs.outputLanguage)
+    );
+    if (missing.length > 0 && !sealed) {
       digest = await prisma.dailyDigest.update({
         where: { id: digest.id },
         data: { pendingPaperIds: missing }
@@ -674,7 +694,10 @@ export async function runDailyDigest(
     }
   }
 
-  if (digest && isDigestComplete(digest, Boolean(webhookUrl), toOutputLanguage(prefs.outputLanguage))) {
+  if (
+    digest &&
+    isDigestComplete(digest, Boolean(webhookUrl), toOutputLanguage(prefs.outputLanguage), analyzedCount)
+  ) {
     return { status: "skipped_done", processed: 0, remaining: 0 };
   }
 
