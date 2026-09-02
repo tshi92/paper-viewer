@@ -57,6 +57,9 @@ const OVERVIEW_TIMEOUT_MS = 180_000;
  * thinks by default (at high effort) and takes exactly this field; its docs
  * likewise warn off `reasoning_effort: "none"`.
  */
+// Applied to every JSON call, not just the overview: selection and per-paper
+// analysis are extraction tasks, and the reasoning pass only spends the 120s
+// timeout (k3 measures ~4x slower with it on) for no measurable gain.
 function disableThinking(model: string): Record<string, unknown> {
   return /kimi|deepseek/i.test(model) ? { thinking: { type: "disabled" } } : {};
 }
@@ -236,7 +239,7 @@ ${paperList}
 
 Return JSON: {"selectedArxivIds": ["arxivId1", "arxivId2", ...]}`
     }
-  ], 16000);
+  ], 16000, { extraPayload: disableThinking(config.model) });
 
   const parsed = parseJson<{ selectedArxivIds: string[] }>(result);
   return parsed.selectedArxivIds;
@@ -276,7 +279,7 @@ async function analyzeSinglePaperOnce(
   const result = await callLlm(config, [
     { role: "system", content: prompt.system },
     { role: "user", content: prompt.user }
-  ], 16000);
+  ], 16000, { extraPayload: disableThinking(config.model) });
 
   return parseJson<PaperAnalysisResult>(result);
 }

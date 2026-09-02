@@ -48,6 +48,15 @@ describe("isDigestComplete", () => {
     ).toBe(false);
   });
 
+  it("judges the briefing against the analysed papers, not the day's full pick", () => {
+    // A day sealed with 3 of 10 papers analysed has a 3-paper briefing. Held
+    // to a 10-paper length floor it reads as incomplete, which is what used to
+    // reopen the day on every run and regenerate a briefing already shipped.
+    const partialDay = digest({ paperIds: Array.from({ length: 10 }, (_, i) => `p${i}`) });
+    expect(isDigestComplete(partialDay, false, "zh")).toBe(false);
+    expect(isDigestComplete(partialDay, false, "zh", 3)).toBe(true);
+  });
+
   it("waits for the feishu push when a webhook is configured", () => {
     expect(isDigestComplete(digest(), true, "zh")).toBe(false);
     expect(isDigestComplete(digest({ feishuSentAt: new Date("2026-08-11T01:00:00Z") }), true, "zh")).toBe(true);
