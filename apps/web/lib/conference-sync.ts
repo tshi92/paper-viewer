@@ -571,7 +571,8 @@ async function fetchText(url: string, headers: Record<string, string> = {}): Pro
   }
 }
 
-async function fetchJson(url: string, headers: Record<string, string> = {}): Promise<unknown> {
+/** Also fetches csconf-papers' data/researchers.json (lib/researcher-sync.ts). */
+export async function fetchJson(url: string, headers: Record<string, string> = {}): Promise<unknown> {
   return JSON.parse(await fetchText(url, headers));
 }
 

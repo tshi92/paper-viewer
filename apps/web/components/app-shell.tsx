@@ -12,6 +12,7 @@ export async function AppShell({ user, children }: { user: CurrentUser; children
   const items = [
     { href: "/today", label: t("today") },
     { href: "/conferences", label: t("conferences") },
+    { href: "/researchers", label: t("researchers") },
     { href: "/library", label: t("library") },
     { href: "/settings", label: t("settings") }
   ];

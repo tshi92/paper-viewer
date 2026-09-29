@@ -24,7 +24,7 @@
  */
 
 import { prisma } from "@paper-viewer/db";
-import { timingSafeEqual } from "node:crypto";
+import { isCronAuthorized } from "@/lib/cron-auth";
 import { runDailyDigest, type DigestRunStatus } from "@/lib/daily-digest";
 import { getEnv } from "@/lib/env";
 import { isDueForPush } from "@/lib/push-schedule";
@@ -49,19 +49,6 @@ type WorkspaceResult = {
   message?: string;
 };
 
-function isAuthorized(request: Request, secret: string): boolean {
-  const auth = request.headers.get("authorization");
-  if (!auth?.startsWith("Bearer ")) {
-    return false;
-  }
-  const token = Buffer.from(auth.slice(7));
-  const expected = Buffer.from(secret);
-  if (token.length !== expected.length) {
-    return false;
-  }
-  return timingSafeEqual(token, expected);
-}
-
 /**
  * A targeted debugging parameter that only takes effect outside production:
  * `?workspaceId=<id>` restricts this pass to a single workspace.
@@ -82,7 +69,7 @@ export async function GET(request: Request) {
   if (!secret) {
     return new Response("Not Found", { status: 404 });
   }
-  if (!isAuthorized(request, secret)) {
+  if (!isCronAuthorized(request, secret)) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
