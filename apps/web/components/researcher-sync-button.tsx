@@ -6,12 +6,16 @@ import { useState } from "react";
 import { toast } from "@/components/toast";
 import type { ResearchersRun } from "@/lib/researcher-run";
 
-/** The first step of the run that failed, in the order the run takes them. */
-function firstFailure(run: Partial<ResearchersRun>): string | undefined {
-  if (run.sync && "error" in run.sync) return run.sync.error;
+/**
+ * The first step of the run that failed, in the order the run takes them. An
+ * issue that failed its checks gets its own wording: the papers did sync.
+ */
+function firstFailure(run: Partial<ResearchersRun>): { key: "syncFailed" | "issueFailed"; detail: string } | undefined {
+  if (run.sync && "error" in run.sync) return { key: "syncFailed", detail: run.sync.error };
   const issue = run.workspaces?.[0]?.issue;
-  if (issue && "message" in issue) return issue.message;
-  return issue?.status === "failed" ? issue.errors?.[0] : undefined;
+  if (issue && "message" in issue) return { key: "syncFailed", detail: issue.message };
+  const detail = issue?.status === "failed" ? issue.errors?.[0] : undefined;
+  return detail ? { key: "issueFailed", detail } : undefined;
 }
 
 /**
@@ -35,10 +39,10 @@ export function ResearcherSyncButton() {
         toast.error(t("syncFailed", { detail: body.error ?? String(response.status) }));
         return;
       }
-      const detail = firstFailure(body);
+      const failure = firstFailure(body);
       const own = body.workspaces?.[0];
-      if (detail) {
-        toast.error(t("syncFailed", { detail }));
+      if (failure) {
+        toast.error(t(failure.key, { detail: failure.detail }));
       } else {
         const sync = body.sync && !("error" in body.sync) ? body.sync : undefined;
         toast.success(t("syncDone", { papers: sync?.newPapers ?? 0, classified: own?.classify?.classified ?? 0 }));

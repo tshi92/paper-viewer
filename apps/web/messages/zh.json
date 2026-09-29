@@ -462,6 +462,7 @@
     "syncDone": "同步完成：新增 {papers} 篇论文，归类 {classified} 篇",
     "syncDeferred": "本月热点还没写完，再点一次同步即可继续。",
     "syncFailed": "同步未完成：{detail}",
+    "issueFailed": "论文已同步，但本月热点没通过校验（{detail}）。明早会自动重试，也可以再点一次同步。",
     "digestTitle": "近期热点 · {year} 年 {month} 月刊",
     "digestAside": "{from} ~ {to} · {researchers} 位研究者 · {papers} 篇",
     "digestPrevious": "本月刊尚未生成，显示上一期",

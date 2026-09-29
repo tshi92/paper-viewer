@@ -245,15 +245,15 @@ export const DIGEST_EXAMPLE = {
   lede: "11 位研究者这 3 个月发了 41 篇论文，做的人最多的是[[llm-serving|LLM 推理服务]]（7 位）。agent 出现在其中 9 位的论文里：有人按 agent 的负载重新设计推理系统，有人[[agents-for-systems|让 agent 写 kernel、造操作系统]]。",
   observations: [
     { claim: "推理系统开始按 agent 的样子重新设计。", evidence: "TraceLab 刻画 coding agent 的真实负载，SMetric 按会话调度，前缀缓存的淘汰策略也在重新评估。",
-      directions: ["llm-serving"], papers: ["2606.30560", "2607.08565", "2609.28870"] },
+      papers: ["2606.30560", "2607.08565", "2609.28870"] },
     { claim: "显存不够，推理在向外借内存。", evidence: "KV cache 分层放到主存（HiSparse、BOOST），跨卡借显存（EMA），或者直接压缩（MosaicKV）。",
-      directions: ["llm-serving", "gpu-cluster"], papers: ["2608.07009", "2609.13592", "2609.27040", "2607.00760"] },
+      papers: ["2608.07009", "2609.13592", "2609.27040", "2607.00760"] },
     { claim: "验证成了 agent 做系统工作的瓶颈。", evidence: "7 篇论文在造评测或验证工具，例如 CommBench、PerfReasoning、LLM-as-a-Verifier。",
-      directions: ["agents-for-systems", "agent-harness"], papers: ["2608.04450", "2609.04476", "2607.05391"] },
+      papers: ["2608.04450", "2609.04476", "2607.05391"] },
     { claim: "解耦推理越拆越细。", evidence: "从实例级的 prefill/decode 分离，拆到算子级（OpWeave）和专家级（ExpertPlex）。",
-      directions: ["moe-disaggregation"], papers: ["2609.14237", "2607.18002"] },
+      papers: ["2609.14237", "2607.18002"] },
     { claim: "早期信号：RL 后训练的系统开销。", evidence: "WeightBridge 处理训练端到 rollout 端的权重同步，另一篇研究异步 RLHF 中样本陈旧度的影响。",
-      directions: ["gpu-cluster"], papers: ["2609.25442", "2607.01083"] }
+      papers: ["2609.25442", "2607.01083"] }
   ]
 };
 
@@ -275,16 +275,16 @@ export function researcherDigestPrompt(
 
 The input lists the papers a fixed set of researchers posted to arXiv in the window. Each paper has an arXiv id and one research direction; "stats", "directions" and "families" hold figures computed by code. Write like a magazine editor's note: judgements about what is changing, each backed by papers.
 
-JSON shape: {"headline": string, "lede": string, "observations": [{"claim": string, "evidence": string, "directions": [direction ids], "papers": [arXiv ids]}]}
+JSON shape: {"headline": string, "lede": string, "observations": [{"claim": string, "evidence": string, "papers": [arXiv ids]}]}
 
 Structure and length:
 - headline: one judgement naming this period's main thread, ${atMost(limits.headline)}.
 - lede: at most 2 sentences and ${atMost(limits.lede)}. Set the scene with concrete examples, not abstract taxonomies such as "three roles".
 - observations: 4 or 5. "claim" is one judgement (what is changing and why it matters), ${atMost(limits.claim)}. "evidence" is ONE sentence, ${atMost(limits.evidence)}, naming papers by their short titles; avoid person names.
-- Directions backed by only two or three papers are not a trend yet: merge them into one final observation about early signals instead of giving each its own.
+- Directions backed by only two or three papers are not a trend yet: merge them into one final observation about early signals instead of giving each its own. Leave that observation out if fewer than 2 papers support it; 4 observations are enough.
 
 Evidence:
-- Each observation cites at least 2 arXiv ids from the input in "papers", and its "directions" lists the direction of every paper it cites.
+- Each observation cites at least 2 arXiv ids from the input's papers in "papers" (never ids from the example below, which is another month).
 - If only one group works on something, you may write about it but must say so plainly.
 - Judge from titles and abstracts only: do not guess motives or grade papers.
 
