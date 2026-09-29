@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { analysisPrompt, isCompleteOverview, overviewPrompt } from "./prompts";
+import { DIGEST_EXAMPLE, analysisPrompt, directionPrompt, isCompleteOverview, overviewPrompt, researcherDigestPrompt } from "./prompts";
 import type { PaperAnalysisResult } from "./llm";
+import { DIGEST_LIMITS, DIRECTIONS } from "./researchers";
 
 const paper = {
   arxivId: "2608.01234",
@@ -151,5 +152,40 @@ describe("isCompleteOverview", () => {
     const words = Array.from({ length: 100 }, (_, i) => `word${i}`).join(" ") + ".";
     expect(isCompleteOverview(words, 1, "en")).toBe(true);
     expect(isCompleteOverview(words, 10, "en")).toBe(false); // 100 words, floor is 400
+  });
+});
+
+describe("directionPrompt", () => {
+  it("lists every direction and asks for every paper by arXiv id", () => {
+    const prompt = directionPrompt([{ id: "2609.00001", title: "HiSparse", abstract: "KV cache" }]);
+    for (const d of DIRECTIONS) expect(prompt.system).toContain(`- ${d.id} (`);
+    expect(prompt.system).toContain("every paper id");
+    expect(prompt.user).toContain('"id":"2609.00001"');
+  });
+});
+
+describe("researcherDigestPrompt", () => {
+  const input = {
+    window: { from: "2026-06-29", to: "2026-09-28" }, stats: { papers: 1, researchers: 11 }, directions: [], families: [],
+    papers: [{ id: "2609.00001", title: "T", abstract: "a", direction: "llm-serving", date: "2026-09-01", researchers: [] }]
+  };
+
+  it("names the output language and that language's limits", () => {
+    const zh = researcherDigestPrompt(input, "zh").system;
+    expect(zh).toContain("Write in Simplified Chinese");
+    expect(zh).toContain(`at most ${DIGEST_LIMITS.zh.lede} ${DIGEST_LIMITS.zh.unit}`);
+    expect(researcherDigestPrompt(input, "en").system).toContain(`at most ${DIGEST_LIMITS.en.claim} words`);
+  });
+
+  it("carries the approved issue as its example and names papers by arXiv id", () => {
+    const prompt = researcherDigestPrompt(input, "zh");
+    expect(prompt.system).toContain(DIGEST_EXAMPLE.headline);
+    expect(prompt.user).toContain('"id":"2609.00001"');
+  });
+
+  it("hands the previous answer's failures back for the retry", () => {
+    const retry = researcherDigestPrompt(input, "zh", ["number 99 is not in the provided statistics"]);
+    expect(retry.user).toContain("failed these checks");
+    expect(retry.user).toContain("number 99 is not in the provided statistics");
   });
 });

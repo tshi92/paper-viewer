@@ -12,8 +12,14 @@ export type TopNavItem = {
 const PAPER_SECTIONS: Record<string, string> = {
   today: "/today",
   conferences: "/conferences",
+  researchers: "/researchers",
   library: "/library"
 };
+
+/** The tab a paper page's ?from= names, or undefined when it names none. */
+export function paperSectionOf(from: string | null): string | undefined {
+  return PAPER_SECTIONS[from ?? ""];
+}
 
 /** Same active-state treatment as SettingsNav, lifted to the app header. */
 export function TopNav({ items }: { items: TopNavItem[] }) {
@@ -25,7 +31,7 @@ export function TopNav({ items }: { items: TopNavItem[] }) {
   // yet. Library stays the default for links that carry no origin.
   const onPaperPage = pathname === "/papers" || pathname.startsWith("/papers/");
   const paperSection = onPaperPage
-    ? (PAPER_SECTIONS[searchParams.get("from") ?? ""] ?? "/library")
+    ? (paperSectionOf(searchParams.get("from")) ?? "/library")
     : null;
 
   return (

@@ -1,17 +1,20 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { paperSectionOf } from "./top-nav";
 
 /**
  * Uniform "back" affordance for second-level pages (paper workspace and
  * preview). Prefers real history so it returns to the exact list state the
- * user came from (filters, scroll); falls back to a sensible list page when
- * the paper was opened directly.
+ * user came from (filters, scroll). A paper opened without history (a new tab,
+ * a pasted link) goes to the tab its ?from= names, the one the header
+ * highlights, and only without one to `fallbackHref`.
  */
 export function BackButton({ fallbackHref }: { fallbackHref: string }) {
   const t = useTranslations("common");
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   return (
     <button
@@ -23,7 +26,7 @@ export function BackButton({ fallbackHref }: { fallbackHref: string }) {
         if (window.history.length > 1) {
           router.back();
         } else {
-          router.push(fallbackHref);
+          router.push(paperSectionOf(searchParams.get("from")) ?? fallbackHref);
         }
       }}
     >

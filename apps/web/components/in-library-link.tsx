@@ -1,13 +1,16 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
 
 /**
  * The slot a saved paper occupies where unsaved ones show "save to library".
  * It used to be a dead badge that only stated a fact; it now takes you to the
  * paper, opened under the Library tab — that is where a saved paper belongs,
  * so `from=library` keeps the nav highlight honest.
+ *
+ * Not async, so it renders in server components (Today, Conferences) and in
+ * client ones (the Researchers drawer) alike.
  */
-export async function InLibraryLink({
+export function InLibraryLink({
   paperId,
   className = ""
 }: {
@@ -15,7 +18,7 @@ export async function InLibraryLink({
   /** Layout-only additions from the caller (e.g. `shrink-0` inside a flex row). */
   className?: string;
 }) {
-  const t = await getTranslations("home");
+  const t = useTranslations("home");
   return (
     <Link
       href={`/papers/${paperId}?from=library`}

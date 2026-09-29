@@ -1,7 +1,7 @@
 import type { LlmRuntimeConfig } from "./llm-config";
 import type { OutputLanguage } from "@paper-viewer/core/llm-config";
 import type { ArxivPaper } from "./arxiv";
-import { analysisPrompt, isCompleteOverview, overviewPrompt, type SourceMaterial } from "./prompts";
+import { analysisPrompt, isCompleteOverview, overviewPrompt, type Prompt, type SourceMaterial } from "./prompts";
 
 export type PaperAnalysisResult = {
   title: string;
@@ -187,6 +187,28 @@ function parseJson<T>(text: string): T {
     jsonStr = jsonStr.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
   }
   return JSON.parse(jsonStr) as T;
+}
+
+/**
+ * One JSON-mode call for callers outside this file (the Researchers pipeline):
+ * the same request, retry, finish_reason checks, thinking-off payload and
+ * fence stripping every call here uses. Unparseable output throws SyntaxError.
+ */
+export async function completeJson<T>(
+  config: LlmRuntimeConfig,
+  prompt: Prompt,
+  opts: { maxTokens: number; timeoutMs: number }
+): Promise<T> {
+  const text = await callLlm(
+    config,
+    [
+      { role: "system", content: prompt.system },
+      { role: "user", content: prompt.user }
+    ],
+    opts.maxTokens,
+    { timeoutMs: opts.timeoutMs, extraPayload: disableThinking(config.model) }
+  );
+  return parseJson<T>(text);
 }
 
 // Phase 1: Select the most relevant papers

@@ -84,6 +84,8 @@ model Workspace {
   invitations     Invitation[]
   workspacePapers WorkspacePaper[]
   labels          Label[]
+  paperDirections PaperDirection[]
+  researcherDigests ResearcherDigest[]
 }
 
 model WorkspaceMembership {
@@ -134,6 +136,8 @@ model Paper {
   workspacePapers WorkspacePaper[]
   analyses        PaperAnalysis[]
   conferenceEntries ConferenceEntry[]
+  researcherPapers ResearcherPaper[]
+  directions      PaperDirection[]
 
   @@unique([source, sourceId])
   @@unique([doi])
@@ -173,6 +177,63 @@ model ConferenceEntry {
   @@unique([venue, year, paperId])
   @@index([venue, year])
   @@index([paperId])
+}
+
+// A tracked researcher, synced from csconf-papers data/researchers.json.
+// Global like ConferenceEntry. Someone dropped from the file is marked
+// inactive, never deleted: their links stay, so their papers remain
+// previewable.
+model Researcher {
+  slug        String            @id
+  name        String
+  affiliation String
+  knownFor    String            @default("")
+  active      Boolean           @default(true)
+  papers      ResearcherPaper[]
+}
+
+// A tracked researcher's authorship of a paper. `position` is 1-based in the
+// feed's author list; the author count is the length of Paper.authors.
+model ResearcherPaper {
+  researcherSlug String
+  paperId        String
+  position       Int
+  researcher     Researcher @relation(fields: [researcherSlug], references: [slug], onDelete: Cascade)
+  paper          Paper      @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@id([researcherSlug, paperId])
+  @@index([paperId])
+}
+
+// A researcher paper's direction in one workspace, classified with that
+// workspace's own LLM, so the workspace's page and monthly issue follow the
+// model it chose. directionId is an id from apps/web/lib/researchers.ts, where
+// the directions themselves live. The key keeps classification idempotent
+// when the daily cron and the admin sync button run at the same time.
+model PaperDirection {
+  workspaceId String
+  paperId     String
+  directionId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  paper       Paper     @relation(fields: [paperId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, paperId])
+  @@index([paperId])
+}
+
+// A workspace's monthly hot-topics issue. The row IS the seal: it is created
+// only for a validated issue and never updated, and (workspaceId, month) is
+// unique, so an overlapping run cannot seal a second one. A failed month
+// leaves no row. content = { window, stats, headline, lede, observations }.
+model ResearcherDigest {
+  id          String    @id @default(cuid())
+  workspaceId String
+  month       DateTime  @db.Date
+  content     Json
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, month])
 }
 
 model ResearchPreferences {

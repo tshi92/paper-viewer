@@ -3,8 +3,9 @@ import { prisma } from "@paper-viewer/db";
 /**
  * Whether a workspace may see a paper at all: it was saved to the library
  * (WorkspacePaper exists), one of the workspace's digests surfaced it, or it
- * belongs to the shared conference catalog. Unsaved papers are readable in
- * preview only, so PDF-serving routes and the paper page share this check.
+ * is shared content: in the conference catalog or a tracked researcher's
+ * papers. Unsaved papers are readable in preview only, so PDF-serving routes
+ * and the paper page share this check.
  */
 export async function canAccessPaper(workspaceId: string, paperId: string): Promise<boolean> {
   const saved = await prisma.workspacePaper.findUnique({
@@ -21,11 +22,14 @@ export async function canAccessPaper(workspaceId: string, paperId: string): Prom
   if (digest) {
     return true;
   }
-  const conference = await prisma.conferenceEntry.findFirst({
-    where: { paperId },
+  const shared = await prisma.paper.findFirst({
+    where: {
+      id: paperId,
+      OR: [{ conferenceEntries: { some: {} } }, { researcherPapers: { some: {} } }]
+    },
     select: { id: true }
   });
-  return conference !== null;
+  return shared !== null;
 }
 
 /**

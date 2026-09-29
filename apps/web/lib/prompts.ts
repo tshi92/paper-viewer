@@ -1,9 +1,12 @@
 import type { OutputLanguage } from "@paper-viewer/core/llm-config";
 import type { ArxivPaper } from "./arxiv";
 import type { PaperAnalysisResult } from "./llm";
+import type { DigestInput } from "./researcher-digest";
+import { DIGEST_LIMITS, DIRECTIONS, OTHER_DIRECTION_ID, WINDOW_MONTHS } from "./researchers";
 
 /**
- * The generation prompts for paper intros and the daily overview.
+ * The generation prompts for paper intros, the daily overview, and the
+ * Researchers page (direction classification and the monthly issue).
  *
  * Every prompt is written in English regardless of the language it asks for.
  * Instruction following is strongest in English, and a prompt written in the
@@ -201,4 +204,107 @@ Return JSON — overviewSummary must be a single string containing the whole Mar
   "overviewSummary": "the full briefing (${profile.name}, ${lengthSpec} — the target scales with the number of papers, so cover them at that depth rather than compressing)"
 }`
   };
+}
+
+/** Abstract budget per paper in a classification batch. */
+const CLASSIFY_ABSTRACT_CHARS = 800;
+
+/**
+ * Sorting researcher papers into the fixed directions (lib/researchers.ts).
+ * Papers are named by arXiv id, and the answer must cover every one.
+ */
+export function directionPrompt(papers: { id: string; title: string; abstract: string }[]): Prompt {
+  const list = DIRECTIONS.map((d) => `- ${d.id} (${d.labelEn}): ${d.definition}`).join("\n");
+  return {
+    system: `You sort systems research papers into a fixed list of research directions. Return pure JSON.
+
+Directions:
+${list}
+
+Rules:
+- Pick exactly one direction id per paper, from the list above only.
+- Judge by what the paper builds or studies, not by words it mentions in passing.
+- A benchmark or verifier for agents that do systems work belongs to "agents-for-systems".
+- Use "${OTHER_DIRECTION_ID}" only when no direction fits.
+- Answer for every paper id you are given, exactly once.
+
+Return JSON: {"assignments": [{"id": "<arXiv id>", "direction": "<direction id>"}]}`,
+    user: JSON.stringify(
+      papers.map((p) => ({ id: p.id, title: p.title, abstract: p.abstract.slice(0, CLASSIFY_ABSTRACT_CHARS) }))
+    )
+  };
+}
+
+/**
+ * An issue the team approved (September 2026), carried as the prompt's
+ * example. It is data, not instructions, which is why it is the one Chinese
+ * text in this file.
+ */
+export const DIGEST_EXAMPLE = {
+  headline: "推理服务仍是重心，agent 正在改变它要服务的对象",
+  lede: "11 位研究者这 3 个月发了 41 篇论文，做的人最多的是[[llm-serving|LLM 推理服务]]（7 位）。agent 出现在其中 9 位的论文里：有人按 agent 的负载重新设计推理系统，有人[[agents-for-systems|让 agent 写 kernel、造操作系统]]。",
+  observations: [
+    { claim: "推理系统开始按 agent 的样子重新设计。", evidence: "TraceLab 刻画 coding agent 的真实负载，SMetric 按会话调度，前缀缓存的淘汰策略也在重新评估。",
+      directions: ["llm-serving"], papers: ["2606.30560", "2607.08565", "2609.28870"] },
+    { claim: "显存不够，推理在向外借内存。", evidence: "KV cache 分层放到主存（HiSparse、BOOST），跨卡借显存（EMA），或者直接压缩（MosaicKV）。",
+      directions: ["llm-serving", "gpu-cluster"], papers: ["2608.07009", "2609.13592", "2609.27040", "2607.00760"] },
+    { claim: "验证成了 agent 做系统工作的瓶颈。", evidence: "7 篇论文在造评测或验证工具，例如 CommBench、PerfReasoning、LLM-as-a-Verifier。",
+      directions: ["agents-for-systems", "agent-harness"], papers: ["2608.04450", "2609.04476", "2607.05391"] },
+    { claim: "解耦推理越拆越细。", evidence: "从实例级的 prefill/decode 分离，拆到算子级（OpWeave）和专家级（ExpertPlex）。",
+      directions: ["moe-disaggregation"], papers: ["2609.14237", "2607.18002"] },
+    { claim: "早期信号：RL 后训练的系统开销。", evidence: "WeightBridge 处理训练端到 rollout 端的权重同步，另一篇研究异步 RLHF 中样本陈旧度的影响。",
+      directions: ["gpu-cluster"], papers: ["2609.25442", "2607.01083"] }
+  ]
+};
+
+/**
+ * The monthly hot-topics issue of the Researchers page. The input carries
+ * every figure the text may cite (computed by code) and names papers by arXiv
+ * id; `previousErrors` hands a failed answer's validation errors back for the
+ * one retry.
+ */
+export function researcherDigestPrompt(
+  input: DigestInput,
+  language: OutputLanguage,
+  previousErrors: string[] = []
+): Prompt {
+  const profile = LANGUAGE_PROFILES[language];
+  const limits = DIGEST_LIMITS[language];
+  const atMost = (n: number) => `at most ${n} ${limits.unit}`;
+  const system = `You are the editor of a monthly digest about LLM and AI systems research. Write in ${profile.name}. Return pure JSON.
+
+The input lists the papers a fixed set of researchers posted to arXiv in the window. Each paper has an arXiv id and one research direction; "stats", "directions" and "families" hold figures computed by code. Write like a magazine editor's note: judgements about what is changing, each backed by papers.
+
+JSON shape: {"headline": string, "lede": string, "observations": [{"claim": string, "evidence": string, "directions": [direction ids], "papers": [arXiv ids]}]}
+
+Structure and length:
+- headline: one judgement naming this period's main thread, ${atMost(limits.headline)}.
+- lede: at most 2 sentences and ${atMost(limits.lede)}. Set the scene with concrete examples, not abstract taxonomies such as "three roles".
+- observations: 4 or 5. "claim" is one judgement (what is changing and why it matters), ${atMost(limits.claim)}. "evidence" is ONE sentence, ${atMost(limits.evidence)}, naming papers by their short titles; avoid person names.
+- Directions backed by only two or three papers are not a trend yet: merge them into one final observation about early signals instead of giving each its own.
+
+Evidence:
+- Each observation cites at least 2 arXiv ids from the input in "papers", and its "directions" lists the direction of every paper it cites.
+- If only one group works on something, you may write about it but must say so plainly.
+- Judge from titles and abstracts only: do not guess motives or grade papers.
+
+Numbers: use only numbers found in "stats", "directions" or "families" (a family groups related directions, such as both agent directions), and the window's ${WINDOW_MONTHS} months. Never count anything yourself.
+
+Marking: write a direction's name, or a phrase standing for it, as [[direction-id|text]]; the page tints it. No links, no Markdown.
+
+Never:
+- write who did NOT work on something, or any negative comparison;
+- rank, praise or profile individual researchers; refer to researchers by name only, with no honorifics;
+- use hype words (revolutionary, groundbreaking, disruptive) or meta phrases ("this issue will", "it is worth noting", "in summary");
+- use dash asides.
+
+Style rules for ${profile.name}:
+${profile.styleRules}
+
+An approved issue from an earlier month, as an example of structure, register and length (its numbers and papers are not this month's):
+${JSON.stringify(DIGEST_EXAMPLE)}`;
+  const fix = previousErrors.length
+    ? `\n\nYour previous answer failed these checks. Fix every one and answer again in full:\n- ${previousErrors.join("\n- ")}`
+    : "";
+  return { system, user: JSON.stringify(input) + fix };
 }
