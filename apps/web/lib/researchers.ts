@@ -100,6 +100,6 @@ export function monthKey(now: Date): Date {
  * about 1.7 characters of Chinese).
  */
 export const DIGEST_LIMITS = {
-  zh: { headline: 30, lede: 80, claim: 20, evidence: 50, unit: "units (one CJK character or one Latin word each)" },
-  en: { headline: 18, lede: 48, claim: 12, evidence: 30, unit: "words" }
+  zh: { headline: 30, lede: 80, title: 20, insight: 60, unit: "units (one CJK character or one Latin word each)" },
+  en: { headline: 18, lede: 48, title: 12, insight: 36, unit: "words" }
 } as const;

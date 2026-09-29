@@ -236,32 +236,31 @@ Return JSON: {"assignments": [{"id": "<arXiv id>", "direction": "<direction id>"
 }
 
 /**
- * An issue the team approved (September 2026), carried as the prompt's
- * example. It is data, not instructions, which is why it is the one Chinese
- * text in this file.
+ * An illustrative issue on a topic the tracked researchers do not work on,
+ * carried as the prompt's example. It teaches form, not content: an example
+ * drawn from the real papers was copied nearly word for word. It is data, not
+ * instructions, which is why it is the one Chinese text in this file.
  */
 export const DIGEST_EXAMPLE = {
-  headline: "推理服务仍是重心，agent 正在改变它要服务的对象",
-  lede: "11 位研究者这 3 个月发了 41 篇论文，做的人最多的是[[llm-serving|LLM 推理服务]]（7 位）。agent 出现在其中 9 位的论文里：有人按 agent 的负载重新设计推理系统，有人[[agents-for-systems|让 agent 写 kernel、造操作系统]]。",
-  observations: [
-    { claim: "推理系统开始按 agent 的样子重新设计。", evidence: "TraceLab 刻画 coding agent 的真实负载，SMetric 按会话调度，前缀缓存的淘汰策略也在重新评估。",
-      papers: ["2606.30560", "2607.08565", "2609.28870"] },
-    { claim: "显存不够，推理在向外借内存。", evidence: "KV cache 分层放到主存（HiSparse、BOOST），跨卡借显存（EMA），或者直接压缩（MosaicKV）。",
-      papers: ["2608.07009", "2609.13592", "2609.27040", "2607.00760"] },
-    { claim: "验证成了 agent 做系统工作的瓶颈。", evidence: "7 篇论文在造评测或验证工具，例如 CommBench、PerfReasoning、LLM-as-a-Verifier。",
-      papers: ["2608.04450", "2609.04476", "2607.05391"] },
-    { claim: "解耦推理越拆越细。", evidence: "从实例级的 prefill/decode 分离，拆到算子级（OpWeave）和专家级（ExpertPlex）。",
-      papers: ["2609.14237", "2607.18002"] },
-    { claim: "早期信号：RL 后训练的系统开销。", evidence: "WeightBridge 处理训练端到 rollout 端的权重同步，另一篇研究异步 RLHF 中样本陈旧度的影响。",
-      papers: ["2609.25442", "2607.01083"] }
-  ]
+  headline: "存储栈开始为训练数据重新设计",
+  lede: "训练数据从静态文件变成持续增长的数据流，读取也从顺序扫描变成大规模随机访问。[[gpu-cluster|集群底层]]的存储与缓存假设因此都要重新检验。",
+  themes: [
+    { title: "数据加载成为训练瓶颈", insight: "GPU 越来越快，预处理和随机读取却跟不上，训练任务开始按数据管道而不是按算力来规划。",
+      papers: ["2401.00001", "2401.00002", "2401.00003"] },
+    { title: "检查点走向增量写入", insight: "模型变大后完整写一次检查点要几分钟，只写变化部分的增量检查点正在成为默认做法。",
+      papers: ["2401.00004", "2401.00005"] },
+    { title: "缓存从单机走向集群共享", insight: "同一份数据被许多任务反复读取，单机缓存命中率太低，集群级共享缓存开始取代各自为政。",
+      papers: ["2401.00006", "2401.00007"] }
+  ],
+  surprise: { text: "一项测量发现，训练任务的大部分读取其实都落在一小部分热数据上。", paper: "2401.00008" }
 };
 
 /**
- * The monthly hot-topics issue of the Researchers page. The input carries
- * every figure the text may cite (computed by code) and names papers by arXiv
- * id; `previousErrors` hands a failed answer's validation errors back for the
- * one retry.
+ * The monthly hot-topics issue of the Researchers page: where the tracked
+ * researchers' attention converges, not a tour of the directions. The input
+ * carries every figure the text may cite (computed by code) and names papers
+ * by arXiv id; `previousErrors` hands a failed answer's validation errors
+ * back for the one retry.
  */
 export function researcherDigestPrompt(
   input: DigestInput,
@@ -271,37 +270,36 @@ export function researcherDigestPrompt(
   const profile = LANGUAGE_PROFILES[language];
   const limits = DIGEST_LIMITS[language];
   const atMost = (n: number) => `at most ${n} ${limits.unit}`;
-  const system = `You are the editor of a monthly digest about LLM and AI systems research. Write in ${profile.name}. Return pure JSON.
+  const system = `You write a monthly note for a reader who follows a fixed set of leading systems researchers to see where their attention is converging. Write in ${profile.name}. Return pure JSON.
 
-The input lists the papers a fixed set of researchers posted to arXiv in the window. Each paper has an arXiv id and one research direction; "stats", "directions" and "families" hold figures computed by code. Write like a magazine editor's note: judgements about what is changing, each backed by papers.
+The reader's question is: what are these researchers converging on right now, and what new problems do they see? A trend is several different researchers independently attacking the same problem, often across the input's fixed directions (one shift in workloads can touch serving, caching and scheduling at once). A summary of each direction in turn does not answer it.
 
-JSON shape: {"headline": string, "lede": string, "observations": [{"claim": string, "evidence": string, "papers": [arXiv ids]}]}
+The input lists the papers these researchers posted to arXiv in the window, each with its arXiv id, one research direction and its tracked researchers; "stats", "directions" and "families" hold figures computed by code.
 
-Structure and length:
-- headline: one judgement naming this period's main thread, ${atMost(limits.headline)}.
-- lede: at most 2 sentences and ${atMost(limits.lede)}. Set the scene with concrete examples, not abstract taxonomies such as "three roles".
-- observations: 4 or 5. "claim" is one judgement (what is changing and why it matters), ${atMost(limits.claim)}. "evidence" is ONE sentence, ${atMost(limits.evidence)}, naming papers by their short titles; avoid person names.
-- Directions backed by only two or three papers are not a trend yet: merge them into one final observation about early signals instead of giving each its own. Leave that observation out if fewer than 2 papers support it; 4 observations are enough.
+JSON shape: {"headline": string, "lede": string, "themes": [{"title": string, "insight": string, "papers": [arXiv ids]}], "surprise": {"text": string, "paper": arXiv id} | null}
 
-Evidence:
-- Each observation cites at least 2 arXiv ids from the input's papers in "papers" (never ids from the example below, which is another month).
-- If only one group works on something, you may write about it but must say so plainly.
-- Judge from titles and abstracts only: do not guess motives or grade papers.
+- headline: the strongest convergence, as a judgement, ${atMost(limits.headline)}.
+- lede: at most 2 sentences and ${atMost(limits.lede)}: what changed that makes these problems appear now.
+- themes: 3 or 4, each a problem that papers from at least 2 different researchers attack. The page shows how many researchers each theme spans, so prefer themes that span more, and never write that count yourself.
+  - title: the shared problem, as a judgement, ${atMost(limits.title)}.
+  - insight: ONE sentence, ${atMost(limits.insight)}, on why this is a problem now or what the papers together imply. Do not list paper names; name at most one paper, by its short title, when a single result carries the point.
+  - papers: every input paper that attacks this problem, by its arXiv id in the input (never an id from the example below).
+- surprise: one result stated in an abstract that goes against common expectation, such as a sophisticated method doing no better than a simple one, in ONE sentence of ${atMost(limits.insight)}, with its paper's arXiv id; null when no abstract states such a result.
 
-Numbers: use only numbers found in "stats", "directions" or "families" (a family groups related directions, such as both agent directions), and the window's ${WINDOW_MONTHS} months. Never count anything yourself.
+Evidence and numbers: judge from titles and abstracts only; do not guess motives or grade papers. Use only numbers found in "stats", "directions" or "families" and the window's ${WINDOW_MONTHS} months; never count anything yourself, and do not repeat figures from abstracts.
 
 Marking: write a direction's name, or a phrase standing for it, as [[direction-id|text]]; the page tints it. No links, no Markdown.
 
 Never:
+- name researchers, or rank, praise or profile them;
 - write who did NOT work on something, or any negative comparison;
-- rank, praise or profile individual researchers; refer to researchers by name only, with no honorifics;
 - use hype words (revolutionary, groundbreaking, disruptive) or meta phrases ("this issue will", "it is worth noting", "in summary");
 - use dash asides.
 
 Style rules for ${profile.name}:
 ${profile.styleRules}
 
-An approved issue from an earlier month, as an example of structure, register and length (its numbers and papers are not this month's):
+An illustrative issue on another topic, for structure, register and length only. Do not reuse its themes, wording or ids:
 ${JSON.stringify(DIGEST_EXAMPLE)}`;
   const fix = previousErrors.length
     ? `\n\nYour previous answer failed these checks. Fix every one and answer again in full:\n- ${previousErrors.join("\n- ")}`

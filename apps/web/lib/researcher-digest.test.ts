@@ -48,43 +48,57 @@ describe("highlights and length", () => {
   });
 });
 
-const stub = (id: string, direction: string) => ({ id, title: id, abstract: "", direction, date: "2026-09-01", researchers: [] });
+const stub = (id: string, direction: string, researchers = ["A", "B"]) => ({
+  id, title: id, abstract: "", direction, date: "2026-09-01", researchers: researchers.map((name) => ({ name, role: "last author" }))
+});
 
 describe("validateDigest", () => {
   const input: DigestInput = {
-    window: WINDOW, stats: { papers: 3, researchers: 11 }, families: [],
-    directions: [{ id: "llm-serving", label: "LLM 推理服务", papers: 2, people: 2 }, { id: "other", label: "其他", papers: 1, people: 1 }],
-    papers: [stub("2609.00001", "llm-serving"), stub("2609.00002", "llm-serving"), stub("2609.00003", "other")]
+    window: WINDOW, stats: { papers: 4, researchers: 11 }, families: [],
+    directions: [{ id: "llm-serving", label: "LLM 推理服务", papers: 3, people: 3 }, { id: "other", label: "其他", papers: 1, people: 1 }],
+    papers: [
+      stub("2609.00001", "llm-serving", ["Ion"]), stub("2609.00002", "llm-serving", ["Minlan"]),
+      stub("2609.00003", "llm-serving", ["Haibo", "Ion"]), stub("2609.00004", "other", ["Ion"])
+    ]
   };
-  const obs = (claim: string, papers = ["2609.00001", "2609.00002"]) => ({ claim, evidence: "例证一句。", papers });
+  const theme = (title: string, papers = ["2609.00001", "2609.00002"]) => ({ title, insight: "为什么现在是个问题。", papers });
   const good = {
     headline: "推理服务仍是重心",
-    lede: "11 位研究者发了 3 篇论文，做的人最多的是[[llm-serving|LLM 推理服务]]（2 位）。",
-    observations: [obs("甲。"), obs("乙。"), obs("丙。"), obs("丁。")]
+    lede: "11 位研究者发了 4 篇论文，做的人最多的是[[llm-serving|LLM 推理服务]]（3 位）。",
+    themes: [theme("跨两人。"), theme("跨三人。", ["2609.00001", "2609.00002", "2609.00003"])],
+    surprise: { text: "简单方法不输复杂方法。", paper: "2609.00001" }
   };
-  const verdictOf = (issue: unknown) => validateDigest(issue, input, "zh");
+  const verdictOf = (issue: unknown, language: "zh" | "en" = "zh") => validateDigest(issue, input, language);
   const errorsOf = (issue: unknown) => verdictOf(issue).errors.join("\n");
 
-  it("accepts a well-formed issue", () => {
-    expect(verdictOf(good)).toEqual({ content: good, errors: [], dropped: [] });
+  it("accepts a well-formed issue, counting each theme's researchers and putting the widest first", () => {
+    const verdict = verdictOf(good);
+    expect(verdict.errors).toEqual([]);
+    expect(verdict.content?.themes.map((t) => [t.title, t.researchers])).toEqual([["跨三人。", 3], ["跨两人。", 2]]);
+    expect(verdict.content?.surprise).toEqual(good.surprise);
   });
 
-  it("refuses numbers the statistics do not hold, and banned phrasing, in the headline or lede", () => {
+  it("refuses numbers the statistics do not hold, banned phrasing, and the wrong language", () => {
     expect(errorsOf({ ...good, lede: "共 99 篇。" })).toMatch(/number 99/);
     expect(errorsOf({ ...good, lede: "完全没碰 agent 的只有一位。" })).toMatch(/banned/);
     expect(errorsOf({ ...good, headline: "推理——仍是重心" })).toMatch(/banned/);
+    expect(errorsOf({ ...good, headline: "Serving is still the center", lede: "Agents reshape it." })).toMatch(/write in Simplified Chinese/);
   });
 
-  it("leaves out an observation that cites a paper outside the window or an unstated number", () => {
-    const verdict = verdictOf({
-      ...good,
-      observations: [...good.observations, obs("戊。", ["2609.00001", "2601.99999"]), obs("共 99 篇。")]
-    });
-    expect(verdict.content?.observations).toEqual(good.observations);
+  it("leaves out a theme one researcher works on, or one citing a paper outside the window", () => {
+    const verdict = verdictOf({ ...good, themes: [...good.themes, theme("只有一人。", ["2609.00001", "2609.00004"]), theme("引了窗口外的论文。", ["2609.00001", "2609.00002", "2601.99999"])] });
+    expect(verdict.content?.themes.map((t) => t.title)).toEqual(["跨三人。", "跨两人。"]);
     expect(verdict.dropped).toEqual([
-      "observation 5: paper 2601.99999 is not in the window",
-      "observation 6: number 99 is not in the provided statistics"
+      "theme 3: the papers must span at least 2 researchers",
+      "theme 4: paper 2601.99999 is not in the window"
     ]);
+  });
+
+  it("drops a failing surprise without refusing the issue", () => {
+    const verdict = verdictOf({ ...good, surprise: { text: "反直觉。", paper: "2601.99999" } });
+    expect(verdict.content?.surprise).toBeNull();
+    expect(verdict.dropped).toEqual(["surprise: paper 2601.99999 is not in the window"]);
+    expect(verdictOf({ ...good, surprise: null }).content?.surprise).toBeNull();
   });
 
   it("allows lengths a quarter over their targets", () => {
@@ -93,33 +107,28 @@ describe("validateDigest", () => {
   });
 
   it("shows a highlight naming no known direction as plain text", () => {
-    const content = verdictOf({ ...good, lede: "[[inference|推理]]仍是重心。" }).content;
-    expect(content?.lede).toBe("推理仍是重心。");
+    expect(verdictOf({ ...good, lede: "[[inference|推理]]仍是重心。" }).content?.lede).toBe("推理仍是重心。");
   });
 
-  it("refuses the issue when fewer than 3 observations pass, reporting every failure for the retry", () => {
-    const errors = errorsOf({ ...good, observations: [...good.observations.slice(0, 2), obs("推".repeat(26)), obs("己。", [])] });
-    expect(errors).toMatch(/3-5 items .* \(2 of 4 did\)/);
-    expect(errors).toMatch(/observation 3: claim must be 1-25/);
-    expect(errors).toMatch(/observation 4: cite at least 1 paper/);
+  it("refuses the issue when fewer than 2 themes pass, reporting every failure for the retry", () => {
+    const errors = errorsOf({ ...good, themes: [good.themes[0], { ...theme("推".repeat(26)) }] });
+    expect(errors).toMatch(/2-4 items .* \(1 of 2 did\)/);
+    expect(errors).toMatch(/theme 2: title must be 1-25/);
   });
 
   it("enforces sentence limits", () => {
     expect(errorsOf({ ...good, lede: "一。二。三。" })).toMatch(/at most 2 sentences/);
-    const twoSentences = { ...obs("甲。"), evidence: "一。二。" };
-    expect(verdictOf({ ...good, observations: [...good.observations, twoSentences] }).dropped).toEqual([
-      "observation 5: evidence must be one sentence"
-    ]);
+    const twoSentences = { ...theme("两句例证。"), insight: "一。二。" };
+    expect(verdictOf({ ...good, themes: [...good.themes, twoSentences] }).dropped).toEqual(["theme 3: insight must be one sentence"]);
   });
 
-  it("accepts the approved issue the prompt uses as its example", () => {
+  it("accepts the example issue the prompt carries", () => {
     // The few-shot must obey every rule it teaches.
-    const ids = DIGEST_EXAMPLE.observations.flatMap((o) => o.papers);
+    const ids = [...DIGEST_EXAMPLE.themes.flatMap((t) => t.papers), DIGEST_EXAMPLE.surprise.paper];
     const example: DigestInput = {
-      window: WINDOW, stats: { papers: 41, researchers: 11 },
+      window: WINDOW, stats: { papers: 41, researchers: 11 }, families: [],
       directions: [{ id: "llm-serving", label: "LLM 推理服务", papers: 12, people: 7 }],
-      families: [{ family: "agents", directions: ["agents-for-systems", "agent-harness"], papers: 12, people: 9 }],
-      papers: ids.map((id) => stub(id, "llm-serving"))
+      papers: ids.map((id, i) => stub(id, "llm-serving", [`R${i}`]))
     };
     expect(validateDigest(DIGEST_EXAMPLE, example, "zh")).toMatchObject({ errors: [], dropped: [] });
   });

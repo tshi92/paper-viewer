@@ -166,8 +166,10 @@ const sentenceCount = (text: string): number => (plain(text).match(/[。！？]|
 
 // -------------------------------------------------------------- validation
 
-export type DigestObservation = { claim: string; evidence: string; papers: string[] };
-export type DigestText = { headline: string; lede: string; observations: DigestObservation[] };
+/** A problem several researchers attack at once; `researchers` is counted by code from the papers it cites. */
+export type DigestTheme = { title: string; insight: string; papers: string[]; researchers: number };
+export type DigestSurprise = { text: string; paper: string };
+export type DigestText = { headline: string; lede: string; themes: DigestTheme[]; surprise: DigestSurprise | null };
 /** What ResearcherDigest.content stores: the text plus the figures it was written from. */
 export type DigestContent = DigestText & { window: DigestInput["window"]; stats: DigestInput["stats"] };
 
@@ -177,6 +179,7 @@ const BANNED = [
   /\bnobody\b/i, /\bonly\b.{0,60}\b(did not|didn't|never)\b/i, /revolutionary|groundbreaking|game-chang|disruptive/i,
   /\bthis (issue|article) will\b|\bit is worth noting\b|\bin summary\b/i
 ];
+const CJK = /[㐀-鿿豈-﫿]/;
 
 function allowedNumbers(input: DigestInput): Set<number> {
   return new Set([
@@ -192,22 +195,25 @@ const strings = (value: unknown): string[] =>
 /** Hard length limits sit this far above the targets the prompt asks for: models count characters loosely. */
 const LENGTH_TOLERANCE = 1.25;
 
-/** A monthly issue's verdict. `dropped` lists the checks failed by observations left out of an accepted issue. */
+/** A monthly issue's verdict. `dropped` lists the checks failed by the parts left out of an accepted issue. */
 export type DigestVerdict = { content: DigestText | null; errors: string[]; dropped: string[] };
 
 /**
- * Checks an answer against the rules that keep an issue true: every number
- * comes from the input's statistics, every cited paper is in the window, and
- * no banned phrasing. Form is held more loosely, since models miss exact
- * limits: lengths may run 25% over their targets, a highlight naming no known
- * direction is shown as plain text, and an observation that fails its own
- * checks is left out as long as 3 remain, rather than sinking the issue.
+ * Checks an answer against the rules that keep an issue true: it is in the
+ * workspace's language, every number comes from the input's statistics, every
+ * cited paper is in the window, a theme spans at least two researchers (a
+ * problem one group works on is not a convergence), and no banned phrasing.
+ * Form is held more loosely, since models miss exact limits: lengths may run
+ * 25% over their targets, a highlight naming no known direction is shown as
+ * plain text, a theme that fails its own checks is left out as long as 2
+ * remain, and a failing surprise is simply dropped. Themes are ordered by how
+ * many researchers they span.
  */
 export function validateDigest(raw: unknown, input: DigestInput, language: OutputLanguage): DigestVerdict {
   const limits = DIGEST_LIMITS[language];
-  const inWindow = new Set(input.papers.map((p) => p.id));
+  const researchersOf = new Map(input.papers.map((p) => [p.id, p.researchers.map((r) => r.name)]));
   const numbers = allowedNumbers(input);
-  const lengthError = (field: "headline" | "lede" | "claim" | "evidence", text: unknown): string[] => {
+  const lengthError = (field: "headline" | "lede" | "title" | "insight", text: unknown): string[] => {
     const max = Math.round(limits[field] * LENGTH_TOLERANCE);
     const length = typeof text === "string" ? textLength(text) : 0;
     return length >= 1 && length <= max ? [] : [`${field} must be 1-${max} ${limits.unit} (aim for ${limits[field]})`];
@@ -222,46 +228,61 @@ export function validateDigest(raw: unknown, input: DigestInput, language: Outpu
     for (const pattern of BANNED) if (pattern.test(text)) errors.push(`banned phrasing matched /${pattern.source}/`);
     return errors;
   };
-  const observationErrors = (o: Record<string, unknown>): string[] => {
-    const cited = [...new Set(strings(o.papers))];
-    return [
-      ...lengthError("claim", o.claim),
-      ...lengthError("evidence", o.evidence),
-      ...(typeof o.evidence === "string" && sentenceCount(o.evidence) > 1 ? ["evidence must be one sentence"] : []),
-      ...(cited.length ? [] : ["cite at least 1 paper"]),
-      ...cited.filter((id) => !inWindow.has(id)).map((id) => `paper ${id} is not in the window`),
-      ...textErrors(o.claim),
-      ...textErrors(o.evidence)
-    ];
-  };
+  const outsideWindow = (ids: string[]) => ids.filter((id) => !researchersOf.has(id)).map((id) => `paper ${id} is not in the window`);
+  const spanOf = (ids: string[]) => new Set(ids.flatMap((id) => researchersOf.get(id) ?? [])).size;
+  const oneSentence = (field: string, text: unknown) =>
+    typeof text === "string" && sentenceCount(text) > 1 ? [`${field} must be one sentence`] : [];
 
-  const r = (raw ?? {}) as { headline?: unknown; lede?: unknown; observations?: unknown };
+  const r = (raw ?? {}) as { headline?: unknown; lede?: unknown; themes?: unknown; surprise?: unknown };
   const errors = [
     ...lengthError("headline", r.headline),
     ...lengthError("lede", r.lede),
     ...(typeof r.lede === "string" && sentenceCount(r.lede) > 2 ? ["lede must be at most 2 sentences"] : []),
+    ...(typeof r.headline === "string" && CJK.test(`${r.headline}${r.lede}`) !== (language === "zh")
+      ? [`write in ${language === "zh" ? "Simplified Chinese" : "English"}`]
+      : []),
     ...textErrors(r.headline),
     ...textErrors(r.lede)
   ];
 
-  const observations = (Array.isArray(r.observations) ? r.observations : []) as Record<string, unknown>[];
-  const kept: DigestObservation[] = [];
+  const themes = (Array.isArray(r.themes) ? r.themes : []) as Record<string, unknown>[];
+  const kept: DigestTheme[] = [];
   const dropped: string[] = [];
-  observations.forEach((o, index) => {
-    const problems = observationErrors(o ?? {});
-    if (problems.length) {
-      dropped.push(...problems.map((problem) => `observation ${index + 1}: ${problem}`));
-    } else {
-      kept.push({ claim: knownHighlights(o.claim as string), evidence: knownHighlights(o.evidence as string), papers: [...new Set(strings(o.papers))] });
-    }
+  themes.forEach((t, index) => {
+    const papers = [...new Set(strings(t?.papers))];
+    const problems = [
+      ...lengthError("title", t?.title),
+      ...lengthError("insight", t?.insight),
+      ...oneSentence("insight", t?.insight),
+      ...outsideWindow(papers),
+      ...(spanOf(papers) >= 2 ? [] : ["the papers must span at least 2 researchers"]),
+      ...textErrors(t?.title),
+      ...textErrors(t?.insight)
+    ];
+    if (problems.length) dropped.push(...problems.map((problem) => `theme ${index + 1}: ${problem}`));
+    else kept.push({ title: knownHighlights(t.title as string), insight: knownHighlights(t.insight as string), papers, researchers: spanOf(papers) });
   });
-  if (kept.length < 3 || kept.length > 5) {
-    errors.push(`observations must have 3-5 items that pass their checks (${kept.length} of ${observations.length} did)`);
+  if (kept.length < 2 || kept.length > 4) {
+    errors.push(`themes must have 2-4 items that pass their checks (${kept.length} of ${themes.length} did)`);
+  }
+
+  const s = r.surprise as { text?: unknown; paper?: unknown } | null | undefined;
+  let surprise: DigestSurprise | null = null;
+  if (s) {
+    const paper = typeof s.paper === "string" ? s.paper : "";
+    const problems = [...lengthError("insight", s.text), ...oneSentence("surprise", s.text), ...outsideWindow([paper]), ...textErrors(s.text)];
+    if (problems.length) dropped.push(...problems.map((problem) => `surprise: ${problem}`));
+    else surprise = { text: knownHighlights(s.text as string), paper };
   }
 
   // A refused answer reports everything, so the retry can fix it all.
   if (errors.length) return { content: null, errors: [...errors, ...dropped], dropped: [] };
-  const content = { headline: knownHighlights(r.headline as string), lede: knownHighlights(r.lede as string), observations: kept };
+  const content: DigestText = {
+    headline: knownHighlights(r.headline as string),
+    lede: knownHighlights(r.lede as string),
+    themes: kept.sort((a, b) => b.researchers - a.researchers || b.papers.length - a.papers.length),
+    surprise
+  };
   return { content, errors, dropped };
 }
 
@@ -320,7 +341,7 @@ export async function ensureMonthlyIssue(workspaceId: string, now: Date, deadlin
     }
     const verdict = validateDigest(answer, input, language);
     if (verdict.content) {
-      if (verdict.dropped.length) console.warn("[researcher-digest] left out observations", workspaceId, verdict.dropped);
+      if (verdict.dropped.length) console.warn("[researcher-digest] left out", workspaceId, verdict.dropped);
       const content: DigestContent = { ...verdict.content, window: input.window, stats: input.stats };
       try {
         await prisma.researcherDigest.create({ data: { workspaceId, month, content } });

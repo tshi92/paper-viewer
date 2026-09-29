@@ -83,8 +83,8 @@ test.beforeAll(async () => {
     ]
   });
 
-  const observation = (n: number) => ({
-    claim: `观察 ${n}。`, evidence: "例证。", papers: [`e2e-${run}-one`, `e2e-${run}-two`]
+  const theme = (n: number) => ({
+    title: `主题 ${n}。`, insight: "为什么现在是个问题。", papers: [`e2e-${run}-one`, `e2e-${run}-two`], researchers: 2
   });
   await prisma.researcherDigest.create({
     data: {
@@ -95,7 +95,8 @@ test.beforeAll(async () => {
         stats: { papers: 3, researchers: 2 },
         headline: `Fixture headline ${run}`,
         lede: "两位研究者发了 3 篇论文，做的最多的是[[llm-serving|LLM 推理服务]]。",
-        observations: [1, 2, 3, 4].map(observation)
+        themes: [1, 2, 3].map(theme),
+        surprise: { text: `Fixture surprise ${run}`, paper: `e2e-${run}-one` }
       }
     }
   });
@@ -126,7 +127,7 @@ async function openNarrowed(page: Page): Promise<void> {
 
 const row = (page: Page, name: string) => page.getByRole("button", { name: new RegExp(name) });
 
-test("the hot-topics card shows this month's issue with tinted, unlinked highlights", async ({ page }) => {
+test("the hot-topics card shows this month's issue: tinted highlights, themes with their span, the surprise", async ({ page }) => {
   await signIn(page);
   await page.goto("/researchers");
   // The fixture user owns its workspace, so the admin sync button is there (not clicked: it hits GitHub and the LLM).
@@ -135,7 +136,9 @@ test("the hot-topics card shows this month's issue with tinted, unlinked highlig
   await expect(card.getByText(`Fixture headline ${run}`)).toBeVisible();
   await expect(card.locator("span", { hasText: "LLM 推理服务" })).toHaveAttribute("style", /79,\s*148,\s*132/);
   await expect(card.getByRole("link")).toHaveCount(0);
-  await expect(card.locator("li")).toHaveCount(4);
+  await expect(card.locator("li")).toHaveCount(3);
+  await expect(card.locator("li").first()).toContainText("2 位研究者 · 2 篇");
+  await expect(card.getByText(`Fixture surprise ${run}`)).toBeVisible();
   await expect(page.getByText("本月刊尚未生成，显示上一期")).toHaveCount(0);
 });
 
@@ -175,6 +178,18 @@ test("the timeline draws its axis, is remembered, and opens the drawer at a dot"
 
   await page.reload();
   await expect(page.getByText("近两周", { exact: true })).toBeVisible();
+});
+
+test("the list view shows every paper newest first, whoever wrote it", async ({ page }) => {
+  await signIn(page);
+  await openNarrowed(page);
+  await page.getByRole("button", { name: "列表" }).click();
+  const titles = page.getByRole("link", { name: new RegExp(`Researcher Fixture \\w+ ${run}`) });
+  await expect(titles).toHaveText([/Fixture one/, /Fixture two/, /Fixture three/]);
+
+  // The direction filter and the search narrow it like the other views.
+  await page.getByRole("button", { name: /^Agent harness 与上下文/ }).click();
+  await expect(titles).toHaveText([/Fixture three/]);
 });
 
 test("papers save from the drawer and open as previews under the Researchers tab", async ({ page }) => {

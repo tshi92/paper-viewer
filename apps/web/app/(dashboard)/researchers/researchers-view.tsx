@@ -25,7 +25,8 @@ export type ViewPaper = {
 type Person = ViewResearcher & { papers: ViewPaper[]; asLast: number; mix: [ResearchDirection, number][] };
 type Row = { r: Person; hits: ViewPaper[] };
 type DrawerState = { slug: string; focusPaperId: string | undefined; showAll: boolean };
-type View = "bars" | "timeline";
+const VIEWS = ["bars", "timeline", "list"] as const;
+type View = (typeof VIEWS)[number];
 
 const VIEW_KEY = "researchers-view";
 const BY_ID = new Map(DIRECTIONS.map((d) => [d.id, d]));
@@ -89,7 +90,8 @@ export function ResearchersView({
   // Read after mount: the server render cannot know the stored choice.
   useEffect(() => {
     try {
-      if (localStorage.getItem(VIEW_KEY) === "timeline") setView("timeline");
+      const stored = localStorage.getItem(VIEW_KEY);
+      if (VIEWS.some((v) => v === stored)) setView(stored as View);
     } catch {
       /* storage blocked */
     }
@@ -142,6 +144,7 @@ export function ResearchersView({
   const q = query.trim().toLowerCase();
   const matches = (p: ViewPaper) => (!topic || p.directionId === topic) && (!q || haystack.get(p.id)!.includes(q));
   const filtering = Boolean(topic || q);
+  const listed = papers.filter(matches);
   const rows: Row[] = people
     .map((r) => ({ r, hits: r.papers.filter(matches) }))
     .filter((row) => row.hits.length > 0)
@@ -167,7 +170,7 @@ export function ResearchersView({
         </h2>
         <div className="flex flex-wrap items-center gap-x-[18px] gap-y-2.5 max-[720px]:w-full">
           <div role="group" aria-label={t("viewLabel")} className="inline-flex rounded-md border border-border bg-white p-0.5">
-            {(["bars", "timeline"] as const).map((v) => (
+            {VIEWS.map((v) => (
               <button
                 key={v}
                 type="button"
@@ -229,7 +232,15 @@ export function ResearchersView({
       </div>
 
       <div className="mt-3 border-t border-border">
-        {rows.length === 0 ? (
+        {view === "list" ? (
+          listed.length ? (
+            <div className="px-5 pb-2">
+              <PapersByMonth papers={listed} names={names} newSince={newSince} />
+            </div>
+          ) : (
+            <p className="px-5 py-6 text-muted">{t("noMatches")}</p>
+          )
+        ) : rows.length === 0 ? (
           <p className="px-5 py-6 text-muted">{t("noMatches")}</p>
         ) : view === "bars" ? (
           rows.map((row) => (
@@ -520,13 +531,6 @@ function ResearcherDrawer({
   const list = filtered ? hits : person.papers;
   const topicDirection = topic ? BY_ID.get(topic) : undefined;
   const what = [topicDirection ? w.label(topicDirection) : null, query ? `"${query}"` : null].filter(Boolean).join(" · ");
-  const groups = list.reduce<{ month: string; papers: ViewPaper[] }[]>((acc, p) => {
-    const month = p.published.slice(0, 7);
-    const last = acc.at(-1);
-    if (last?.month === month) last.papers.push(p);
-    else acc.push({ month, papers: [p] });
-    return acc;
-  }, []);
 
   return (
     <>
@@ -577,18 +581,45 @@ function ResearcherDrawer({
               </button>
             </div>
           ) : null}
-          {groups.map((group) => (
-            <section key={group.month}>
-              <div className="mt-4 text-[11.5px] font-semibold uppercase tracking-[.06em] text-muted">
-                {w.fmtMonthYear(`${group.month}-01`)}
-              </div>
-              {group.papers.map((p) => (
-                <PaperRow key={p.id} p={p} names={names} isNew={p.published >= newSince} flash={flashId === p.id} />
-              ))}
-            </section>
-          ))}
+          <PapersByMonth papers={list} names={names} newSince={newSince} flashId={flashId} />
         </div>
       </aside>
+    </>
+  );
+}
+
+/** Papers, newest first, under a heading per month: a researcher's drawer, and the List view of everyone's. */
+function PapersByMonth({
+  papers,
+  names,
+  newSince,
+  flashId
+}: {
+  papers: ViewPaper[];
+  names: Map<string, string>;
+  newSince: string;
+  flashId?: string | undefined;
+}) {
+  const w = useWording();
+  const groups = papers.reduce<{ month: string; papers: ViewPaper[] }[]>((acc, p) => {
+    const month = p.published.slice(0, 7);
+    const last = acc.at(-1);
+    if (last?.month === month) last.papers.push(p);
+    else acc.push({ month, papers: [p] });
+    return acc;
+  }, []);
+  return (
+    <>
+      {groups.map((group) => (
+        <section key={group.month}>
+          <div className="mt-4 text-[11.5px] font-semibold uppercase tracking-[.06em] text-muted">
+            {w.fmtMonthYear(`${group.month}-01`)}
+          </div>
+          {group.papers.map((p) => (
+            <PaperRow key={p.id} p={p} names={names} isNew={p.published >= newSince} flash={flashId === p.id} />
+          ))}
+        </section>
+      ))}
     </>
   );
 }
