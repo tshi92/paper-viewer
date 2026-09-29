@@ -76,15 +76,24 @@ export async function HotTopicsCard({
         <p className="text-[15.5px] leading-[1.9]">
           <Highlighted text={content.lede} />
         </p>
-        <div className="mt-1.5 text-xs font-semibold tracking-[.08em] text-muted">{t("observations")}</div>
+        <div className="mt-1.5 text-xs font-semibold tracking-[.08em] text-muted">{t("themes")}</div>
         <ol className="grid list-decimal gap-2.5 pl-[1.4em] text-[15px] leading-[1.85]">
-          {content.observations.map((o, i) => (
+          {content.themes.map((theme, i) => (
             <li key={i}>
-              <b className="mr-1 font-semibold"><Highlighted text={o.claim} /></b>
-              <Highlighted text={o.evidence} />
+              <b className="font-semibold"><Highlighted text={theme.title} /></b>
+              <span className="mx-1.5 text-[12.5px] tabular-nums text-muted">
+                {t("themeSpan", { researchers: theme.researchers, papers: theme.papers.length })}
+              </span>
+              <Highlighted text={theme.insight} />
             </li>
           ))}
         </ol>
+        {content.surprise ? (
+          <p className="text-[15px] leading-[1.85]">
+            <span className="mr-1.5 text-xs font-semibold tracking-[.08em] text-muted">{t("surprise")}</span>
+            <Highlighted text={content.surprise.text} />
+          </p>
+        ) : null}
       </div>
     </section>
   );

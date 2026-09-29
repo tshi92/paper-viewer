@@ -174,11 +174,12 @@ describe("researcherDigestPrompt", () => {
     const zh = researcherDigestPrompt(input, "zh").system;
     expect(zh).toContain("Write in Simplified Chinese");
     expect(zh).toContain(`at most ${DIGEST_LIMITS.zh.lede} ${DIGEST_LIMITS.zh.unit}`);
-    expect(researcherDigestPrompt(input, "en").system).toContain(`at most ${DIGEST_LIMITS.en.claim} words`);
+    expect(researcherDigestPrompt(input, "en").system).toContain(`at most ${DIGEST_LIMITS.en.insight} words`);
   });
 
-  it("carries the approved issue as its example and names papers by arXiv id", () => {
+  it("asks where the researchers converge, carries its example, and names papers by arXiv id", () => {
     const prompt = researcherDigestPrompt(input, "zh");
+    expect(prompt.system).toContain("at least 2 different researchers");
     expect(prompt.system).toContain(DIGEST_EXAMPLE.headline);
     expect(prompt.user).toContain('"id":"2609.00001"');
   });
