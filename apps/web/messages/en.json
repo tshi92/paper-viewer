@@ -462,6 +462,7 @@
     "syncDone": "Synced: {papers, plural, one {# new paper} other {# new papers}}, {classified} classified",
     "syncDeferred": "This month's issue is not written yet. Sync again to finish it.",
     "syncFailed": "Sync incomplete: {detail}",
+    "issueFailed": "Papers synced, but this month's issue did not pass its checks ({detail}). It retries tomorrow morning, or sync again.",
     "digestTitle": "Hot topics · {month} {year} issue",
     "digestAside": "{from} – {to} · {researchers} researchers · {papers} papers",
     "digestPrevious": "This month's issue is not out yet; showing the previous one",

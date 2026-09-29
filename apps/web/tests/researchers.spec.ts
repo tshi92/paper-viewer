@@ -84,7 +84,7 @@ test.beforeAll(async () => {
   });
 
   const observation = (n: number) => ({
-    claim: `观察 ${n}。`, evidence: "例证。", directions: ["llm-serving"], papers: [`e2e-${run}-one`, `e2e-${run}-two`]
+    claim: `观察 ${n}。`, evidence: "例证。", papers: [`e2e-${run}-one`, `e2e-${run}-two`]
   });
   await prisma.researcherDigest.create({
     data: {

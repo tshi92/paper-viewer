@@ -166,7 +166,7 @@ const sentenceCount = (text: string): number => (plain(text).match(/[。！？]|
 
 // -------------------------------------------------------------- validation
 
-export type DigestObservation = { claim: string; evidence: string; directions: string[]; papers: string[] };
+export type DigestObservation = { claim: string; evidence: string; papers: string[] };
 export type DigestText = { headline: string; lede: string; observations: DigestObservation[] };
 /** What ResearcherDigest.content stores: the text plus the figures it was written from. */
 export type DigestContent = DigestText & { window: DigestInput["window"]; stats: DigestInput["stats"] };
@@ -189,72 +189,85 @@ function allowedNumbers(input: DigestInput): Set<number> {
 const strings = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 
-export function validateDigest(
-  raw: unknown,
-  input: DigestInput,
-  language: OutputLanguage
-): { content: DigestText | null; errors: string[] } {
-  const limits = DIGEST_LIMITS[language];
-  const errors: string[] = [];
-  const need = (ok: boolean, message: string) => {
-    if (!ok) errors.push(message);
-  };
-  const fits = (text: unknown, max: number): boolean =>
-    typeof text === "string" && textLength(text) >= 1 && textLength(text) <= max;
-  const r = (raw ?? {}) as { headline?: unknown; lede?: unknown; observations?: unknown };
-  const directionOf = new Map(input.papers.map((p) => [p.id, p.direction]));
-  const numbers = allowedNumbers(input);
-  const texts: string[] = [];
+/** Hard length limits sit this far above the targets the prompt asks for: models count characters loosely. */
+const LENGTH_TOLERANCE = 1.25;
 
-  need(fits(r.headline, limits.headline), `headline must be 1-${limits.headline} ${limits.unit}`);
-  need(fits(r.lede, limits.lede), `lede must be 1-${limits.lede} ${limits.unit}`);
-  need(typeof r.lede !== "string" || sentenceCount(r.lede) <= 2, "lede must be at most 2 sentences");
-  for (const text of [r.headline, r.lede]) if (typeof text === "string") texts.push(text);
+/** A monthly issue's verdict. `dropped` lists the checks failed by observations left out of an accepted issue. */
+export type DigestVerdict = { content: DigestText | null; errors: string[]; dropped: string[] };
+
+/**
+ * Checks an answer against the rules that keep an issue true: every number
+ * comes from the input's statistics, every cited paper is in the window, and
+ * no banned phrasing. Form is held more loosely, since models miss exact
+ * limits: lengths may run 25% over their targets, a highlight naming no known
+ * direction is shown as plain text, and an observation that fails its own
+ * checks is left out as long as 3 remain, rather than sinking the issue.
+ */
+export function validateDigest(raw: unknown, input: DigestInput, language: OutputLanguage): DigestVerdict {
+  const limits = DIGEST_LIMITS[language];
+  const inWindow = new Set(input.papers.map((p) => p.id));
+  const numbers = allowedNumbers(input);
+  const lengthError = (field: "headline" | "lede" | "claim" | "evidence", text: unknown): string[] => {
+    const max = Math.round(limits[field] * LENGTH_TOLERANCE);
+    const length = typeof text === "string" ? textLength(text) : 0;
+    return length >= 1 && length <= max ? [] : [`${field} must be 1-${max} ${limits.unit} (aim for ${limits[field]})`];
+  };
+  /** Uncited numbers and banned phrasing, wherever the text appears. */
+  const textErrors = (text: unknown): string[] => {
+    if (typeof text !== "string") return [];
+    const errors: string[] = [];
+    for (const match of plain(text).matchAll(COUNTED)) {
+      if (!numbers.has(Number(match[1]))) errors.push(`number ${match[1]} is not in the provided statistics`);
+    }
+    for (const pattern of BANNED) if (pattern.test(text)) errors.push(`banned phrasing matched /${pattern.source}/`);
+    return errors;
+  };
+  const observationErrors = (o: Record<string, unknown>): string[] => {
+    const cited = [...new Set(strings(o.papers))];
+    return [
+      ...lengthError("claim", o.claim),
+      ...lengthError("evidence", o.evidence),
+      ...(typeof o.evidence === "string" && sentenceCount(o.evidence) > 1 ? ["evidence must be one sentence"] : []),
+      ...(cited.length ? [] : ["cite at least 1 paper"]),
+      ...cited.filter((id) => !inWindow.has(id)).map((id) => `paper ${id} is not in the window`),
+      ...textErrors(o.claim),
+      ...textErrors(o.evidence)
+    ];
+  };
+
+  const r = (raw ?? {}) as { headline?: unknown; lede?: unknown; observations?: unknown };
+  const errors = [
+    ...lengthError("headline", r.headline),
+    ...lengthError("lede", r.lede),
+    ...(typeof r.lede === "string" && sentenceCount(r.lede) > 2 ? ["lede must be at most 2 sentences"] : []),
+    ...textErrors(r.headline),
+    ...textErrors(r.lede)
+  ];
 
   const observations = (Array.isArray(r.observations) ? r.observations : []) as Record<string, unknown>[];
-  need(observations.length >= 4 && observations.length <= 5, "observations must have 4-5 items");
+  const kept: DigestObservation[] = [];
+  const dropped: string[] = [];
   observations.forEach((o, index) => {
-    const at = `observation ${index + 1}`;
-    need(fits(o?.claim, limits.claim), `${at}: claim must be 1-${limits.claim} ${limits.unit}`);
-    need(fits(o?.evidence, limits.evidence), `${at}: evidence must be 1-${limits.evidence} ${limits.unit}`);
-    need(typeof o?.evidence !== "string" || sentenceCount(o.evidence) <= 1, `${at}: evidence must be one sentence`);
-    const declared = strings(o?.directions);
-    need(declared.length > 0, `${at}: "directions" is empty`);
-    for (const id of declared) need(DIRECTION_IDS.has(id), `${at}: unknown direction ${id}`);
-    const cited = [...new Set(strings(o?.papers))];
-    need(cited.length >= 2, `${at}: cite at least 2 papers`);
-    for (const id of cited) {
-      const direction = directionOf.get(id);
-      if (direction === undefined) need(false, `${at}: paper ${id} is not in the window`);
-      else need(declared.includes(direction), `${at}: paper ${id} is ${direction}, which "directions" does not list`);
+    const problems = observationErrors(o ?? {});
+    if (problems.length) {
+      dropped.push(...problems.map((problem) => `observation ${index + 1}: ${problem}`));
+    } else {
+      kept.push({ claim: knownHighlights(o.claim as string), evidence: knownHighlights(o.evidence as string), papers: [...new Set(strings(o.papers))] });
     }
-    for (const text of [o?.claim, o?.evidence]) if (typeof text === "string") texts.push(text);
   });
-
-  for (const text of texts) {
-    for (const part of splitHighlights(text)) {
-      if (part.directionId) need(DIRECTION_IDS.has(part.directionId), `unknown direction in highlight: ${part.directionId}`);
-    }
-    for (const match of plain(text).matchAll(COUNTED)) {
-      need(numbers.has(Number(match[1])), `number ${match[1]} is not in the provided statistics`);
-    }
-    for (const pattern of BANNED) need(!pattern.test(text), `banned phrasing matched /${pattern.source}/`);
+  if (kept.length < 3 || kept.length > 5) {
+    errors.push(`observations must have 3-5 items that pass their checks (${kept.length} of ${observations.length} did)`);
   }
 
-  if (errors.length) return { content: null, errors };
-  return {
-    content: {
-      headline: r.headline as string,
-      lede: r.lede as string,
-      observations: observations.map((o) => ({
-        claim: o.claim as string,
-        evidence: o.evidence as string,
-        directions: strings(o.directions),
-        papers: strings(o.papers)
-      }))
-    },
-    errors
-  };
+  // A refused answer reports everything, so the retry can fix it all.
+  if (errors.length) return { content: null, errors: [...errors, ...dropped], dropped: [] };
+  const content = { headline: knownHighlights(r.headline as string), lede: knownHighlights(r.lede as string), observations: kept };
+  return { content, errors, dropped };
+}
+
+/** A [[id|text]] highlight whose id names no direction becomes plain text. */
+function knownHighlights(text: string): string {
+  return text.replace(HIGHLIGHT, (whole, id: string, inner: string) => (DIRECTION_IDS.has(id) ? whole : inner));
 }
 
 // -------------------------------------------------------------- generation
@@ -307,6 +320,7 @@ export async function ensureMonthlyIssue(workspaceId: string, now: Date, deadlin
     }
     const verdict = validateDigest(answer, input, language);
     if (verdict.content) {
+      if (verdict.dropped.length) console.warn("[researcher-digest] left out observations", workspaceId, verdict.dropped);
       const content: DigestContent = { ...verdict.content, window: input.window, stats: input.stats };
       try {
         await prisma.researcherDigest.create({ data: { workspaceId, month, content } });
