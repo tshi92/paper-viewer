@@ -21,6 +21,7 @@ import type { CreateAnnotationInput } from "./pdf-annotator";
 import type { ReadingState } from "@paper-viewer/core/paper-status";
 import { canRemovePaper, type WorkspaceRole } from "@paper-viewer/core/permissions";
 import type { AnnotationView, LabelView } from "@/lib/annotation-types";
+import { livePdfPath } from "@/lib/paper-pdf";
 import type { PdfOutlineEntry } from "@/lib/pdf-outline";
 
 // react-pdf-highlighter touches the DOM at import time, so the annotator is
@@ -289,13 +290,7 @@ export function PaperWorkspace({ paper, viewMode }: { paper: PaperData; viewMode
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [paper.nextPaperId, paper.prevPaperId, router]);
 
-  const pdfUrl = paper.hasPdf
-    ? `/api/papers/${paper.id}/file`
-    : paper.arxivId
-      ? `/api/papers/${paper.id}/arxiv-pdf`
-      : paper.pdfUrl
-        ? `/api/papers/${paper.id}/proxy-pdf`
-        : null;
+  const pdfUrl = paper.hasPdf ? `/api/papers/${paper.id}/file` : livePdfPath(paper);
 
   return (
     <div className="space-y-3">

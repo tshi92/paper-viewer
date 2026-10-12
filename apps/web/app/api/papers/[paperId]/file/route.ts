@@ -3,6 +3,7 @@ import { createS3Client, getPdfObject } from "@paper-viewer/storage/pdf-storage"
 import { getCurrentUser } from "@/lib/auth";
 import { getS3Config } from "@/lib/env";
 import { canAccessPaper } from "@/lib/paper-access";
+import { livePdfPath } from "@/lib/paper-pdf";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ paperId: string }> }) {
   const user = await getCurrentUser();
@@ -41,7 +42,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ pap
       () => null
     );
     if (!upstream?.ok || !upstream.body) {
-      return new Response("Failed to fetch PDF snapshot", { status: 502 });
+      // The snapshot is the pinned copy, not the only one. A Hobby Blob store
+      // over its quota is shut for 30 days, and the live copy beats an empty
+      // viewer; no-store, so the snapshot is served again once it is back.
+      const live = livePdfPath(paper);
+      return live
+        ? new Response(null, { status: 307, headers: { Location: live, "Cache-Control": "no-store" } })
+        : new Response("Failed to fetch PDF snapshot", { status: 502 });
     }
     return new Response(upstream.body, {
       headers: {
