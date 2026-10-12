@@ -30,12 +30,19 @@ let pdfServer: Server;
 let workspaceId: string;
 let userId: string;
 let paperId: string;
+let unreachableSnapshotPaperId: string;
 let email: string;
 let venue: string;
 
+/** Serves the fixture, except under /blob/, which stands in for a shut Blob store. */
 function startPdfServer(): Promise<string> {
   return new Promise((resolve) => {
-    pdfServer = createServer((_request, response) => {
+    pdfServer = createServer((request, response) => {
+      if (request.url?.startsWith("/blob/")) {
+        response.writeHead(403);
+        response.end();
+        return;
+      }
       response.writeHead(200, {
         "Content-Type": "application/pdf",
         "Content-Length": fixture.length
@@ -83,10 +90,25 @@ test.beforeAll(async () => {
     }
   });
   paperId = paper.id;
+
+  const unreachable = await prisma.paper.create({
+    data: {
+      title: `Unreachable Snapshot Fixture ${run}`,
+      authors: ["Preview Author"],
+      source: "conference",
+      sourceId: `${venue.toLowerCase()}-2025-${run}-snapshot`,
+      pdfUrl,
+      blobUrl: new URL("/blob/snapshot.pdf", pdfUrl).toString(),
+      conferenceEntries: { create: { venue, year: 2025 } }
+    }
+  });
+  unreachableSnapshotPaperId = unreachable.id;
 });
 
 test.afterAll(async () => {
-  if (paperId) await prisma.paper.delete({ where: { id: paperId } }).catch(() => undefined);
+  for (const id of [paperId, unreachableSnapshotPaperId]) {
+    if (id) await prisma.paper.delete({ where: { id } }).catch(() => undefined);
+  }
   if (workspaceId) await prisma.workspace.delete({ where: { id: workspaceId } }).catch(() => undefined);
   if (userId) await prisma.user.delete({ where: { id: userId } }).catch(() => undefined);
   await prisma.$disconnect();
@@ -150,4 +172,11 @@ test("a preview zooms the PDF on its own, and fits back to the page width", asyn
   await expect
     .poll(async () => Math.abs((await firstPage.boundingBox())!.width - fitted))
     .toBeLessThan(2);
+});
+
+test("a snapshot that cannot be fetched gives way to the live copy", async ({ page }) => {
+  await signIn(page);
+  await page.goto(`/papers/${unreachableSnapshotPaperId}`);
+
+  await expect(renderedCanvas(page, 1)).toBeVisible({ timeout: RENDER_TIMEOUT_MS });
 });

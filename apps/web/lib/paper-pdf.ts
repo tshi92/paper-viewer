@@ -26,6 +26,17 @@ export function canRenderPdf(paper: {
 }
 
 /**
+ * Where the viewer reads a PDF whose bytes we do not hold, or cannot reach: the
+ * arXiv proxy first, then the publisher's.
+ */
+export function livePdfPath(paper: { id: string; arxivId: string | null; pdfUrl: string | null }): string | null {
+  if (paper.arxivId) {
+    return `/api/papers/${paper.id}/arxiv-pdf`;
+  }
+  return paper.pdfUrl ? `/api/papers/${paper.id}/proxy-pdf` : null;
+}
+
+/**
  * A conference paper served from arXiv is the preprint, not the version of
  * record — the reader should be told the text may differ from the published one.
  */

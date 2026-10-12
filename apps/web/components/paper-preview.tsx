@@ -5,6 +5,7 @@ import { SaveToLibraryButton } from "./save-to-library-button";
 import { ScholarIcon } from "./scholar-icon";
 import { TopicChip } from "./topic-chip";
 import type { AnalysisView } from "./analysis-panel";
+import { livePdfPath } from "@/lib/paper-pdf";
 
 /**
  * Read-only view of a paper that has not been saved to the library yet
@@ -42,13 +43,7 @@ export async function PaperPreview({
   const tWorkspace = await getTranslations("workspace");
   const tCommon = await getTranslations("common");
 
-  const pdfUrl = paper.hasPdf
-    ? `/api/papers/${paper.id}/file`
-    : paper.arxivId
-      ? `/api/papers/${paper.id}/arxiv-pdf`
-      : paper.pdfUrl
-        ? `/api/papers/${paper.id}/proxy-pdf`
-        : null;
+  const pdfUrl = paper.hasPdf ? `/api/papers/${paper.id}/file` : livePdfPath(paper);
 
   const scholarUrl = `https://scholar.google.com/scholar?q=${encodeURIComponent(paper.title)}`;
   const externalUrl = paper.externalUrl ?? (paper.doi ? `https://doi.org/${paper.doi}` : null);
