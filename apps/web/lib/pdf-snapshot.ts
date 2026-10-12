@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { put } from "@vercel/blob";
+import { del, list, put } from "@vercel/blob";
 import { prisma } from "@paper-viewer/db";
 import { createPdfObjectKey, createS3Client, putPdfObject } from "@paper-viewer/storage/pdf-storage";
 import { getEnv, getS3Config } from "@/lib/env";
@@ -139,4 +139,86 @@ export async function ensurePdfSnapshot(paperId: string, workspaceId: string): P
   }
 
   return false;
+}
+
+/**
+ * A snapshot of a paper no workspace has saved is only a cache: nothing anchors
+ * to it, and the viewer reads the live copy without it. It is kept as long as
+ * the Today page lists a digest (7 days), so a digest paper saved from there is
+ * already pinned; an older one is pinned again on its next open or save.
+ */
+const UNSAVED_SNAPSHOT_DAYS = 7;
+const SNAPSHOT_PREFIX = "papers/";
+/** URLs per del() call; each one still counts against Blob's operation rate limit. */
+const DELETE_BATCH = 100;
+
+export type SnapshotBlob = { url: string; pathname: string; size: number; uploadedAt: Date };
+
+/** The paper a blob belongs to: snapshots and uploads are both stored at papers/{paperId}/{sha256}.pdf. */
+export function snapshotPaperId(pathname: string): string | null {
+  return /^papers\/([^/]+)\/[^/]+\.pdf$/.exec(pathname)?.[1] ?? null;
+}
+
+/**
+ * The snapshots to delete: older than the window, of a paper no workspace has
+ * saved. An archived row counts as saved, since its annotations still anchor
+ * to the bytes and the paper can be put back. A blob not named like a snapshot
+ * is never touched.
+ */
+export function expiredSnapshots(
+  blobs: SnapshotBlob[],
+  savedPaperIds: ReadonlySet<string>,
+  now: Date
+): SnapshotBlob[] {
+  const cutoff = now.getTime() - UNSAVED_SNAPSHOT_DAYS * 86_400_000;
+  return blobs.filter((blob) => {
+    const paperId = snapshotPaperId(blob.pathname);
+    return paperId !== null && !savedPaperIds.has(paperId) && blob.uploadedAt.getTime() < cutoff;
+  });
+}
+
+async function listSnapshots(token: string): Promise<SnapshotBlob[]> {
+  const blobs: SnapshotBlob[] = [];
+  let cursor: string | undefined;
+  do {
+    const page = await list({ prefix: SNAPSHOT_PREFIX, token, ...(cursor ? { cursor } : {}) });
+    blobs.push(...page.blobs);
+    cursor = page.hasMore ? page.cursor : undefined;
+  } while (cursor);
+  return blobs;
+}
+
+export type PruneResult = { listed: number; deleted: number; freedBytes: number };
+
+/**
+ * Delete the expired snapshots (see expiredSnapshots). Papers let go of a URL
+ * before its blob goes, so a failed delete leaves an orphan that the next run
+ * lists and deletes again, never a paper pointing at a missing file.
+ * Null when this deployment has no Blob store.
+ */
+export async function pruneSnapshots(now = new Date()): Promise<PruneResult | null> {
+  const token = getEnv().BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    return null;
+  }
+
+  const blobs = await listSnapshots(token);
+  const paperIds = [...new Set(blobs.map((blob) => snapshotPaperId(blob.pathname)).filter((id) => id !== null))];
+  const saved = await prisma.workspacePaper.findMany({
+    where: { paperId: { in: paperIds } },
+    select: { paperId: true },
+    distinct: ["paperId"]
+  });
+  const expired = expiredSnapshots(blobs, new Set(saved.map((row) => row.paperId)), now);
+
+  for (let start = 0; start < expired.length; start += DELETE_BATCH) {
+    const urls = expired.slice(start, start + DELETE_BATCH).map((blob) => blob.url);
+    await prisma.paper.updateMany({ where: { blobUrl: { in: urls } }, data: { blobUrl: null } });
+    await del(urls, { token });
+  }
+  return {
+    listed: blobs.length,
+    deleted: expired.length,
+    freedBytes: expired.reduce((sum, blob) => sum + blob.size, 0)
+  };
 }
