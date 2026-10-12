@@ -15,6 +15,10 @@
     {
       "path": "/api/cron/researchers",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/pdf-snapshots",
+      "schedule": "0 20 * * *"
     }
   ],
   "regions": [

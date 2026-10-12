@@ -3,9 +3,11 @@ import { after } from "next/server";
 import { analysisTags, analyzePaperOnDemand, isUniqueViolation } from "@/lib/daily-digest";
 import { canAccessPaper } from "@/lib/paper-access";
 import { findLibraryDuplicate } from "@/lib/library-dedup";
+import { ensurePdfSnapshot } from "@/lib/pdf-snapshot";
 import { requireCurrentUser } from "@/lib/auth";
 
-// The post-save analysis runs in after(); give it the same budget as /analyze.
+// The post-save analysis and PDF pinning run in after(), side by side; give
+// them the same budget as /analyze.
 export const maxDuration = 120;
 
 /**
@@ -87,6 +89,17 @@ export async function POST(_request: Request, { params }: { params: Promise<{ pa
       }
     }
   }
+
+  // Annotations anchor to the pinned copy. A paper saved straight from a list
+  // was never opened, so nothing pinned it; doing it now spares its first open
+  // in the library the live copy and the "snapshot unavailable" notice.
+  after(async () => {
+    try {
+      await ensurePdfSnapshot(paperId, user.workspaceId);
+    } catch (error) {
+      console.error("[save] pdf snapshot failed", paperId, error);
+    }
+  });
 
   // Conference papers arrive with raw metadata only; generate the AI intro
   // once they actually enter the library. Runs after the response so the save
