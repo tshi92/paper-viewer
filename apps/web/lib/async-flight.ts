@@ -36,6 +36,30 @@ export function endFlight(key: string): void {
   const next = new Set(flights);
   next.delete(key);
   flights = next;
+  if (progress.has(key)) {
+    const remaining = new Map(progress);
+    remaining.delete(key);
+    progress = remaining;
+  }
+  emit();
+}
+
+/**
+ * How far along a flight is, 0..1, for the ones that can tell (a file upload).
+ * Kept here for the same reason as the flags: the bar must still be right when
+ * the user navigates away and comes back. Absent means "in progress, extent
+ * unknown".
+ */
+let progress: ReadonlyMap<string, number> = new Map();
+
+export function setFlightProgress(key: string, fraction: number | null): void {
+  const next = new Map(progress);
+  if (fraction === null) {
+    next.delete(key);
+  } else {
+    next.set(key, Math.min(1, Math.max(0, fraction)));
+  }
+  progress = next;
   emit();
 }
 
@@ -50,5 +74,14 @@ export function useFlight(key: string): boolean {
     subscribe,
     () => flights.has(key),
     () => false
+  );
+}
+
+/** The flight's progress (0..1), or null while its extent is unknown (re-renders on change). */
+export function useFlightProgress(key: string): number | null {
+  return useSyncExternalStore(
+    subscribe,
+    () => progress.get(key) ?? null,
+    () => null
   );
 }
