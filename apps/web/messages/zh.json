@@ -134,6 +134,7 @@
   "upload": {
     "uploadPdf": "上传 PDF",
     "processing": "处理中…",
+    "uploading": "上传中…",
     "urlPlaceholder": "或粘贴 arXiv / PDF 链接",
     "add": "添加",
     "urlFailed": "无法从该链接添加论文",

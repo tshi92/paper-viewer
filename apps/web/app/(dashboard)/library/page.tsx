@@ -13,6 +13,7 @@ import { requireCurrentUser } from "@/lib/auth";
 import { readViewMode, VIEW_MODE_COOKIE } from "@/lib/view-mode";
 import { ViewModeToggle } from "@/components/view-mode-toggle";
 import { hasStoredPdf } from "@/lib/paper-pdf";
+import { chunkedUploadEnabled } from "@/lib/upload-parts";
 import {
   compareConferenceRefs,
   paperSource,
@@ -324,7 +325,7 @@ export default async function LibraryPage({
           <h1 className="whitespace-nowrap text-lg font-semibold">{t("title")}</h1>
           <ViewModeToggle current={viewMode} />
         </div>
-        <PaperUploadForm />
+        <PaperUploadForm chunkedUpload={chunkedUploadEnabled()} />
       </div>
 
       <div className="border-b border-border px-4 py-2 space-y-1.5">

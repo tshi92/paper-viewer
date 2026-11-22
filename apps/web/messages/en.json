@@ -134,6 +134,7 @@
   "upload": {
     "uploadPdf": "Upload PDF",
     "processing": "Processing...",
+    "uploading": "Uploading...",
     "urlPlaceholder": "or paste arXiv / PDF link",
     "add": "Add",
     "urlFailed": "Failed to add paper from URL",
