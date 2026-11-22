@@ -9,6 +9,7 @@
 import { isCronAuthorized } from "@/lib/cron-auth";
 import { getEnv } from "@/lib/env";
 import { pruneSnapshots } from "@/lib/pdf-snapshot";
+import { pruneAbandonedParts } from "@/lib/upload-parts";
 
 export const maxDuration = 60;
 
@@ -22,5 +23,7 @@ export async function GET(request: Request) {
   }
 
   const pruned = await pruneSnapshots();
-  return Response.json(pruned ? { ok: true, ...pruned } : { ok: true, skipped: "no Blob store" });
+  // Parts of chunked uploads that never finished (lib/upload-parts.ts).
+  const abandonedParts = await pruneAbandonedParts();
+  return Response.json(pruned ? { ok: true, ...pruned, abandonedParts } : { ok: true, skipped: "no Blob store" });
 }

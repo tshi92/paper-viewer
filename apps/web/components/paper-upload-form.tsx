@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { toast } from "@/components/toast";
 import { endFlight, startFlight, useFlight } from "@/lib/async-flight";
+import { partRanges, UPLOAD_PART_BYTES } from "@/lib/upload-chunks";
 
 /**
  * The processing flag lives in the module-level flight store, not component
@@ -14,7 +15,44 @@ import { endFlight, startFlight, useFlight } from "@/lib/async-flight";
  */
 const UPLOAD_FLIGHT = "paper-upload";
 
-export function PaperUploadForm() {
+function sendFileWhole(file: File): Promise<Response> {
+  const formData = new FormData();
+  formData.append("pdf", file);
+  return fetch("/api/papers", { method: "POST", body: formData });
+}
+
+/**
+ * Upload a file too large for one request: each part on its own, then a final
+ * request that has the server join them. Resolves to the first failed
+ * response, or to the final one.
+ */
+async function sendFileInParts(file: File): Promise<Response> {
+  const uploadId = crypto.randomUUID();
+  const ranges = partRanges(file.size);
+
+  for (const [index, range] of ranges.entries()) {
+    const res = await fetch(`/api/papers/upload-parts?uploadId=${uploadId}&index=${index}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: file.slice(range.start, range.end)
+    });
+    if (!res.ok) return res;
+  }
+
+  return fetch("/api/papers", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      upload: { id: uploadId, parts: ranges.length, fileName: file.name, contentType: file.type }
+    })
+  });
+}
+
+/**
+ * `chunkedUpload` is set by the server on deployments whose host caps the
+ * request body (see lib/upload-parts.ts); there, large files go up in parts.
+ */
+export function PaperUploadForm({ chunkedUpload = false }: { chunkedUpload?: boolean }) {
   const t = useTranslations("upload");
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -51,11 +89,10 @@ export function PaperUploadForm() {
     if (!file || loading) return;
 
     startFlight(UPLOAD_FLIGHT);
-    const formData = new FormData();
-    formData.append("pdf", file);
 
     try {
-      const res = await fetch("/api/papers", { method: "POST", body: formData });
+      const res =
+        chunkedUpload && file.size > UPLOAD_PART_BYTES ? await sendFileInParts(file) : await sendFileWhole(file);
       if (res.ok) {
         handleResult((await res.json()) as { paperId?: string; duplicate?: boolean });
       } else {

@@ -10,6 +10,8 @@ import { findLibraryDuplicate } from "@/lib/library-dedup";
 import { resolveLlmConfig, type LlmRuntimeConfig } from "@/lib/llm-config";
 import { getExistingTopics, assignTopics } from "@/lib/topics";
 import { extractPdfText } from "@/lib/pdf-extract";
+import { isUploadId } from "@/lib/upload-chunks";
+import { assembleUpload } from "@/lib/upload-parts";
 
 type PaperMetadata = {
   title: string;
@@ -174,6 +176,33 @@ async function storePdfBytes(params: {
   }
 }
 
+type ChunkedUploadRequest = { id?: string; parts?: number; fileName?: string; contentType?: string };
+
+/** Validate and join a chunked upload, applying the same PDF checks as a single-request upload. */
+async function readChunkedUpload(
+  userId: string,
+  upload: ChunkedUploadRequest,
+  maxBytes: number
+): Promise<{ ok: true; bytes: Uint8Array; fileName: string } | { ok: false; reason: string }> {
+  const { id, parts, fileName } = upload;
+  if (!id || !isUploadId(id) || !fileName || !Number.isInteger(parts) || !parts || parts < 1) {
+    return { ok: false, reason: "Invalid upload." };
+  }
+
+  const assembled = await assembleUpload({ userId, uploadId: id, expectedParts: parts, maxBytes });
+  if (!assembled.ok) {
+    return assembled;
+  }
+
+  const validation = validatePdfUpload({
+    fileName,
+    contentType: upload.contentType ?? "",
+    byteLength: assembled.bytes.byteLength,
+    maxBytes
+  });
+  return validation.ok ? { ok: true, bytes: assembled.bytes, fileName } : validation;
+}
+
 export async function POST(request: Request) {
   const user = await requireCurrentUser();
   const env = getEnv();
@@ -186,28 +215,38 @@ export async function POST(request: Request) {
   let pdfUrl: string | null = null;
 
   if (contentType.includes("application/json")) {
-    const body = await request.json() as { url?: string };
-    const url = body.url?.trim();
-    if (!url) {
-      return new Response("URL is required", { status: 400 });
-    }
+    const body = await request.json() as { url?: string; upload?: ChunkedUploadRequest };
+    if (body.upload) {
+      // A file sent ahead in parts (lib/upload-chunks.ts); join them here.
+      const upload = await readChunkedUpload(user.id, body.upload, env.MAX_PDF_UPLOAD_MB * 1024 * 1024);
+      if (!upload.ok) {
+        return new Response(upload.reason, { status: 400 });
+      }
+      bytes = upload.bytes;
+      fileName = upload.fileName;
+    } else {
+      const url = body.url?.trim();
+      if (!url) {
+        return new Response("URL is required", { status: 400 });
+      }
 
-    if (isBlockedPdfHost(url)) {
-      return Response.json({ error: "publisher_blocked" }, { status: 400 });
-    }
+      if (isBlockedPdfHost(url)) {
+        return Response.json({ error: "publisher_blocked" }, { status: 400 });
+      }
 
-    try {
-      const result = await fetchPdfFromUrl(url);
-      bytes = result.bytes;
-      fileName = result.fileName;
-      arxivId = result.arxivId;
-      pdfUrl = result.sourceUrl;
-    } catch (e) {
-      return new Response(e instanceof Error ? e.message : "Failed to fetch PDF", { status: 400 });
-    }
+      try {
+        const result = await fetchPdfFromUrl(url);
+        bytes = result.bytes;
+        fileName = result.fileName;
+        arxivId = result.arxivId;
+        pdfUrl = result.sourceUrl;
+      } catch (e) {
+        return new Response(e instanceof Error ? e.message : "Failed to fetch PDF", { status: 400 });
+      }
 
-    if (bytes.byteLength > env.MAX_PDF_UPLOAD_MB * 1024 * 1024) {
-      return new Response(`PDF exceeds ${env.MAX_PDF_UPLOAD_MB}MB limit`, { status: 400 });
+      if (bytes.byteLength > env.MAX_PDF_UPLOAD_MB * 1024 * 1024) {
+        return new Response(`PDF exceeds ${env.MAX_PDF_UPLOAD_MB}MB limit`, { status: 400 });
+      }
     }
   } else {
     const formData = await request.formData();

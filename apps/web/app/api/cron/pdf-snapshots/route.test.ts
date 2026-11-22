@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const pruneSnapshots = vi.fn();
+const pruneAbandonedParts = vi.fn();
 const getEnv = vi.fn();
 
 vi.mock("@/lib/pdf-snapshot", () => ({ pruneSnapshots }));
+vi.mock("@/lib/upload-parts", () => ({ pruneAbandonedParts }));
 vi.mock("@/lib/env", () => ({ getEnv }));
 
 const { GET } = await import("./route");
@@ -15,6 +17,7 @@ const call = (token = SECRET) =>
 beforeEach(() => {
   getEnv.mockReturnValue({ CRON_SECRET: SECRET });
   pruneSnapshots.mockResolvedValue({ listed: 3, deleted: 1, freedBytes: 2_000_000 });
+  pruneAbandonedParts.mockResolvedValue(4);
 });
 
 afterEach(() => {
@@ -36,6 +39,12 @@ describe("pdf snapshot cron", () => {
   it("reports what it pruned", async () => {
     const response = await call();
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ ok: true, listed: 3, deleted: 1, freedBytes: 2_000_000 });
+    await expect(response.json()).resolves.toEqual({
+      ok: true,
+      listed: 3,
+      deleted: 1,
+      freedBytes: 2_000_000,
+      abandonedParts: 4
+    });
   });
 });
